@@ -1,8 +1,9 @@
 # router.js
 
 `router.js` is a lightweight JavaScript library (under 1k!)
-that builds on `route-recognizer` to provide an API for
-handling routes.
+that builds on
+[`route-recognizer`](https://github.com/tildeio/route-recognizer)
+to provide an API for handling routes.
 
 In keeping with the Unix philosophy, it is a modular library
 that does one thing and does it well.
