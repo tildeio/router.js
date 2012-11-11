@@ -1,12 +1,13 @@
-# About
+# router.js
 
-`router.js` is a lightweight JavaScript library that builds on
-`route-recognizer` to provide an API for handling routes.
+`router.js` is a lightweight JavaScript library (under 1k!)
+that builds on `route-recognizer` to provide an API for
+handling routes.
 
 In keeping with the Unix philosophy, it is a modular library
 that does one thing and does it well.
 
-# Usage
+## Usage
 
 Create a new router:
 
@@ -101,6 +102,28 @@ router.handlers.showPost = {
 };
 ```
 
+## Changing the URL
+
+As a modular library, `router.js` does not express an
+opinion about how to reflect the URL on the page. Many
+other libraries do a good job of abstracting `hash` and
+`pushState` and working around known bugs in browsers.
+
+The `router.updateURL` hook will be called to give you
+an opportunity to update the browser's physical URL
+as you desire:
+
+```javascript
+router.updateURL = function(url) {
+  window.location.hash = url;
+};
+```
+
+## Always In Sync
+
+No matter whether you go to a handler via a URL change
+or via `transitionTo`, you will get the same behavior.
+
 If you enter a state represented by a handler through a
 URL:
 
@@ -119,7 +142,7 @@ top-level objects will always be in sync with the URL,
 no matter whether you are extracting the object from the
 URL or if you already have the object.
 
-# Asynchronous Loading
+## Asynchronous Loading
 
 When extracting an object from the parameters, you may
 need to make a request to the server before the object
@@ -161,7 +184,7 @@ router.handlers.loading = {
 }
 ```
 
-# Nesting
+## Nesting
 
 You can nest routes, and each level of nesting can have
 its own handler.
@@ -234,12 +257,76 @@ all promises are resolved. If a parent state deserializes
 the parameters into a promise, that promise will be resolved
 before a child route is handled.
 
-# More to Come
+### Nesting Without Handlers
+
+You can also nest without extra handlers, for clarity.
+
+For example, instead of writing:
+
+```javascript
+router.map(function(match) {
+  match("/posts").to("postIndex");
+  match("/posts/new").to("newPost");
+  match("/posts/:id/edit").to("editPost");
+  match("/posts/:id").to("showPost");
+});
+```
+
+You could write:
+
+```javascript
+router.map(function(match) {
+  match("/posts", function(match) {
+    match("/").to("postIndex");
+    match("/new").to("newPost");
+
+    match("/:id", function(match) {
+      match("/").to("showPost");
+      match("/edit").to("editPost");
+    });
+  });
+});
+```
+
+Typically, this sort of nesting is more verbose but
+makes it easier to change patterns higher up. In this
+case, changing `/posts` to `/pages` would be easier
+in the second example than the first.
+
+Both work identically, so do whichever you prefer.
+
+## Route Recognizer
+
+`router.js` uses `route-recognizer` under the hood, which
+uses an [NFA](http://en.wikipedia.org/wiki/Nondeterministic_finite_automaton)
+to match routes. This means that even somewhat elaborate
+routes will work:
+
+```javascript
+router.map(function(match) {
+  // this will match anything, followed by a slash,
+  // followed by a dynamic segment (one or more non-
+  // slash characters)
+  match("/*page/:location").to("showPage");
+});
+```
+
+If there are multiple matches, `route-recognizer` will
+prefer routes with fewer dynamic segments, so
+`/posts/edit` will match in preference to `/posts/:id`
+if both match.
+
+## More to Come
 
 `router.js` is functional today. I plan to add more features
 before a first official release:
 
 * A `failure` handler if any of the promises are rejected
+* An `exit` callback on a handler when the app navigates
+  to a page no longer represented by the handler
+* Improved hooks for external libraries that manage the
+  physical URL.
+* Testing support
 * The ability to dispatch events to the current handler
   or parent handlers.
 
