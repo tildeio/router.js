@@ -64,7 +64,7 @@ asyncTest("Handling a URL triggers deserialize on the handlerand passes the resu
 });
 
 asyncTest("Handling a nested URL triggers each handler", function() {
-  expect(32);
+  expect(31);
 
   var posts = [];
   var allPosts = { all: true };
@@ -78,14 +78,14 @@ asyncTest("Handling a nested URL triggers each handler", function() {
     deserialize: function(params) {
       // this will always get called, since it's at the root
       // of all of the routes tested here
-      deepEqual(params, {});
+      deepEqual(params, {}, "params should be empty in postIndexHandler#deserialize");
       return posts;
     },
 
     setup: function(object) {
       if (counter === 0) {
-        equal(postIndexHandler.context, posts);
-        strictEqual(object, posts);
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in postIndexHandler#setup");
+        strictEqual(object, posts, "The object passed in to postIndexHandler#setup should be posts");
       } else {
         ok(false, "Should not get here");
       }
@@ -94,9 +94,12 @@ asyncTest("Handling a nested URL triggers each handler", function() {
 
   var showAllPostsHandler = {
     deserialize: function(params) {
+      if (counter > 0 && counter < 4) {
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showAllPostsHandler#deserialize");
+      }
+
       if (counter < 4) {
-        equal(postIndexHandler.context, posts);
-        deepEqual(params, {});
+        deepEqual(params, {}, "params should be empty in showAllPostsHandler#deserialize");
         return allPosts;
       } else {
         ok(false, "Should not get here");
@@ -105,9 +108,9 @@ asyncTest("Handling a nested URL triggers each handler", function() {
 
     setup: function(object) {
       if (counter === 0) {
-        equal(postIndexHandler.context, posts);
-        equal(showAllPostsHandler.context, allPosts);
-        strictEqual(object, allPosts);
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showAllPostsHandler#setup");
+        equal(showAllPostsHandler.context, allPosts, "showAllPostsHandler context should be set up in showAllPostsHandler#setup");
+        strictEqual(object, allPosts, "The object passed in should be allPosts in showAllPostsHandler#setup");
       } else {
         ok(false, "Should not get here");
       }
@@ -119,8 +122,8 @@ asyncTest("Handling a nested URL triggers each handler", function() {
       if (counter < 3) {
         ok(false, "Should not get here");
       } else if (counter === 3) {
-        equal(postIndexHandler.context, posts);
-        deepEqual(params, {});
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showPopularPostsHandler#deserialize");
+        deepEqual(params, {}, "params should be empty in showPopularPostsHandler#serialize");
         return popularPosts;
       } else {
         ok(false, "Should not get here");
@@ -129,9 +132,9 @@ asyncTest("Handling a nested URL triggers each handler", function() {
 
     setup: function(object) {
       if (counter === 3) {
-        equal(postIndexHandler.context, posts);
-        equal(showPopularPostsHandler.context, popularPosts);
-        strictEqual(object, popularPosts);
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showPopularPostsHandler#setup");
+        equal(showPopularPostsHandler.context, popularPosts, "showPopularPostsHandler context should be set up in showPopularPostsHandler#setup");
+        strictEqual(object, popularPosts, "The object passed to showPopularPostsHandler#setup should be popular posts");
       } else {
         ok(false, "Should not get here");
       }
@@ -143,12 +146,12 @@ asyncTest("Handling a nested URL triggers each handler", function() {
       if (counter < 4) {
         ok(false, "Should not get here");
       } else if (counter === 4) {
-        equal(postIndexHandler.context, posts);
-        deepEqual(params, { filter_id: 'amazing' });
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showFilteredPostsHandler#deserialize");
+        deepEqual(params, { filter_id: 'amazing' }, "params should be { filter_id: 'amazing' } in showFilteredPostsHandler#deserialize");
         return amazingPosts;
       } else if (counter === 5) {
-        equal(postIndexHandler.context, posts);
-        deepEqual(params, { filter_id: 'sad' });
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be posts in showFilteredPostsHandler#deserialize");
+        deepEqual(params, { filter_id: 'sad' }, "params should be { filter_id: 'sad' } in showFilteredPostsHandler#deserialize");
         return sadPosts;
       } else {
         ok(false, "Should not get here");
@@ -363,6 +366,64 @@ asyncTest("if deserialize returns a promise, it enters a loading state", functio
   handlers = {
     showPost: showPostHandler,
     loading: loadingHandler
+  }
+
+  router.handleURL("/posts/1");
+});
+
+asyncTest("if deserialize returns a promise that is later rejected, it enters a failure state", function() {
+  var post = { post: true };
+  var err = { error: true };
+
+  var events = [];
+
+  var showPostHandler = {
+    deserialize: function(params) {
+      deepEqual(events, []);
+      events.push("deserialize");
+
+      var promise = new RSVP.Promise();
+
+      setTimeout(function() {
+        promise.reject(err);
+      }, 1);
+
+      return promise;
+    },
+
+    setup: function(object) {
+      deepEqual(events, ["deserialize", "loading", "loaded"]);
+      events.push("setup");
+
+      strictEqual(object, post);
+    }
+  }
+
+  var loadingHandler = {
+    setup: function() {
+      deepEqual(events, ["deserialize"]);
+      events.push("loading");
+      ok(true, "Loading was called");
+    },
+
+    exit: function() {
+      deepEqual(events, ["deserialize", "loading"]);
+      events.push("loaded");
+      ok(true, "Loading was exited");
+    }
+  }
+
+  var failureHandler = {
+    setup: function(error) {
+      start();
+      strictEqual(error, err);
+    }
+  }
+
+  handlers = {
+    showPost: showPostHandler,
+    loading: loadingHandler,
+    failure: failureHandler
   }
 
   router.handleURL("/posts/1");
