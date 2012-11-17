@@ -258,6 +258,64 @@ all promises are resolved. If a parent state deserializes
 the parameters into a promise, that promise will be resolved
 before a child route is handled.
 
+### Transition Callbacks
+
+When the URL changes and a handler becomes active, `router.js`
+invokes a number of callbacks:
+
+* **deserialize** on all recognized handlers, if the transition
+  occurred through the URL
+* **serialize** on as many handlers as necessary to consume
+  the passed in contexts, if the transition occurred through
+  `transitionTo`. A context is consumed if the handler's
+  route fragment has a dynamic segment and the handler has a
+  deserialize method.
+* **enter** only when the handler becomes active, not when
+  it remains active after a change
+* **setup** when the handler becomes active, or when the
+  handler's context changes
+
+For handlers that are no longer active after a change,
+`router.js` invokes the **exit** callback.
+
+The order of callbacks are:
+
+* **exit** in reverse order
+* **enter** starting from the first new handler
+* **setup** starting from the first handler whose context
+  has changed
+
+For example, consider the following tree of handlers. Each handler is
+followed by the URL segment it handles.
+
+```
+|~index ("/")
+| |~posts ("/posts")
+| | |-showPost ("/:id")
+| | |-newPost ("/new")
+| | |-editPost ("/edit")
+| |~about ("/about/:id")
+```
+
+Consider the following transitions:
+
+1. A URL transition to `/posts/1`.
+   1. Triggers the `deserialize` callback on the
+      `index`, `posts`, and `showPost` handlers
+   2. Triggers the `enter` callback on the same
+   3. Triggers the `setup` callback on the same
+2. A direct transition to `newPost`
+   1. Triggers the `exit` callback on `showPost`
+   2. Triggers the `enter` callback on `newPost`
+   3. Triggers the `setup` callback on `newPost`
+3. A direct transition to `about` with a specified
+   context object
+   1. Triggers the `exit` callback on `newPost`
+      and `posts`
+   2. Triggers the `serialize` callback on `about`
+   3. Triggers the `enter` callback on `about`
+   4. Triggers the `setup` callback on `about`
+
 ### Nesting Without Handlers
 
 You can also nest without extra handlers, for clarity.
