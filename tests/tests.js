@@ -23,7 +23,7 @@ module("The router", {
     router.getHandler = function(name) {
       return handlers[name];
     }
-  }    
+  }
 });
 
 test("Mapping adds named routes to the end", function() {
@@ -427,5 +427,234 @@ asyncTest("if deserialize returns a promise that is later rejected, it enters a 
   }
 
   router.handleURL("/posts/1");
+});
+
+asyncTest("Moving to a new top-level route triggers exit callbacks", function() {
+  expect(4);
+
+  var allPosts = { posts: "all" };
+  var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
+  var currentId, currentURL;
+
+  var showAllPostsHandler = {
+    deserialize: function(params) {
+      return allPosts;
+    },
+
+    setup: function(posts) {
+      equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
+
+      setTimeout(function() {
+        currentURL = "/posts/1";
+        currentId = 1;
+        router.transitionTo('showPost', postsStore[1]);
+      }, 0);
+    },
+
+    exit: function() {
+      ok(true, "Should get here");
+    }
+  };
+
+  var showPostHandler = {
+    deserialize: function(params) {
+      if (postsStore[params.id]) { return postsStore[params.id]; }
+      return postsStore[params.id] = { post: params.id };
+    },
+
+    serialize: function(post) {
+      return { id: post.id };
+    },
+
+    setup: function(post) {
+      equal(post.id, currentId, "The post id is " + currentId);
+      start();
+    }
+  };
+
+  var postIndexHandler = {};
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler,
+    showPost: showPostHandler
+  };
+
+  router.updateURL = function(url) {
+    equal(url, currentURL, "The url is " + currentURL + " as expected");
+  };
+
+  router.handleURL("/posts");
+});
+
+asyncTest("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)", function() {
+  expect(8);
+
+  var allPosts = { posts: "all" };
+  var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
+  var currentId, currentURL;
+
+  var showAllPostsHandler = {
+    deserialize: function(params) {
+      return allPosts;
+    },
+
+    setup: function(posts) {
+      equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
+
+      setTimeout(function() {
+        currentURL = "/posts/filter/favorite";
+        router.transitionTo('showFilteredPosts', {
+          id: 'favorite'
+        });
+      }, 0);
+    },
+
+    enter: function() {
+      ok(true, "The sibling handler should be entered");
+    },
+
+    exit: function() {
+      ok(true, "The sibling handler should be exited");
+    }
+  };
+
+  var filters = {};
+
+  var showFilteredPostsHandler = {
+    enter: function() {
+      ok(true, "The new handler was entered");
+    },
+
+    exit: function() {
+      ok(false, "The new handler should not be exited");
+    },
+
+    deserialize: function(params) {
+      var id = params.filter_id;
+      if (!filters[id]) {
+        filters[id] = { id: id }
+      }
+
+      return filters[id];
+    },
+
+    serialize: function(filter) {
+      equal(filter.id, "favorite", "The filter should be 'favorite'");
+      return { filter_id: filter.id };
+    },
+
+    setup: function(filter) {
+      equal(filter.id, "favorite", "showFilteredPostsHandler#setup was called with the favorite filter");
+      start();
+    }
+  };
+
+  var postIndexHandler = {
+    enter: function() {
+      ok(true, "The outer handler was entered only once");
+    },
+
+    exit: function() {
+      ok(false, "The outer handler was not exited");
+    }
+  };
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler,
+    showFilteredPosts: showFilteredPostsHandler
+  };
+
+  router.updateURL = function(url) {
+    equal(url, currentURL, "The url is " + currentURL + " as expected");
+  };
+
+  router.handleURL("/posts");
+});
+
+asyncTest("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned via a URL change)", function() {
+  expect(7);
+
+  var allPosts = { posts: "all" };
+  var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
+  var currentId, currentURL;
+
+  var showAllPostsHandler = {
+    deserialize: function(params) {
+      return allPosts;
+    },
+
+    setup: function(posts) {
+      equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
+
+      setTimeout(function() {
+        currentURL = "/posts/filter/favorite";
+        router.handleURL(currentURL);
+      }, 0);
+    },
+
+    enter: function() {
+      ok(true, "The sibling handler should be entered");
+    },
+
+    exit: function() {
+      ok(true, "The sibling handler should be exited");
+    }
+  };
+
+  var filters = {};
+
+  var showFilteredPostsHandler = {
+    enter: function() {
+      ok(true, "The new handler was entered");
+    },
+
+    exit: function() {
+      ok(false, "The new handler should not be exited");
+    },
+
+    deserialize: function(params) {
+      equal(params.filter_id, "favorite", "The filter should be 'favorite'");
+
+      var id = params.filter_id;
+      if (!filters[id]) {
+        filters[id] = { id: id }
+      }
+
+      return filters[id];
+    },
+
+    serialize: function(filter) {
+      return { filter_id: filter.id };
+    },
+
+    setup: function(filter) {
+      equal(filter.id, "favorite", "showFilteredPostsHandler#setup was called with the favorite filter");
+      start();
+    }
+  };
+
+  var postIndexHandler = {
+    enter: function() {
+      ok(true, "The outer handler was entered only once");
+    },
+
+    exit: function() {
+      ok(false, "The outer handler was not exited");
+    }
+  };
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler,
+    showFilteredPosts: showFilteredPostsHandler
+  };
+
+  router.updateURL = function(url) {
+    equal(url, currentURL, "The url is " + currentURL + " as expected");
+  };
+
+  router.handleURL("/posts");
 });
 

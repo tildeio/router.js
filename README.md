@@ -323,8 +323,8 @@ if both match.
 before a first official release:
 
 * ~~A `failure` handler if any of the promises are rejected~~
-* An `exit` callback on a handler when the app navigates
-  to a page no longer represented by the handler
+* ~~An `exit` callback on a handler when the app navigates
+  to a page no longer represented by the handler~~
 * Improved hooks for external libraries that manage the
   physical URL.
 * Testing support
