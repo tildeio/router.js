@@ -354,6 +354,77 @@ in the second example than the first.
 
 Both work identically, so do whichever you prefer.
 
+## Events
+
+When handlers are active, you can trigger events on
+the router. The router will search for a registered
+event backwards from the last active handler.
+
+You specify events using an `events` hash in the
+handler definition:
+
+```javascript
+handlers.postIndex = {
+  events: {
+    expand: function(handler) {
+      // the event gets a reference to the handler
+      // it is triggered on as the first argument
+    }
+  }
+}
+```
+
+For example:
+
+```javascript
+router.map(function(match) {
+  match("/posts").to("posts", function(match) {
+    match("/").to("postIndex");
+    match("/:id").to("showPost");
+    match("/edit").to("editPost");
+  });
+});
+
+router.handlers.posts = {
+  events: {
+    collapseSidebar: function(handler) {
+      // do something to collapse the sidebar
+    }
+  }
+};
+
+router.handlers.postIndex = {};
+router.handlers.showPost = {};
+
+router.handlers.editPost = {
+  events: {
+    collapseSidebar: function(handler) {
+      // override the collapseSidebar handler from
+      // the posts handler
+    }
+  }
+};
+
+// trigger the event
+router.trigger('collapseSidebar');
+```
+
+When at the `postIndex` or `showPost` route, the `collapseSidebar`
+event will be triggered on the `posts` handler.
+
+When at the `editPost` route, the `collapseSidebar` event
+will be triggered on the `editPost` handler.
+
+When you trigger an event on the router, `router.js` will
+walk backwards from the last active handler looking for
+an events hash containing that event name. Once it finds
+the event, it calls the function with the handler as the
+first argument.
+
+This allows you to define general event handlers higher
+up in the router's nesting that you override at more
+specific routes.
+
 ## Route Recognizer
 
 `router.js` uses `route-recognizer` under the hood, which
@@ -386,7 +457,7 @@ before a first official release:
 * Improved hooks for external libraries that manage the
   physical URL.
 * Testing support
-* The ability to dispatch events to the current handler
-  or parent handlers.
+* ~~The ability to dispatch events to the current handler
+  or parent handlers.~~
 
 `router.js` will be the basis for the router in Ember.js.

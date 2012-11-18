@@ -658,3 +658,93 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
   router.handleURL("/posts");
 });
 
+asyncTest("events can be targeted at the current handler", function() {
+  var showPostHandler = {
+    enter: function() {
+      ok(true, "The show post handler was entered");
+    },
+
+    events: {
+      expand: function(handler) {
+        equal(handler, showPostHandler, "The handler is passed into events");
+        start();
+      }
+    }
+  };
+
+  handlers = {
+    showPost: showPostHandler
+  };
+
+  router.handleURL("/posts/1");
+  router.trigger("expand");
+});
+
+asyncTest("events can be targeted at a parent handler", function() {
+  expect(3);
+
+  var postIndexHandler = {
+    enter: function() {
+      ok(true, "The post index handler was entered");
+    },
+
+    events: {
+      expand: function(handler) {
+        equal(handler, postIndexHandler, "The handler is passed into events");
+        start();
+      }
+    }
+  };
+
+  var showAllPostsHandler = {
+    enter: function() {
+      ok(true, "The show all posts handler was entered");
+    }
+  }
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler
+  };
+
+  router.handleURL("/posts");
+  router.trigger("expand");
+});
+
+asyncTest("events only fire on the closest handler", function() {
+  expect(3);
+
+  var postIndexHandler = {
+    enter: function() {
+      ok(true, "The post index handler was entered");
+    },
+
+    events: {
+      expand: function(handler) {
+        ok(false, "Should not get to the parent handler");
+      }
+    }
+  };
+
+  var showAllPostsHandler = {
+    enter: function() {
+      ok(true, "The show all posts handler was entered");
+    },
+
+    events: {
+      expand: function(handler) {
+        equal(handler, showAllPostsHandler, "The handler is passed into events");
+        start();
+      }
+    }
+  }
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler
+  };
+
+  router.handleURL("/posts");
+  router.trigger("expand");
+});
+
