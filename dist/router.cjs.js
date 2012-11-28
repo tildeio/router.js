@@ -1,3 +1,5 @@
+"use strict";
+var RouteRecognizer = require("route_recognizer");
 /**
   @private
 
@@ -19,13 +21,11 @@
   * `{Object} context`: the active context for the handler
 */
 
-import "route_recognizer" as RouteRecognizer;
 
 function Router() {
   this.recognizer = new RouteRecognizer();
 }
 
-export = Router;
 
 Router.prototype = {
   /**
@@ -421,3 +421,4 @@ function trigger(router, name) {
     }
   }
 }
+module.exports = Router;

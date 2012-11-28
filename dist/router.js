@@ -1,5 +1,5 @@
-(function(exports) {
-
+(function(exports, RouteRecognizer) {
+  "use strict";
   /**
     @private
 
@@ -21,11 +21,11 @@
     * `{Object} context`: the active context for the handler
   */
 
-  var RouteRecognizer = exports.RouteRecognizer;
 
-  exports.Router = function Router() {
+  function Router() {
     this.recognizer = new RouteRecognizer();
   }
+
 
   Router.prototype = {
     /**
@@ -212,8 +212,7 @@
     }
 
     var result = results[index];
-
-    handler = router.getHandler(result.handler);
+    var handler = router.getHandler(result.handler);
     var object = handler.deserialize && handler.deserialize(result.params);
 
     if (object && typeof object.then === 'function') {
@@ -422,5 +421,5 @@
       }
     }
   }
-
-})(window);
+  exports.Router = Router;
+})(window, window.RouteRecognizer);
