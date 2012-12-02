@@ -422,4 +422,4 @@
     }
   }
   exports.Router = Router;
-})(window, window.);
+})(window, window.RouteRecognizer);
