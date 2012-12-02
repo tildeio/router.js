@@ -217,7 +217,7 @@ test("it can handle direct transitions to named routes", function() {
       return allPosts;
     },
 
-    serialize: function(object) {
+    serialize: function(object, params) {
       return {};
     },
 
@@ -232,7 +232,7 @@ test("it can handle direct transitions to named routes", function() {
       return allPosts;
     },
 
-    serialize: function(object) {
+    serialize: function(object, params) {
       return {};
     },
 
@@ -265,7 +265,8 @@ test("it can handle direct transitions to named routes", function() {
       }
     },
 
-    serialize: function(object) {
+    serialize: function(object, params) {
+      deepEqual(params, ['filter_id']);
       return { filter_id: object.filter };
     },
 

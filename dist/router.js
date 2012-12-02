@@ -101,7 +101,7 @@
 
         if (names.length) {
           object = objects.shift();
-          if (handler.serialize) { merge(params, handler.serialize(object)); }
+          if (handler.serialize) { merge(params, handler.serialize(object, names)); }
         } else {
           object = handler.deserialize && handler.deserialize({});
         }
