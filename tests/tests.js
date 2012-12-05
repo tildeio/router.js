@@ -713,7 +713,7 @@ asyncTest("events can be targeted at a parent handler", function() {
 });
 
 asyncTest("events only fire on the closest handler", function() {
-  expect(3);
+  expect(4);
 
   var postIndexHandler = {
     enter: function() {
@@ -733,7 +733,8 @@ asyncTest("events only fire on the closest handler", function() {
     },
 
     events: {
-      expand: function(handler) {
+      expand: function(handler, passedContext) {
+        equal(context, passedContext, "A context is passed along");
         equal(handler, showAllPostsHandler, "The handler is passed into events");
         start();
       }
@@ -745,7 +746,7 @@ asyncTest("events only fire on the closest handler", function() {
     showAllPosts: showAllPostsHandler
   };
 
+  var context = {};
   router.handleURL("/posts");
-  router.trigger("expand");
+  router.trigger("expand", context);
 });
-
