@@ -9,6 +9,9 @@ module("The router", {
     router.map(function(match) {
       match("/posts", function(match) {
         match("/:id").to("showPost");
+        match("/admin/:id").to("admin", function(match) {
+          match("/posts/:post_id").to("adminPost");
+        });
         match("/").to("postIndex", function(match) {
           match("/all").to("showAllPosts");
 
@@ -27,10 +30,10 @@ module("The router", {
 });
 
 test("Mapping adds named routes to the end", function() {
-  url = router.generate("showPost", { id: 1 });
+  url = router.recognizer.generate("showPost", { id: 1 });
   equal(url, "/posts/1");
 
-  url = router.generate("showAllPosts");
+  url = router.recognizer.generate("showAllPosts");
   equal(url, "/posts");
 });
 
@@ -252,7 +255,7 @@ test("it can handle direct transitions to named routes", function() {
     },
 
     setup: function(object) {
-      strictEqual(object, popularPosts);
+      strictEqual(object, popularPosts, "showPopularPosts#setup should be called with the deserialized value");
     }
   };
 
@@ -750,3 +753,167 @@ asyncTest("events only fire on the closest handler", function() {
   router.handleURL("/posts");
   router.trigger("expand", context);
 });
+
+test("paramsForHandler returns params", function() {
+  var post = { id: 12 };
+
+  var showPostHandler = {
+    serialize: function(object) {
+      return { id: object.id };
+    },
+
+    deserialize: function(params) {
+      equal(params.id, 12, "The parameters are correct");
+      return post;
+    }
+  };
+
+  handlers = { showPost: showPostHandler };
+
+  deepEqual(router.paramsForHandler('showPost', post), { id: 12 }, "The correct parameters were retrieved");
+});
+
+test("paramsForHandler uses the current context if you are already in a handler with a context that is not changing", function() {
+  var admin = { id: 47 },
+      adminPost = { id: 74 };
+
+  var adminHandler = {
+    serialize: function(object) {
+      equal(object.id, 47, "The object passed to serialize is correct");
+      return { id: 47 };
+    },
+
+    deserialize: function(params) {
+      equal(params.id, 47, "The object passed to serialize is correct");
+      return admin;
+    }
+  };
+
+  var adminPostHandler = {
+    serialize: function(object) {
+      return { post_id: object.id };
+    },
+
+    deserialize: function(params) {
+      equal(params.id, 74, "The object passed to serialize is correct");
+      return adminPost;
+    }
+  };
+
+  handlers = {
+    admin: adminHandler,
+    adminPost: adminPostHandler
+  };
+
+  var url;
+
+  router.updateURL = function(passedURL) {
+    url = passedURL;
+  };
+
+  router.transitionTo('adminPost', admin, adminPost);
+  equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
+
+  var params = router.paramsForHandler('adminPost', { id: 75 });
+  deepEqual(params, { id: 47, post_id: 75 });
+
+  var url = router.generate('adminPost', { id: 75 });
+  deepEqual(url, '/posts/admin/47/posts/75');
+});
+
+test("when leaving a handler, the context is nulled out", function() {
+  var admin = { id: 47 },
+      adminPost = { id: 74 };
+
+  var adminHandler = {
+    serialize: function(object) {
+      equal(object.id, 47, "The object passed to serialize is correct");
+      return { id: 47 };
+    },
+
+    deserialize: function(params) {
+      equal(params.id, 47, "The object passed to serialize is correct");
+      return admin;
+    }
+  };
+
+  var adminPostHandler = {
+    serialize: function(object) {
+      return { post_id: object.id };
+    },
+
+    deserialize: function(params) {
+      equal(params.id, 74, "The object passed to serialize is correct");
+      return adminPost;
+    }
+  };
+
+  var showPostHandler = {
+
+  };
+
+  handlers = {
+    admin: adminHandler,
+    adminPost: adminPostHandler,
+    showPost: showPostHandler
+  };
+
+  var url;
+
+  router.updateURL = function(passedURL) {
+    url = passedURL;
+  };
+
+  router.transitionTo('adminPost', admin, adminPost);
+  equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
+
+  router.transitionTo('showPost');
+  ok(!adminHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
+  ok(!adminPostHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
+});
+
+test("transitionTo uses the current context if you are already in a handler with a context that is not changing", function() {
+  var admin = { id: 47 },
+      adminPost = { id: 74 };
+
+  var adminHandler = {
+    serialize: function(object) {
+      equal(object.id, 47, "The object passed to serialize is correct");
+      return { id: 47 };
+    },
+
+    deserialize: function(params) {
+      equal(params.id, 47, "The object passed to serialize is correct");
+      return admin;
+    }
+  };
+
+  var adminPostHandler = {
+    serialize: function(object) {
+      return { post_id: object.id };
+    },
+
+    deserialize: function(params) {
+      equal(params.id, 74, "The object passed to serialize is correct");
+      return adminPost;
+    }
+  };
+
+  handlers = {
+    admin: adminHandler,
+    adminPost: adminPostHandler
+  };
+
+  var url;
+
+  router.updateURL = function(passedURL) {
+    url = passedURL;
+  };
+
+  router.transitionTo('adminPost', admin, adminPost);
+  equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
+
+  router.transitionTo('adminPost', { id: 75 });
+  equal(url, '/posts/admin/47/posts/75', "the current context was used");
+});
+
