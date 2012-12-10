@@ -98,14 +98,13 @@ define("router",
         @returns {Object} a serialized parameter hash
       */
       paramsForHandler: function(handlerName, callback) {
-        var output = this._paramsForHandler(handlerName, [].slice.call(arguments, 1))
+        var output = this._paramsForHandler(handlerName, [].slice.call(arguments, 1));
         return output.params;
       },
 
       /**
         Take a named route and context objects and generate a
-        URL. Used by `transitionTo` to set the new URL when a
-        route is directly transitioned to from inside the app.
+        URL.
 
         @param {String} name the name of the route to generate
           a URL for
@@ -118,6 +117,11 @@ define("router",
         return this.recognizer.generate(handlerName, params);
       },
 
+      /**
+        @private
+
+        Used internally by `generate` and `transitionTo`.
+      */
       _paramsForHandler: function(handlerName, objects, callback) {
         var handlers = this.recognizer.handlersFor(handlerName),
             params = {},
