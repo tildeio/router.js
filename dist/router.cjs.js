@@ -80,9 +80,10 @@ Router.prototype = {
 
     var params = output.params, toSetup = output.toSetup;
 
-    setupContexts(this, toSetup);
     var url = this.recognizer.generate(name, params);
     this.updateURL(url);
+
+    setupContexts(this, toSetup);
   },
 
   /**
