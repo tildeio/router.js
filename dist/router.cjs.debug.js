@@ -1,5 +1,5 @@
 "use strict";
-var RouteRecognizer = require("route-recognizer");
+var RouteRecognizer = require("route_recognizer");
 /**
   @private
 
