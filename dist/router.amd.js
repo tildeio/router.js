@@ -1,5 +1,5 @@
 define("router",
-  ["route_recognizer"],
+  ["route-recognizer"],
   function(RouteRecognizer) {
     "use strict";
     /**
