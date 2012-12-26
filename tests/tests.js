@@ -866,10 +866,12 @@ test("when leaving a handler, the context is nulled out", function() {
 
   router.transitionTo('adminPost', admin, adminPost);
   equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
+  deepEqual(router.currentHandlerInfos, [ { context: { id: 47 }, handler: adminHandler }, { context: { id: 74 }, handler: adminPostHandler } ]);
 
   router.transitionTo('showPost');
   ok(!adminHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
   ok(!adminPostHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
+  deepEqual(router.currentHandlerInfos, [ { context: undefined, handler: showPostHandler } ]);
 });
 
 test("transitionTo uses the current context if you are already in a handler with a context that is not changing", function() {
