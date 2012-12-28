@@ -160,25 +160,26 @@ define("router",
       },
 
       isActive: function(handlerName) {
-        var currentHandlerInfos = this.currentHandlerInfos;
-        if (!isCurrentHandler(currentHandlerInfos, handlerName)) { return false; }
-
         var contexts = [].slice.call(arguments, 1);
 
-        var names, object, handlerInfo, handlerObj;
+        var currentHandlerInfos = this.currentHandlerInfos,
+            found = false, names, object, handlerInfo, handlerObj;
 
         for (var i=currentHandlerInfos.length-1; i>=0; i--) {
-          if (contexts.length === 0) { break; }
-
           handlerInfo = currentHandlerInfos[i];
+          if (handlerInfo.name === handlerName) { found = true; }
 
-          if (handlerInfo.isDynamic) {
-            object = contexts.pop();
-            if (handlerInfo.context !== object) { return false; }
+          if (found) {
+            if (contexts.length === 0) { break; }
+
+            if (handlerInfo.isDynamic) {
+              object = contexts.pop();
+              if (handlerInfo.context !== object) { return false; }
+            }
           }
         }
 
-        return true;
+        return contexts.length === 0 && found;
       },
 
       trigger: function(name, context) {
@@ -192,7 +193,7 @@ define("router",
       }
     }
 
-    function isCurrentHandler(currentHandlerInfos, handlerName) {
+    function isCurrent(currentHandlerInfos, handlerName) {
       return currentHandlerInfos[currentHandlerInfos.length - 1].name === handlerName;
     }
 

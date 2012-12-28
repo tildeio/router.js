@@ -985,4 +985,6 @@ test("tests whether arguments to transitionTo are considered active", function()
   ok(router.isActive('adminPost'), "The adminPost handler is active");
   ok(router.isActive('adminPost', adminPost), "The adminPost handler is active with the current context");
   ok(router.isActive('adminPost', admin, adminPost), "The adminPost handler is active with the current and parent context");
+  ok(router.isActive('admin'), "The admin handler is active");
+  ok(router.isActive('admin', admin), "The admin handler is active with its context");
 });
