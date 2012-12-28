@@ -248,7 +248,7 @@
     return nextStates;
   }
 
-  function handler(state, path) {
+  function findHandler(state, path) {
     var handlers = state.handlers, regex = state.regex;
     var captures = path.match(regex), currentCapture = 1;
     var result = [];
@@ -260,7 +260,7 @@
         params[names[j]] = captures[currentCapture++];
       }
 
-      result.push({ handler: handler.handler, params: params });
+      result.push({ handler: handler.handler, params: params, isDynamic: !!names.length });
     }
 
     return result;
@@ -290,6 +290,8 @@
           types = { statics: 0, dynamics: 0, stars: 0 },
           handlers = [], allSegments = [], name;
 
+      var isEmpty = true;
+
       for (var i=0, l=routes.length; i<l; i++) {
         var route = routes[i], names = [];
 
@@ -301,6 +303,8 @@
           var segment = segments[j];
 
           if (segment instanceof EpsilonSegment) { continue; }
+
+          isEmpty = false;
 
           // Add a "/" for the new segment
           currentState = currentState.put({ validChars: "/" });
@@ -314,6 +318,11 @@
         handlers.push({ handler: route.handler, names: names });
       }
 
+      if (isEmpty) {
+        currentState = currentState.put({ validChars: "/" });
+        regex += "/";
+      }
+
       currentState.handlers = handlers;
       currentState.regex = new RegExp(regex + "$");
       currentState.types = types;
@@ -322,7 +331,7 @@
         this.names[name] = {
           segments: allSegments,
           handlers: handlers
-        }
+        };
       }
     },
 
@@ -356,13 +365,13 @@
     },
 
     recognize: function(path) {
-      var states = [ this.rootState ];
+      var states = [ this.rootState ], i, l;
 
       // DEBUG GROUP path
 
       if (path.charAt(0) !== "/") { path = "/" + path; }
 
-      for (var i=0, l=path.length; i<l; i++) {
+      for (i=0, l=path.length; i<l; i++) {
         states = recognizeChar(states, path.charAt(i));
         if (!states.length) { break; }
       }
@@ -370,7 +379,7 @@
       // END DEBUG GROUP
 
       var solutions = [];
-      for (var i=0, l=states.length; i<l; i++) {
+      for (i=0, l=states.length; i<l; i++) {
         if (states[i].handlers) { solutions.push(states[i]); }
       }
 
@@ -379,7 +388,7 @@
       var state = solutions[0];
 
       if (state && state.handlers) {
-        return handler(state, path);
+        return findHandler(state, path);
       }
     }
   };
@@ -394,10 +403,10 @@
       this.matcher.add(this.path, target);
 
       if (callback) {
-        this.matcher.addChild(this.path, callback)
+        this.matcher.addChild(this.path, callback);
       }
     }
-  }
+  };
 
   function Matcher() {
     this.routes = {};
@@ -414,7 +423,7 @@
       this.children[path] = matcher;
       callback(generateMatch(path, matcher));
     }
-  }
+  };
 
   function generateMatch(startingPath, matcher) {
     return function(path, nestedCallback) {
@@ -425,7 +434,7 @@
       } else {
         return new Target(startingPath + path, matcher);
       }
-    }
+    };
   }
 
   function addRoute(routeArray, path, handler) {

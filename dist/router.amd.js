@@ -14,11 +14,14 @@ define("router",
 
       ## `UnresolvedHandlerInfo`
 
+      * `{Boolean} isDynamic`: whether a handler has any dynamic segments
       * `{String} name`: the name of a handler
       * `{Object} context`: the active context for the handler
 
       ## `HandlerInfo`
 
+      * `{Boolean} isDynamic`: whether a handler has any dynamic segments
+      * `{String} name`: the original unresolved handler name
       * `{Object} handler`: a handler object
       * `{Object} context`: the active context for the handler
     */
@@ -145,10 +148,37 @@ define("router",
             object = callback(handler);
           }
 
-          toSetup.unshift({ handler: handlerObj.handler, context: object });
+          toSetup.unshift({
+            isDynamic: !!handlerObj.names.length,
+            handler: handlerObj.handler,
+            name: handlerObj.name,
+            context: object
+          });
         }
 
         return { params: params, toSetup: toSetup };
+      },
+
+      isActive: function(handlerName) {
+        var currentHandlerInfos = this.currentHandlerInfos;
+        if (!isCurrentHandler(currentHandlerInfos, handlerName)) { return false; }
+
+        var contexts = [].slice.call(arguments, 1);
+
+        var names, object, handlerInfo, handlerObj;
+
+        for (var i=currentHandlerInfos.length-1; i>=0; i--) {
+          if (contexts.length === 0) { break; }
+
+          handlerInfo = currentHandlerInfos[i];
+
+          if (handlerInfo.isDynamic) {
+            object = contexts.pop();
+            if (handlerInfo.context !== object) { return false; }
+          }
+        }
+
+        return true;
       },
 
       trigger: function(name, context) {
@@ -160,6 +190,10 @@ define("router",
       for (var prop in other) {
         if (other.hasOwnProperty(prop)) { hash[prop] = other[prop]; }
       }
+    }
+
+    function isCurrentHandler(currentHandlerInfos, handlerName) {
+      return currentHandlerInfos[currentHandlerInfos.length - 1].name === handlerName;
     }
 
     /**
@@ -263,7 +297,11 @@ define("router",
       }
 
       function proceed(value) {
-        var updatedObjects = objects.concat([{ context: value, handler: result.handler }]);
+        var updatedObjects = objects.concat([{
+          context: value,
+          handler: result.handler,
+          isDynamic: result.isDynamic
+        }]);
         collectObjects(router, results, index + 1, updatedObjects);
       }
     }
@@ -364,8 +402,13 @@ define("router",
       @param {Array[UnresolvedHandlerInfo]} handlerInfos
     */
     function resolveHandlers(router, handlerInfos) {
+      var handlerInfo;
+
       for (var i=0, l=handlerInfos.length; i<l; i++) {
-        handlerInfos[i].handler = router.getHandler(handlerInfos[i].handler);
+        handlerInfo = handlerInfos[i];
+
+        handlerInfo.name = handlerInfo.handler;
+        handlerInfo.handler = router.getHandler(handlerInfo.handler);
       }
     }
 

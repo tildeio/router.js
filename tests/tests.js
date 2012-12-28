@@ -866,12 +866,17 @@ test("when leaving a handler, the context is nulled out", function() {
 
   router.transitionTo('adminPost', admin, adminPost);
   equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
-  deepEqual(router.currentHandlerInfos, [ { context: { id: 47 }, handler: adminHandler }, { context: { id: 74 }, handler: adminPostHandler } ]);
+  deepEqual(router.currentHandlerInfos, [
+    { context: { id: 47 }, handler: adminHandler, isDynamic: true, name: 'admin' },
+    { context: { id: 74 }, handler: adminPostHandler, isDynamic: true, name: 'adminPost' }
+  ]);
 
   router.transitionTo('showPost');
   ok(!adminHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
   ok(!adminPostHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
-  deepEqual(router.currentHandlerInfos, [ { context: undefined, handler: showPostHandler } ]);
+  deepEqual(router.currentHandlerInfos, [
+    { context: undefined, handler: showPostHandler, isDynamic: true, name: 'showPost' }
+  ]);
 });
 
 test("transitionTo uses the current context if you are already in a handler with a context that is not changing", function() {
@@ -919,3 +924,65 @@ test("transitionTo uses the current context if you are already in a handler with
   equal(url, '/posts/admin/47/posts/75', "the current context was used");
 });
 
+test("tests whether arguments to transitionTo are considered active", function() {
+  var admin = { id: 47 },
+      adminPost = { id: 74 };
+      posts = {
+        1: { id: 1 },
+        2: { id: 2 },
+        3: { id: 3 }
+      };
+
+  var adminHandler = {
+    serialize: function(object) {
+      return { id: 47 };
+    },
+
+    deserialize: function(params) {
+      return admin;
+    }
+  };
+
+  var adminPostHandler = {
+    serialize: function(object) {
+      return { post_id: object.id };
+    },
+
+    deserialize: function(params) {
+      return adminPost;
+    }
+  };
+
+  showPostHandler = {
+    serialize: function(object) {
+      return { post_id: object.id };
+    },
+
+    deserialize: function(params) {
+      return posts[params.id];
+    }
+  }
+
+  handlers = {
+    admin: adminHandler,
+    adminPost: adminPostHandler,
+    showPost: showPostHandler
+  };
+
+  var url;
+
+  router.updateURL = function(passedURL) {
+    url = passedURL;
+  };
+
+  router.handleURL("/posts/1");
+  ok(router.isActive('showPost'), "The showPost handler is active");
+  ok(router.isActive('showPost', posts[1]), "The showPost handler is active with the appropriate context");
+  ok(!router.isActive('showPost', posts[2]), "The showPost handler is inactive when the context is different");
+  ok(!router.isActive('adminPost'), "The adminPost handler is inactive");
+
+  router.transitionTo('adminPost', admin, adminPost);
+  ok(router.isActive('adminPost'), "The adminPost handler is active");
+  ok(router.isActive('adminPost', adminPost), "The adminPost handler is active with the current context");
+  ok(router.isActive('adminPost', admin, adminPost), "The adminPost handler is active with the current and parent context");
+});
