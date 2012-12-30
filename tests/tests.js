@@ -37,7 +37,13 @@ test("Mapping adds named routes to the end", function() {
   equal(url, "/posts");
 });
 
-asyncTest("Handling a URL triggers deserialize on the handlerand passes the result into the setup method", function() {
+test("Handling an invalid URL raises an exception", function() {
+  throws(function() {
+    router.handleURL("/unknown");
+  }, /no route matched/i);
+});
+
+asyncTest("Handling a URL triggers deserialize on the handler and passes the result into the setup method", function() {
   expect(3);
 
   var post = { post: true };
