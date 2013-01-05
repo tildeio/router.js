@@ -184,8 +184,9 @@
       return contexts.length === 0 && found;
     },
 
-    trigger: function(name, context) {
-      trigger(this, name, context);
+    trigger: function(name) {
+      var args = [].slice.call(arguments);
+      trigger(this, args);
     }
   };
 
@@ -487,19 +488,21 @@
     return handlers;
   }
 
-  function trigger(router, name, context) {
+  function trigger(router, args) {
     var currentHandlerInfos = router.currentHandlerInfos;
 
     if (!currentHandlerInfos) {
       throw new Error("Could not trigger event. There are no active handlers");
     }
 
+    var name = args.shift();
+
     for (var i=currentHandlerInfos.length-1; i>=0; i--) {
       var handlerInfo = currentHandlerInfos[i],
           handler = handlerInfo.handler;
 
       if (handler.events && handler.events[name]) {
-        handler.events[name](handler, context);
+        handler.events[name].apply(handler, args);
         break;
       }
     }

@@ -675,8 +675,8 @@ asyncTest("events can be targeted at the current handler", function() {
     },
 
     events: {
-      expand: function(handler) {
-        equal(handler, showPostHandler, "The handler is passed into events");
+      expand: function() {
+        equal(this, showPostHandler, "The handler is the `this` for the event");
         start();
       }
     }
@@ -699,8 +699,8 @@ asyncTest("events can be targeted at a parent handler", function() {
     },
 
     events: {
-      expand: function(handler) {
-        equal(handler, postIndexHandler, "The handler is passed into events");
+      expand: function() {
+        equal(this, postIndexHandler, "The handler is the `this` in events");
         start();
       }
     }
@@ -722,7 +722,7 @@ asyncTest("events can be targeted at a parent handler", function() {
 });
 
 asyncTest("events only fire on the closest handler", function() {
-  expect(4);
+  expect(5);
 
   var postIndexHandler = {
     enter: function() {
@@ -730,7 +730,7 @@ asyncTest("events only fire on the closest handler", function() {
     },
 
     events: {
-      expand: function(handler) {
+      expand: function() {
         ok(false, "Should not get to the parent handler");
       }
     }
@@ -742,9 +742,10 @@ asyncTest("events only fire on the closest handler", function() {
     },
 
     events: {
-      expand: function(handler, passedContext) {
-        equal(context, passedContext, "A context is passed along");
-        equal(handler, showAllPostsHandler, "The handler is passed into events");
+      expand: function(passedContext1, passedContext2) {
+        equal(context1, passedContext1, "A context is passed along");
+        equal(context2, passedContext2, "A second context is passed along");
+        equal(this, showAllPostsHandler, "The handler is passed into events as `this`");
         start();
       }
     }
@@ -755,9 +756,9 @@ asyncTest("events only fire on the closest handler", function() {
     showAllPosts: showAllPostsHandler
   };
 
-  var context = {};
+  var context1 = {}, context2 = {};
   router.handleURL("/posts");
-  router.trigger("expand", context);
+  router.trigger("expand", context1, context2);
 });
 
 test("paramsForHandler returns params", function() {
