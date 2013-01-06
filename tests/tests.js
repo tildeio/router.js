@@ -43,8 +43,18 @@ test("Handling an invalid URL raises an exception", function() {
   }, /no route matched/i);
 });
 
+function routePath(infos) {
+  var path = [];
+
+  for (var i=0, l=infos.length; i<l; i++) {
+    path.push(infos[i].name);
+  }
+
+  return path.join(".");
+}
+
 asyncTest("Handling a URL triggers deserialize on the handler and passes the result into the setup method", function() {
-  expect(3);
+  expect(4);
 
   var post = { post: true };
   var posts = { index: true };
@@ -58,7 +68,6 @@ asyncTest("Handling a URL triggers deserialize on the handler and passes the res
     setup: function(object) {
       strictEqual(object, post);
       equal(showPostHandler.context, post);
-      start();
     }
   };
 
@@ -68,6 +77,11 @@ asyncTest("Handling a URL triggers deserialize on the handler and passes the res
     showPost: showPostHandler,
     postIndex: postIndexHandler
   };
+
+  router.didTransition = function(infos) {
+    equal(routePath(infos), "showPost");
+    start();
+  }
 
   router.handleURL("/posts/1");
 });
@@ -176,13 +190,19 @@ asyncTest("Handling a nested URL triggers each handler", function() {
         equal(postIndexHandler.context, posts);
         equal(showFilteredPostsHandler.context, sadPosts);
         strictEqual(object, sadPosts);
-        start();
+        started = true;
       } else {
         ok(false, "Should not get here");
       }
     }
   };
 
+  var started = false;
+
+  // Test that didTransition gets called
+  router.didTransition = function(infos) {
+    if (started) { start(); }
+  }
 
   handlers = {
     postIndex: postIndexHandler,
@@ -359,6 +379,11 @@ asyncTest("if deserialize returns a promise, it enters a loading state", functio
     }
   }
 
+  router.didTransition = function(infos) {
+    equal(routePath(infos), "showPost");
+    start();
+  };
+
   var loadingHandler = {
     setup: function() {
       deepEqual(events, ["deserialize"]);
@@ -440,11 +465,11 @@ asyncTest("if deserialize returns a promise that is later rejected, it enters a 
 });
 
 asyncTest("Moving to a new top-level route triggers exit callbacks", function() {
-  expect(4);
+  expect(6);
 
   var allPosts = { posts: "all" };
   var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
-  var currentId, currentURL;
+  var currentId, currentURL, currentPath;
 
   var showAllPostsHandler = {
     deserialize: function(params) {
@@ -453,6 +478,7 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
 
     setup: function(posts) {
       equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
+      currentPath = "postIndex.showAllPosts";
 
       setTimeout(function() {
         currentURL = "/posts/1";
@@ -477,8 +503,8 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
     },
 
     setup: function(post) {
+      currentPath = "showPost";
       equal(post.id, currentId, "The post id is " + currentId);
-      start();
     }
   };
 
@@ -492,6 +518,11 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
 
   router.updateURL = function(url) {
     equal(url, currentURL, "The url is " + currentURL + " as expected");
+  };
+
+  router.didTransition = function(infos) {
+    equal(routePath(infos), currentPath);
+    start();
   };
 
   router.handleURL("/posts");
