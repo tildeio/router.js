@@ -464,6 +464,43 @@ asyncTest("if deserialize returns a promise that is later rejected, it enters a 
   router.handleURL("/posts/1");
 });
 
+asyncTest("if deserialize returns a promise that fails in the callback, it enters a failure state", function() {
+  var post = { post: true };
+
+  var events = [];
+
+  var showPostHandler = {
+    deserialize: function(params) {
+      deepEqual(events, []);
+      events.push("deserialize");
+
+      var promise = new RSVP.Promise();
+
+      promise.resolve(post);
+
+      return promise;
+    },
+
+    setup: function(object) {
+      throw 'Setup error';
+    }
+  }
+
+  var failureHandler = {
+    setup: function(error) {
+      start();
+      strictEqual(error, err);
+    }
+  }
+
+  handlers = {
+    showPost: showPostHandler,
+    failure: failureHandler
+  }
+
+  router.handleURL("/posts/1");
+});
+
 asyncTest("Moving to a new top-level route triggers exit callbacks", function() {
   expect(6);
 
