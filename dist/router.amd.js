@@ -52,6 +52,10 @@ define("router",
         });
       },
 
+      hasRoute: function(route) {
+        return this.recognizer.hasRoute(route);
+      },
+
       /**
         The entry point for handling a change to the URL (usually
         via the back and forward button).
