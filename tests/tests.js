@@ -86,6 +86,44 @@ asyncTest("Handling a URL triggers deserialize on the handler and passes the res
   router.handleURL("/posts/1");
 });
 
+test("A delegate provided to router.js is passed along to route-recognizer", function() {
+  router = new Router();
+
+  router.delegate = {
+    willAddRoute: function(context, route) {
+      if (context === 'application') {
+        return route;
+      }
+
+      return context + "." + route;
+    },
+
+    // Test that both delegates work together
+    contextEntered: function(name, match) {
+      match("/").to("index");
+    }
+  };
+
+  router.map(function(match) {
+    match("/").to("application", function(match) {
+      match("/posts").to("posts", function(match) {
+        match("/:post_id").to("post");
+      });
+    });
+  });
+
+  var handlers = [];
+
+  router.getHandler = function(handler) {
+    handlers.push(handler);
+    return {};
+  }
+
+  router.handleURL("/posts");
+
+  deepEqual(handlers, ["application", "posts", "posts.index", "loading", "application", "posts", "posts.index"]);
+});
+
 asyncTest("Handling a nested URL triggers each handler", function() {
   expect(31);
 
@@ -251,7 +289,7 @@ test("it can handle direct transitions to named routes", function() {
     },
 
     setup: function(object) {
-      
+
     }
   };
 
