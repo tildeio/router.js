@@ -91,6 +91,8 @@ test("A delegate provided to router.js is passed along to route-recognizer", fun
 
   router.delegate = {
     willAddRoute: function(context, route) {
+      if (!context) { return route; }
+
       if (context === 'application') {
         return route;
       }

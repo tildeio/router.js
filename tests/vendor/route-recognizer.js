@@ -346,6 +346,10 @@
       return result;
     },
 
+    hasRoute: function(name) {
+      return !!this.names[name];
+    },
+
     generate: function(name, params) {
       var route = this.names[name], output = "";
       if (!route) { throw new Error("There is no route named " + name); }
@@ -411,13 +415,14 @@
     to: function(target, callback) {
       var delegate = this.delegate;
 
-      if (!callback && delegate && delegate.willAddRoute) {
+      if (delegate && delegate.willAddRoute) {
         target = delegate.willAddRoute(this.matcher.target, target);
       }
 
       this.matcher.add(this.path, target);
 
       if (callback) {
+        if (callback.length === 0) { throw new Error("You must have an argument in the function passed to `to`"); }
         this.matcher.addChild(this.path, target, callback, this.delegate);
       }
     }
