@@ -25,7 +25,9 @@ module("The router", {
 
     router.getHandler = function(name) {
       return handlers[name];
-    }
+    };
+
+    router.updateURL = function() { };
   }
 });
 
@@ -389,6 +391,31 @@ test("it can handle direct transitions to named routes", function() {
   counter++;
 
   router.transitionTo("showAllPosts");
+});
+
+test("replaceWith calls replaceURL", function() {
+  var updateCount = 0,
+      replaceCount = 0;
+
+  router.updateURL = function() {
+    updateCount++;
+  }
+
+  router.replaceURL = function() {
+    replaceCount++;
+  }
+
+  handlers = {
+    postIndex: { },
+    showAllPosts: { }
+  };
+
+  router.handleURL('/posts');
+
+  router.replaceWith('showAllPosts');
+
+  equal(updateCount, 0, "should not call updateURL");
+  equal(replaceCount, 1, "should call replaceURL once");
 });
 
 asyncTest("if deserialize returns a promise, it enters a loading state", function() {
