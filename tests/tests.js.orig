@@ -88,11 +88,16 @@ asyncTest("Handling a URL triggers deserialize on the handler and passes the res
   router.handleURL("/posts/1");
 });
 
+<<<<<<< HEAD
 test("when transitioning with the same context, setup should only be called once", function() {
   var parentSetupCount = 0,
       childSetupCount = 0;
 
   var context = { id: 1 };
+=======
+test("when transitioning to a new parent and child state, the parent's context should be available to the child's deserialize", function() {
+  var contexts = [];
+>>>>>>> cef464d... Fix issue with deserialize and parent context
 
   router = new Router();
 
@@ -112,18 +117,27 @@ test("when transitioning with the same context, setup should only be called once
   var indexHandler = { };
 
   var postHandler = {
+<<<<<<< HEAD
     setup: function() {
       parentSetupCount++;
     },
 
+=======
+>>>>>>> cef464d... Fix issue with deserialize and parent context
     deserialize: function(params) {
       return params;
     }
   };
 
   var postDetailsHandler = {
+<<<<<<< HEAD
     setup: function() {
       childSetupCount++;
+=======
+    name: 'postDetails',
+    deserialize: function(params) {
+      contexts.push(postHandler.context);
+>>>>>>> cef464d... Fix issue with deserialize and parent context
     }
   };
 
@@ -135,6 +149,7 @@ test("when transitioning with the same context, setup should only be called once
 
   router.handleURL('/');
 
+<<<<<<< HEAD
   equal(parentSetupCount, 0, 'precond - parent not setup');
   equal(childSetupCount, 0, 'precond - parent not setup');
 
@@ -147,52 +162,11 @@ test("when transitioning with the same context, setup should only be called once
 
   equal(parentSetupCount, 1, 'after two transitions, parent is still setup once');
   equal(childSetupCount, 1, 'after two transitions, child is still setup once');
-});
-
-test("when transitioning to a new parent and child state, the parent's context should be available to the child's deserialize", function() {
-  var contexts = [];
-
-  router = new Router();
-
-  router.map(function(match) {
-    match("/").to('index');
-    match("/posts/:id").to('post', function(match) {
-      match("/details").to('postDetails');
-    });
-  });
-
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
-
-  router.updateURL = function() { };
-
-  var indexHandler = { };
-
-  var postHandler = {
-    deserialize: function(params) {
-      return params;
-    }
-  };
-
-  var postDetailsHandler = {
-    name: 'postDetails',
-    deserialize: function(params) {
-      contexts.push(postHandler.context);
-    }
-  };
-
-  handlers = {
-    index: indexHandler,
-    post: postHandler,
-    postDetails: postDetailsHandler
-  };
-
-  router.handleURL('/');
-
+=======
   router.transitionTo('postDetails', { id: 1 });
 
   deepEqual(contexts, [{ id: 1 }]);
+>>>>>>> cef464d... Fix issue with deserialize and parent context
 });
 
 test("A delegate provided to router.js is passed along to route-recognizer", function() {
