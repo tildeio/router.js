@@ -88,6 +88,67 @@ asyncTest("Handling a URL triggers deserialize on the handler and passes the res
   router.handleURL("/posts/1");
 });
 
+test("when transitioning with the same context, setup should only be called once", function() {
+  var parentSetupCount = 0,
+      childSetupCount = 0;
+
+  var context = { id: 1 };
+
+  router = new Router();
+
+  router.map(function(match) {
+    match("/").to('index');
+    match("/posts/:id").to('post', function(match) {
+      match("/details").to('postDetails');
+    });
+  });
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  router.updateURL = function() { };
+
+  var indexHandler = { };
+
+  var postHandler = {
+    setup: function() {
+      parentSetupCount++;
+    },
+
+    deserialize: function(params) {
+      return params;
+    }
+  };
+
+  var postDetailsHandler = {
+    setup: function() {
+      childSetupCount++;
+    }
+  };
+
+  handlers = {
+    index: indexHandler,
+    post: postHandler,
+    postDetails: postDetailsHandler
+  };
+
+  router.handleURL('/');
+
+  equal(parentSetupCount, 0, 'precond - parent not setup');
+  equal(childSetupCount, 0, 'precond - parent not setup');
+
+  router.transitionTo('postDetails', context);
+
+  equal(parentSetupCount, 1, 'after one transition parent is setup once');
+  equal(childSetupCount, 1, 'after one transition child is setup once');
+
+  router.transitionTo('postDetails', context);
+
+  equal(parentSetupCount, 1, 'after two transitions, parent is still setup once');
+  equal(childSetupCount, 1, 'after two transitions, child is still setup once');
+});
+
 test("A delegate provided to router.js is passed along to route-recognizer", function() {
   router = new Router();
 
