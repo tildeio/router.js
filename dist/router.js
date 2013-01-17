@@ -193,11 +193,16 @@
           }
         } else if (callback) {
           object = callback(handler);
+        } else {
+          object = undefined;
         }
+
 
         // Make sure that we update the context here so it's available to
         // subsequent deserialize calls
-        handler.context = object;
+        if (handler.context !== object) {
+          handler.context = object;
+        }
 
         toSetup.push({
           isDynamic: !!handlerObj.names.length,
