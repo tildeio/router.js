@@ -165,10 +165,10 @@ define("router",
             toSetup = [],
             startIdx = handlers.length,
             objectsToMatch = objects.length,
-            object, handlerObj, handler, names;
+            object, handlerObj, handler, names, i, len;
 
         // Find out which handler to start matching at
-        for (var i=handlers.length-1; i>=0 && objectsToMatch>0; i--) {
+        for (i=handlers.length-1; i>=0 && objectsToMatch>0; i--) {
           if (handlers[i].names.length) {
             objectsToMatch--;
             startIdx = i;
@@ -180,7 +180,7 @@ define("router",
         }
 
         // Connect the objects to the routes
-        for (var i=0, len=handlers.length; i<len; i++) {
+        for (i=0, len=handlers.length; i<len; i++) {
           handlerObj = handlers[i];
           handler = this.getHandler(handlerObj.handler);
           names = handlerObj.names;
