@@ -190,9 +190,13 @@ test("when transitioning to a new parent and child state, the parent's context s
 
   router.handleURL('/');
 
+  // This is a crucial part of the test
+  // In some cases, calling `generate` was preventing `deserialize` from being called
+  router.generate('postDetails', { id: 1 });
+
   router.transitionTo('postDetails', { id: 1 });
 
-  deepEqual(contexts, [{ id: 1 }]);
+  deepEqual(contexts, [{ id: 1 }], 'parent context is available');
 });
 
 test("A delegate provided to router.js is passed along to route-recognizer", function() {
