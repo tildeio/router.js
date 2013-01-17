@@ -203,7 +203,7 @@ define("router",
           // Make sure that we update the context here so it's available to
           // subsequent deserialize calls
           if (handler.context !== object) {
-            handler.context = object;
+            setContext(handler, object);
           }
 
           toSetup.push({
@@ -439,13 +439,13 @@ define("router",
       });
 
       eachHandler(partition.updatedContext, function(handler, context) {
-        handler.context = context;
+        setContext(handler, context);
         if (handler.setup) { handler.setup(context); }
       });
 
       eachHandler(partition.entered, function(handler, context) {
         if (handler.enter) { handler.enter(); }
-        handler.context = context;
+        setContext(handler, context);
         if (handler.setup) { handler.setup(context); }
       });
 
@@ -585,6 +585,11 @@ define("router",
           break;
         }
       }
+    }
+
+    function setContext(handler, context) {
+      handler.context = context;
+      if (handler.contextDidChange) { handler.contextDidChange(); }
     }
     return Router;
   });
