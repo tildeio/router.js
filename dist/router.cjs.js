@@ -163,10 +163,10 @@ Router.prototype = {
         toSetup = [],
         startIdx = handlers.length,
         objectsToMatch = objects.length,
-        object, handlerObj, handler, names;
+        object, handlerObj, handler, names, i, len;
 
     // Find out which handler to start matching at
-    for (var i=handlers.length-1; i>=0 && objectsToMatch>0; i--) {
+    for (i=handlers.length-1; i>=0 && objectsToMatch>0; i--) {
       if (handlers[i].names.length) {
         objectsToMatch--;
         startIdx = i;
@@ -178,7 +178,7 @@ Router.prototype = {
     }
 
     // Connect the objects to the routes
-    for (var i=0, len=handlers.length; i<len; i++) {
+    for (i=0, len=handlers.length; i<len; i++) {
       handlerObj = handlers[i];
       handler = this.getHandler(handlerObj.handler);
       names = handlerObj.names;
@@ -193,11 +193,16 @@ Router.prototype = {
         }
       } else if (callback) {
         object = callback(handler);
+      } else {
+        object = undefined;
       }
+
 
       // Make sure that we update the context here so it's available to
       // subsequent deserialize calls
-      handler.context = object;
+      if (handler.context !== object) {
+        setContext(handler, object);
+      }
 
       toSetup.push({
         isDynamic: !!handlerObj.names.length,
@@ -432,13 +437,13 @@ function setupContexts(router, handlerInfos) {
   });
 
   eachHandler(partition.updatedContext, function(handler, context) {
-    handler.context = context;
+    setContext(handler, context);
     if (handler.setup) { handler.setup(context); }
   });
 
   eachHandler(partition.entered, function(handler, context) {
     if (handler.enter) { handler.enter(); }
-    handler.context = context;
+    setContext(handler, context);
     if (handler.setup) { handler.setup(context); }
   });
 
@@ -578,5 +583,10 @@ function trigger(router, args) {
       break;
     }
   }
+}
+
+function setContext(handler, context) {
+  handler.context = context;
+  if (handler.contextDidChange) { handler.contextDidChange(); }
 }
 module.exports = Router;
