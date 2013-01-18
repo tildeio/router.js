@@ -419,7 +419,7 @@ test("it can handle direct transitions to named routes", function() {
     },
 
     setup: function(object) {
-      strictEqual(object, allPosts);
+      strictEqual(object, allPosts, 'showAllPosts should get correct setup');
     }
   };
 
@@ -448,15 +448,15 @@ test("it can handle direct transitions to named routes", function() {
     },
 
     serialize: function(object, params) {
-      deepEqual(params, ['filter_id']);
+      deepEqual(params, ['filter_id'], 'showFilteredPosts should get correct serialize');
       return { filter_id: object.filter };
     },
 
     setup: function(object) {
       if (counter === 2) {
-        strictEqual(object, amazingPosts);
+        strictEqual(object, amazingPosts, 'showFilteredPosts should get setup with amazingPosts');
       } else if (counter === 3) {
-        strictEqual(object, sadPosts);
+        strictEqual(object, sadPosts, 'showFilteredPosts should get setup setup with sadPosts');
       }
     }
   }
@@ -477,7 +477,7 @@ test("it can handle direct transitions to named routes", function() {
       4: "/posts"
     }
 
-    equal(url, expected[counter]);
+    equal(url, expected[counter], 'updateURL should be called with correct url');
   };
 
 
@@ -1240,4 +1240,98 @@ test("tests whether arguments to transitionTo are considered active", function()
   ok(router.isActive('adminPost', admin, adminPost), "The adminPost handler is active with the current and parent context");
   ok(router.isActive('admin'), "The admin handler is active");
   ok(router.isActive('admin', admin), "The admin handler is active with its context");
+});
+
+test("calling generate on a non-dynamic route does not blow away parent contexts", function() {
+  router = new Router();
+
+  router.map(function(match) {
+    match("/projects").to('projects', function(match) {
+      match("/").to('projectsIndex');
+      match("/project").to('project', function(match) {
+        match("/").to('projectIndex');
+      });
+    });
+  });
+
+  router.updateURL = function() { };
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  var projects = {};
+
+  var projectsHandler = {
+    deserialize: function(){
+      return projects;
+    }
+  };
+
+  var projectsIndexHandler = {};
+  var projectHandler = {};
+  var projectIndexHandler = {};
+
+  handlers = {
+    projects:      projectsHandler,
+    projectsIndex: projectsIndexHandler,
+    project:       projectHandler,
+    projectIndex:  projectIndexHandler
+  };
+
+  router.handleURL('/projects');
+
+  equal(projectsHandler.context, projects, 'projects handler has correct context');
+
+  router.generate('projectIndex');
+
+  equal(projectsHandler.context, projects, 'projects handler retains correct context');
+});
+
+test("calling transitionTo on a dynamic parent route causes non-dynamic child context to be updated", function() {
+  router = new Router();
+
+  router.map(function(match) {
+    match("/project/:project_id").to('project', function(match) {
+      match("/").to('projectIndex');
+    });
+  });
+
+  router.updateURL = function() { };
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  var projectHandler = {
+    deserialize: function(params) {
+      return params;
+    }
+  };
+
+  var projectIndexHandler = {
+    deserialize: function() {
+      return projectHandler.context;
+    }
+  };
+
+  handlers = {
+    project:       projectHandler,
+    projectIndex:  projectIndexHandler
+  };
+
+  router.handleURL('/project/1');
+
+  deepEqual(projectHandler.context, { project_id: '1' }, 'project handler retains correct context');
+  deepEqual(projectIndexHandler.context, { project_id: '1' }, 'project index handler has correct context');
+
+  router.generate('projectIndex', { project_id: '2' });
+
+  deepEqual(projectHandler.context, { project_id: '1' }, 'project handler retains correct context');
+  deepEqual(projectIndexHandler.context, { project_id: '1' }, 'project index handler retains correct context');
+
+  router.transitionTo('projectIndex', { project_id: '2' });
+
+  deepEqual(projectHandler.context, { project_id: '2' }, 'project handler has updated context');
+  deepEqual(projectIndexHandler.context, { project_id: '2' }, 'project index handler has updated context');
 });
