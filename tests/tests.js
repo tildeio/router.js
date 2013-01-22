@@ -504,6 +504,67 @@ test("it can handle direct transitions to named routes", function() {
   router.transitionTo("showAllPosts");
 });
 
+test("it aborts transitioning if a handler's setup returns false", function() {
+  expect(2);
+
+  router = new Router();
+
+  router.map(function(match) {
+    match("/").to('index');
+    match("/posts/").to('posts', function(match) {
+      match("/").to('postsIndex', function(match) {
+        match("/all").to('allPosts')
+      });
+    });
+  });
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  router.updateURL = function() { };
+
+  var indexHandler = {
+  };
+
+  var postsHandler = {
+    enter: function() {
+      ok(true, "Posts enter was called");
+    },
+    setup: function() {
+      ok(true, "Posts setup was called");
+      return false;
+    }
+  };
+
+  var postsIndexHandler = {
+    enter: function() {
+      ok(false, "Should not get here");
+    },
+    setup: function() {
+      ok(false, "Should not get here");
+    }
+  };
+
+  var allPostsHandler = {
+    enter: function() {
+      ok(false, "Should not get here");
+    },
+    setup: function() {
+      ok(false, "Should not get here");
+    }
+  };
+
+  handlers = {
+    index: indexHandler,
+    posts: postsHandler,
+    postsIndex: postsIndexHandler,
+    allPosts: allPostsHandler
+  };
+
+  router.handleURL('/posts/all');
+});
+
 test("replaceWith calls replaceURL", function() {
   var updateCount = 0,
       replaceCount = 0;
