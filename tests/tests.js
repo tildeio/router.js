@@ -10,6 +10,7 @@ module("The router", {
       match("/posts", function(match) {
         match("/:id").to("showPost");
         match("/admin/:id").to("admin", function(match) {
+          match("/posts").to("adminPosts");
           match("/posts/:post_id").to("adminPost");
         });
         match("/").to("postIndex", function(match) {
@@ -804,6 +805,39 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
   router.handleURL("/posts");
 });
 
+test("Moving to the same route with a different parent dynamic segment re-runs deserialize", function() {
+  var admins = { 1: { id: 1 }, 2: { id: 2 } },
+      adminPosts = { 1: { id: 1 }, 2: { id: 2 } },
+      adminPostDeserialize = 0;
+
+  var adminHandler = {
+    deserialize: function(params) {
+      return this.currentModel = admins[params.id];
+    }
+  };
+
+  var adminPostsHandler = {
+    deserialize: function() {
+      adminPostDeserialize++;
+      return adminPosts[adminHandler.currentModel.id];
+    }
+  };
+
+  handlers = {
+    admin: adminHandler,
+    adminPosts: adminPostsHandler
+  }
+
+  router.handleURL("/posts/admin/1/posts");
+
+  equal(adminHandler.context, admins[1]);
+  equal(adminPostsHandler.context, adminPosts[1]);
+
+  router.handleURL("/posts/admin/2/posts");
+  equal(adminHandler.context, admins[2]);
+  equal(adminPostsHandler.context, adminPosts[2]);
+});
+
 asyncTest("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)", function() {
   expect(8);
 
@@ -995,6 +1029,20 @@ asyncTest("events can be targeted at the current handler", function() {
 
   router.handleURL("/posts/1");
   router.trigger("expand");
+});
+
+test("Unhandled events raise an exception", function() {
+  var showPostHandler = {};
+
+  handlers = {
+    showPost: showPostHandler
+  };
+
+  router.handleURL("/posts/1");
+
+  throws(function() {
+    router.trigger("doesnotexist");
+  }, /doesnotexist/);
 });
 
 asyncTest("events can be targeted at a parent handler", function() {
