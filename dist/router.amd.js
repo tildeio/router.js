@@ -275,68 +275,6 @@ define("router",
 
     /**
       @private
-
-      This function is called the first time the `collectObjects`
-      function encounters a promise while converting URL parameters
-      into objects.
-
-      It triggers the `enter` and `setup` methods on the `loading`
-      handler.
-
-      @param {Router} router
-    */
-    function loading(router) {
-      if (!router.isLoading) {
-        router.isLoading = true;
-        var handler = router.getHandler('loading');
-
-        if (handler) {
-          if (handler.enter) { handler.enter(); }
-          if (handler.setup) { handler.setup(); }
-        }
-      }
-    }
-
-    /**
-      @private
-
-      This function is called if a promise was previously
-      encountered once all promises are resolved.
-
-      It triggers the `exit` method on the `loading` handler.
-
-      @param {Router} router
-    */
-    function loaded(router) {
-      router.isLoading = false;
-      var handler = router.getHandler('loading');
-      if (handler && handler.exit) { handler.exit(); }
-    }
-
-    /**
-      @private
-
-      This function is called if any encountered promise
-      is rejected.
-
-      It triggers the `exit` method on the `loading` handler,
-      the `enter` method on the `failure` handler, and the
-      `setup` method on the `failure` handler with the
-      `error`.
-
-      @param {Router} router
-      @param {Object} error the reason for the promise
-        rejection, to pass into the failure handler's
-        `setup` method.
-    */
-    function failure(router, error) {
-      loaded(router);
-      var handler = router.getHandler('failure');
-      if (handler && handler.setup) { handler.setup(error); }
-    }
-
-    /**
-      @private
     */
     function doTransition(router, name, method, args) {
       var output = router._paramsForHandler(name, args, true);
@@ -367,7 +305,6 @@ define("router",
     */
     function collectObjects(router, results, index, objects) {
       if (results.length === index) {
-        loaded(router);
         setupContexts(router, objects);
         return;
       }
@@ -376,28 +313,40 @@ define("router",
       var handler = router.getHandler(result.handler);
       var object = handler.deserialize && handler.deserialize(result.params);
 
-      if (object && typeof object.then === 'function') {
-        loading(router);
+      if (object && typeof object.then === 'function') {          
+        // Loading depends on `setupContexts` getting called. We can't render anything until it does.
+        router.isLoading = true;
+        var loadingHandler = router.getHandler('loading') || { };
+        setupContexts(router, updateContext(null, loadingHandler, 'loading'));
 
         // The chained `then` means that we can also catch errors that happen in `proceed`
-        object.then(proceed).then(null, function(error) {
-          failure(router, error);
+        object.then(function (obj) {
+          router.isLoading = false;
+          proceed(obj);
+        }).then(null, function(error) {
+          router.isLoading = false;
+          var failHandler = router.getHandler('failure') || router.constructor.defaultFailureHandler;
+          setupContexts(router, updateContext(error, failHandler, 'failure'));
         });
+
       } else {
         proceed(object);
       }
-
-      function proceed(value) {
+    
+      function updateContext(value, customHandler, customHandlerName) {
         if (handler.context !== object) {
-          setContext(handler, object);
+          setContext(customHandler || handler, object);
         }
 
-        var updatedObjects = objects.concat([{
+        return objects.concat([{
           context: value,
-          handler: result.handler,
+          handler: customHandlerName || result.handler,
           isDynamic: result.isDynamic
         }]);
-        collectObjects(router, results, index + 1, updatedObjects);
+      }
+  
+      function proceed(value) {
+        collectObjects(router, results, index + 1, updateContext(value));
       }
     }
 
@@ -511,9 +460,11 @@ define("router",
 
       for (var i=0, l=handlerInfos.length; i<l; i++) {
         handlerInfo = handlerInfos[i];
-
-        handlerInfo.name = handlerInfo.handler;
-        handlerInfo.handler = router.getHandler(handlerInfo.handler);
+        // Only process UnresolvedHandlerInfos.
+        if (handlerInfo.name === undefined) {
+          handlerInfo.name = handlerInfo.handler;
+          handlerInfo.handler = router.getHandler(handlerInfo.handler);
+        }
       }
     }
 
