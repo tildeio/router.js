@@ -237,7 +237,7 @@ test("A delegate provided to router.js is passed along to route-recognizer", fun
 
   router.handleURL("/posts");
 
-  deepEqual(handlers, ["application", "posts", "posts.index", "loading", "application", "posts", "posts.index"]);
+  deepEqual(handlers, ["application", "posts", "posts.index", "application", "posts", "posts.index"]);
 });
 
 asyncTest("Handling a nested URL triggers each handler", function() {
@@ -605,6 +605,10 @@ asyncTest("if deserialize returns a promise, it enters a loading state", functio
 
       setTimeout(function() {
         promise.resolve(post);
+          router.didTransition = function(infos) {
+            equal(routePath(infos), "showPost");
+            start();
+          };
       }, 1);
 
       return promise;
@@ -620,7 +624,7 @@ asyncTest("if deserialize returns a promise, it enters a loading state", functio
   }
 
   router.didTransition = function(infos) {
-    equal(routePath(infos), "showPost");
+    equal(routePath(infos), "loading");
     start();
   };
 
@@ -726,7 +730,23 @@ asyncTest("if deserialize returns a promise that fails in the callback, it enter
     }
   }
 
+  var loadingHandler = {
+    setup: function() {
+      deepEqual(events, ["deserialize"]);
+      events.push("loading");
+      ok(true, "Loading was called");
+    },
+
+    exit: function() {
+      deepEqual(events, ["deserialize", "loading"]);
+      events.push("loaded");
+      ok(true, "Loading was exited");
+    }
+  }
+
   var failureHandler = {
+    enter: function() { },
+    exit: function() { },
     setup: function(error) {
       start();
       strictEqual(error, err);
@@ -735,7 +755,8 @@ asyncTest("if deserialize returns a promise that fails in the callback, it enter
 
   handlers = {
     showPost: showPostHandler,
-    failure: failureHandler
+    failure: failureHandler,
+    loading: loadingHandler
   }
 
   router.handleURL("/posts/1");
