@@ -237,7 +237,7 @@ test("A delegate provided to router.js is passed along to route-recognizer", fun
 
   router.handleURL("/posts");
 
-  deepEqual(handlers, ["application", "posts", "posts.index", "loading", "application", "posts", "posts.index"]);
+  deepEqual(handlers, [ "application", "application", "posts", "posts", "posts.index", "posts.index", "loading" ]);
 });
 
 asyncTest("Handling a nested URL triggers each handler", function() {
