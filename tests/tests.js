@@ -7,6 +7,7 @@ module("The router", {
     router = new Router();
 
     router.map(function(match) {
+      match("/index").to("index");
       match("/posts", function(match) {
         match("/:id").to("showPost");
         match("/admin/:id").to("admin", function(match) {
@@ -1443,4 +1444,88 @@ test("calling transitionTo on a dynamic parent route causes non-dynamic child co
 
   deepEqual(projectHandler.context, { project_id: '2' }, 'project handler has updated context');
   deepEqual(projectIndexHandler.context, { project_id: '2' }, 'project index handler has updated context');
+});
+
+test("A final handler can specify an additional non-routable handler", function() {
+  expect(2);
+
+  var additionalHandler = {
+    enter: function() {
+      ok(true, "Enter was called");
+    },
+
+    setup: function() {
+      ok(true, "Setup was called");
+    }
+  };
+
+  var showPostHandler = {
+    additionalHandler: function() {
+      return "additional";
+    }
+  };
+
+  handlers = {
+    showPost: showPostHandler,
+    additional: additionalHandler
+  };
+
+  router.handleURL("/posts/1");
+});
+
+test("A final handler can specify an additional non-routable handler", function() {
+  expect(7);
+
+  var additionalHandler = {
+    enter: function() {
+      ok(true, "Enter was called");
+    },
+
+    setup: function() {
+      ok(true, "Setup was called");
+    }
+  };
+
+  var showPostHandler = {
+    additionalHandler: function() {
+      return "additional";
+    },
+
+    serialize: function(params) {
+      deepEqual(params, { id: 1 }, "Serialize should receive the params passed to transitionTo");
+      return params;
+    },
+
+    deserialize: function(params) {
+      return params;
+    }
+  };
+
+  var indexHandler = {
+    enter: function() {
+      ok(true, "Enter was called in index");
+    },
+
+    setup: function() {
+      ok(true, "Setup was called in index");
+    },
+
+    exit: function() {
+      ok(true, "Exit was called in index");
+
+    }
+  }
+
+  handlers = {
+    index: indexHandler,
+    showPost: showPostHandler,
+    additional: additionalHandler
+  };
+
+  router.updateURL = function(url) {
+    equal(url, "/posts/1", "The updated URL is correct");
+  };
+
+  router.handleURL("/index");
+  router.transitionTo('showPost', { id: 1 });
 });
