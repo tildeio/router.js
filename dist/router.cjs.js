@@ -231,7 +231,6 @@ Router.prototype = {
             names: []
           });
         }
-        debugger;
       }
     }
 

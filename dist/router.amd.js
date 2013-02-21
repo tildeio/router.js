@@ -233,7 +233,6 @@ define("router",
                 names: []
               });
             }
-            debugger;
           }
         }
 
