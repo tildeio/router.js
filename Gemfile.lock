@@ -1,4 +1,12 @@
 GIT
+  remote: git://github.com/wagenet/qunit-cli-runner.git
+  revision: 67e773091aed52773eb78ce1b557f642147fe9d9
+  branch: master
+  specs:
+    qunit-cli-runner (0.0.1)
+      colored
+
+GIT
   remote: git://github.com/wycats/js_module_transpiler.git
   revision: c9f0ada0f7b7ec654ddec25f4a1fb07bcf41c9f7
   branch: master
@@ -9,6 +17,7 @@ GIT
 GEM
   remote: https://rubygems.org/
   specs:
+    colored (1.2)
     rake (10.0.2)
     thor (0.16.0)
 
@@ -17,4 +26,5 @@ PLATFORMS
 
 DEPENDENCIES
   js_module_transpiler!
+  qunit-cli-runner!
   rake
