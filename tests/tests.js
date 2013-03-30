@@ -238,7 +238,8 @@ test("A delegate provided to router.js is passed along to route-recognizer", fun
 
   router.handleURL("/posts");
 
-  deepEqual(handlers, [ "application", "application", "posts", "posts", "posts.index", "posts.index", "loading" ]);
+  // Note: posts.index is checked first to see if it's a URL-transitionable route.
+  deepEqual(handlers, [ "posts.index", "application", "posts", "posts.index", "loading" ]);
 });
 
 asyncTest("Handling a nested URL triggers each handler", function() {
@@ -506,6 +507,163 @@ test("it can handle direct transitions to named routes", function() {
   router.transitionTo("showAllPosts");
 });
 
+
+
+asyncTest("it can handle direct transitions to named routes and go into loading states with promise contexts", function() {
+  var posts = [];
+  var allPosts = { all: true };
+
+  // Promise objects used with transitionTo need to 
+  // be serializable, hence these objects need to 
+  // know their filters.
+  var amazingPosts = new RSVP.Promise();
+  amazingPosts.filter = "amazing";
+  var sadPosts = new RSVP.Promise();
+  sadPosts.filter = "sad";
+
+  postIndexHandler = {
+    deserialize: function(params) {
+      return allPosts;
+    },
+
+    serialize: function(object, params) {
+      return {};
+    },
+
+    setup: function(object) {
+
+    }
+  };
+
+  showAllPostsHandler = {
+    deserialize: function(params) {
+      deepEqual(params, {});
+      return allPosts;
+    },
+
+    serialize: function(object, params) {
+      return {};
+    },
+
+    setup: function(object) {
+      strictEqual(object, allPosts, 'showAllPosts should get correct setup');
+    }
+  };
+
+  showPopularPostsHandler = {
+    deserialize: function(params) {
+      deepEqual(params, {});
+
+      var popularPosts = new RSVP.Promise();
+      popularPosts.filter = "popular";
+      setTimeout(function() {
+        popularPosts.resolve({ popular: true });
+      }, 10);
+
+      popularPosts.then(afterPopularPostsLoads);
+
+      return popularPosts;
+    },
+
+    serialize: function(object) {
+      return {};
+    },
+
+    setup: function(object) {
+      strictEqual(object, popularPosts, "showPopularPosts#setup should be called with the deserialized value");
+    }
+  };
+
+  showFilteredPostsHandler = {
+    deserialize: function(params) {
+      if (params.filter_id === "amazing") {
+        return amazingPosts;
+      } else if (params.filter_id === "sad") {
+        return sadPosts;
+      }
+    },
+
+    serialize: function(object, params) {
+      deepEqual(params, ['filter_id'], 'showFilteredPosts should get correct serialize');
+      return { filter_id: object.filter };
+    },
+
+    setup: function(object) {
+      //if (counter === 2) {
+        //strictEqual(object, amazingPosts, 'showFilteredPosts should get setup with amazingPosts');
+      //} else if (counter === 3) {
+        //strictEqual(object, sadPosts, 'showFilteredPosts should get setup setup with sadPosts');
+      //}
+    }
+  }
+
+  var loadingHandler = {
+    setup: function() {
+      //deepEqual(events, ["deserialize"]);
+      //events.push("loading");
+      ok(true, "Loading was called");
+    },
+
+    exit: function() {
+      //deepEqual(events, ["deserialize", "loading"]);
+      //events.push("loaded");
+      ok(true, "Loading was exited");
+    }
+  }
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler,
+    showPopularPosts: showPopularPostsHandler,
+    showFilteredPosts: showFilteredPostsHandler,
+    loading: loadingHandler
+  };
+
+  var currentURL = "";
+
+  router.updateURL = function(url) {
+    currentURL = url;
+  };
+
+  router.transitionTo("showAllPosts");
+
+  equal(currentURL, "/posts", "should have updated URL");
+
+  // showPopularPosts' deserialize returns a promise.
+  router.transitionTo("showPopularPosts");
+  function afterPopularPostsLoads() {
+
+    equal(currentURL, "/posts/popular", "should have updated URL");
+
+    // transition to filtered amazingPosts, which is a promise.
+    router.transitionTo("showFilteredPosts", amazingPosts);
+
+    amazingPosts.then(function() {
+
+      equal(currentURL, "/posts/filter/amazing", "should have finished transitioning");
+
+      // transition to filtered sadPosts, which is a promise.
+      router.transitionTo("showFilteredPosts", sadPosts);
+      setTimeout(function() {
+
+        sadPosts.resolve({ filter: "sad" });
+
+        // Transition back into all posts, still a promise.
+        router.transitionTo("showAllPosts");
+        setTimeout(function() {
+
+          start();
+        }, 10);
+      }, 10);
+
+
+    });
+
+    amazingPosts.resolve({ filter: "amazing" });
+  }
+});
+
+
 test("it aborts transitioning if a handler's setup returns false", function() {
   expect(2);
 
@@ -736,7 +894,8 @@ asyncTest("if deserialize returns a promise that fails in the callback, it enter
 
   handlers = {
     showPost: showPostHandler,
-    failure: failureHandler
+    failure: failureHandler,
+    loading: {}
   }
 
   router.handleURL("/posts/1");
@@ -1446,86 +1605,534 @@ test("calling transitionTo on a dynamic parent route causes non-dynamic child co
   deepEqual(projectIndexHandler.context, { project_id: '2' }, 'project index handler has updated context');
 });
 
-test("A final handler can specify an additional non-routable handler", function() {
-  expect(2);
 
-  var additionalHandler = {
-    enter: function() {
-      ok(true, "Enter was called");
-    },
+asyncTest("transitionTo with a promise context enters a loading state if one is defined", function() {
+  var post = { post: true };
 
-    setup: function() {
-      ok(true, "Setup was called");
-    }
-  };
+  var events = [];
 
   var showPostHandler = {
-    additionalHandler: function() {
-      return "additional";
+    deserialize: function(params) {
+      ok(false, 'deserialize should not be called with transitionTo');
+    },
+
+    setup: function(object) {
+      deepEqual(events, ["loading", "loaded"]);
+      events.push("setup");
+
+      strictEqual(object, post);
+      start();
     }
+  }
+
+  router.didTransition = function(infos) {
+    equal(routePath(infos), "showPost");
+    start();
   };
+
+  var loadingHandler = {
+    setup: function() {
+      deepEqual(events, []);
+      events.push("loading");
+      ok(true, "Loading was called");
+    },
+
+    exit: function() {
+      deepEqual(events, ["loading"]);
+      events.push("loaded");
+      ok(true, "Loading was exited");
+    }
+  }
 
   handlers = {
     showPost: showPostHandler,
-    additional: additionalHandler
-  };
+    loading: loadingHandler
+  }
 
-  router.handleURL("/posts/1");
+  var promise = new RSVP.Promise();
+  router.transitionTo('showPost', promise);
+
+  setTimeout(function() {
+    promise.resolve(post);
+  }, 1);
 });
 
-test("A final handler can specify an additional non-routable handler", function() {
-  expect(7);
+asyncTest("nested transitionTo Promise behavior", function() {
+  var post = { post: true };
 
-  var additionalHandler = {
-    enter: function() {
-      ok(true, "Enter was called");
+  var events = [];
+
+  var showPostHandler = {
+    deserialize: function(params) {
+      ok(false, 'deserialize should not be called with transitionTo');
     },
 
+    setup: function(object) {
+      deepEqual(events, ["loading", "loaded"]);
+      events.push("setup");
+
+      strictEqual(object, post);
+      start();
+    }
+  }
+
+  router.didTransition = function(infos) {
+    equal(routePath(infos), "showPost");
+    start();
+  };
+
+  var loadingHandler = {
     setup: function() {
-      ok(true, "Setup was called");
+      deepEqual(events, []);
+      events.push("loading");
+      ok(true, "Loading was called");
+    },
+
+    exit: function() {
+      deepEqual(events, ["loading"]);
+      events.push("loaded");
+      ok(true, "Loading was exited");
+    }
+  }
+
+  handlers = {
+    showPost: showPostHandler,
+    loading: loadingHandler
+  }
+
+  var promise = new RSVP.Promise();
+  router.transitionTo('showPost', promise);
+
+  setTimeout(function() {
+    promise.resolve(post);
+  }, 1);
+});
+
+asyncTest("transitions can be prevented", function() {
+  expect(22);
+
+  var post = { post: true };
+
+  var showPostEntered = false;
+  var showPostHandler = {
+    deserialize: function(params) {
+      deepEqual(params, { id: "1" });
+      return post;
+    },
+
+    setup: function(object) {
+      showPostEntered = true;
+      strictEqual(object, post);
+      equal(showPostHandler.context, post);
     }
   };
 
-  var showPostHandler = {
-    additionalHandler: function() {
-      return "additional";
-    },
-
-    serialize: function(params) {
-      deepEqual(params, { id: 1 }, "Serialize should receive the params passed to transitionTo");
-      return params;
-    },
-
+  var postsHandler = {
     deserialize: function(params) {
       return params;
     }
   };
 
-  var indexHandler = {
-    enter: function() {
-      ok(true, "Enter was called in index");
+  var showAllPostsHandler = {
+    deserialize: function(params) {
+      deepEqual(params, {});
+      return {};
     },
 
-    setup: function() {
-      ok(true, "Setup was called in index");
+    serialize: function(object, params) {
+      return {};
     },
-
-    exit: function() {
-      ok(true, "Exit was called in index");
-
-    }
-  }
-
-  handlers = {
-    index: indexHandler,
-    showPost: showPostHandler,
-    additional: additionalHandler
   };
 
-  router.updateURL = function(url) {
-    equal(url, "/posts/1", "The updated URL is correct");
+  var indexHandler = { };
+
+  var postIndexHandler = { };
+
+  handlers = {
+    showPost: showPostHandler,
+    post: postsHandler,
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler,
+    index: indexHandler
+  };
+
+  var currentPath = "";
+  router.didTransition = function(infos) {
+    currentPath = routePath(infos);
   };
 
   router.handleURL("/index");
-  router.transitionTo('showPost', { id: 1 });
+  equal(currentPath, "index", "index was entered");
+
+  router.handleURL("/posts/1");
+  equal(currentPath, "showPost", "showPosts was entered");
+
+  indexHandler.transitions = {
+    'from *': function(e) {
+      ok(true, "transition handler was called");
+      e.preventTransition();
+    }
+  };
+
+  router.handleURL("/index");
+  equal(currentPath, "showPost", "handleURL transition to index was prevented");
+  router.transitionTo("index");
+  equal(currentPath, "showPost", "transitionTo transition to index was prevented");
+
+  indexHandler.transitions = {};
+
+  router.transitionTo("index");
+  equal(currentPath, "index", "transitioned to index after transition handler removed");
+
+  indexHandler.transitions = {
+    'to *': function(e) {
+      ok(true, "transition handler was called");
+    }
+  };
+
+  router.handleURL("/posts/1");
+  equal(currentPath, "showPost", "transitioned to showPost after non-preventing handler");
+
+  showPostHandler.transitions = {
+    'to index': function(e) {
+      ok(true, "transition handler was called");
+      e.preventTransition();
+    }
+  };
+
+  router.transitionTo("index");
+  equal(currentPath, "showPost", "transition to index was prevented");
+
+  indexHandler.transitions = {
+    'to borf': function(e) {
+      ok(false, "transition handler should not have been called");
+      e.preventTransition();
+    }
+  };
+
+  router.handleURL("/posts/1");
+  equal(currentPath, "showPost", "transitioned to showPost after non-existent borf handler");
+
+  postIndexHandler.transitions = {
+    'to *': function(e) {
+      e.preventTransition();
+    }
+  };
+
+  router.handleURL("/posts/all");
+  equal(currentPath, "postIndex.showAllPosts", "transitioned to show all posts even with to * handler on post");
+
+  router.handleURL("/index");
+  equal(currentPath, "postIndex.showAllPosts", "transition to index was prevented");
+
+  start();
 });
+
+asyncTest("transitions can be redirected", function() {
+  expect(8);
+
+  var post = { post: true };
+
+  var showPostEntered = false;
+  var showPostHandler = {
+    deserialize: function(params) {
+      deepEqual(params, { id: "1" });
+      return post;
+    },
+
+    setup: function(object) {
+      showPostEntered = true;
+      strictEqual(object, post);
+      equal(showPostHandler.context, post);
+    }
+  };
+
+  var postsHandler = {
+    deserialize: function(params) {
+      return params;
+    }
+  };
+
+  var showAllPostsHandler = {
+    deserialize: function(params) {
+      deepEqual(params, {});
+      return {};
+    },
+
+    serialize: function(object, params) {
+      return {};
+    },
+  };
+
+  var indexHandler = { };
+
+  var postIndexHandler = { };
+
+  handlers = {
+    showPost: showPostHandler,
+    post: postsHandler,
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler,
+    index: indexHandler
+  };
+
+  var currentPath = "";
+  router.didTransition = function(infos) {
+    currentPath = routePath(infos);
+  };
+
+  router.handleURL("/index");
+  equal(currentPath, "index", "index was entered");
+
+  indexHandler.transitions = {
+    'to showPost': function(e) {
+      ok(true, "transition handler was called");
+      e.transitionTo("showAllPosts");
+    }
+  };
+
+  router.handleURL("/posts/1");
+  equal(currentPath, "postIndex.showAllPosts", "was redirected to showAllPosts");
+
+  indexHandler.transitions = {
+    'from showAllPosts': function(e) {
+      ok(true, "transition handler was called");
+      e.transitionTo("showPost", post);
+    }
+  };
+
+  router.handleURL("/index");
+  equal(currentPath, "showPost", "was redirected to showPost");
+  start();
+});
+
+asyncTest("getting the context from getContext()", function() {
+  expect(6);
+
+  var post = { post: true };
+
+  var showPostHandler = {
+    deserialize: function(params) {
+      deepEqual(params, { id: "1" });
+      return post;
+    },
+
+    setup: function(object) {
+      strictEqual(object, post);
+      equal(showPostHandler.context, post);
+    }
+  };
+
+  var indexHandler = { };
+
+  handlers = {
+    showPost: showPostHandler,
+    index: indexHandler
+  };
+
+  var currentPath = "";
+  router.didTransition = function(infos) {
+    currentPath = routePath(infos);
+  };
+
+  router.handleURL("/index");
+  equal(currentPath, "index", "index was entered");
+
+  indexHandler.transitions = {
+    'to showPost': function(e) {
+      e.getContext();
+    }
+  };
+
+  throws(function() {
+    router.handleURL("/posts/1");
+  }, /getContext\(\) can only be called from within destination routes/);
+
+  indexHandler.transitions = {};
+
+  showPostHandler.transitions = {
+    'from *': function(e) {
+      deepEqual(e.getContext(), post, "getContext() returned post");
+    }
+  };
+
+  router.handleURL("/posts/1");
+
+  start();
+});
+
+asyncTest("URL-less routes", function() {
+  expect(8);
+
+  var post = { post: true };
+
+  var showPostEntered = false;
+  var showPostHandler = {
+    deserialize: function(params) {
+      deepEqual(params, { id: "1" });
+      return post;
+    },
+
+    setup: function(object) {
+      showPostEntered = true;
+      strictEqual(object, post);
+      equal(showPostHandler.context, post);
+    }
+  };
+
+  var postsHandler = {
+    deserialize: function(params) {
+      return params;
+    }
+  };
+
+  var showAllPostsHandler = {
+    deserialize: function(params) {
+      deepEqual(params, {});
+      return {};
+    },
+
+    serialize: function(object, params) {
+      return {};
+    },
+  };
+
+  var indexHandler = { };
+
+  var postIndexHandler = { };
+
+  handlers = {
+    showPost: showPostHandler,
+    post: postsHandler,
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler,
+    index: indexHandler
+  };
+
+  var currentPath = "";
+  router.didTransition = function(infos) {
+    currentPath = routePath(infos);
+  };
+
+  router.handleURL("/index");
+  equal(currentPath, "index", "index was entered");
+
+  router.handleURL("/posts/1");
+  equal(currentPath, "showPost", "postShow was entered");
+
+  indexHandler.notAccessibleByURL = true;
+  throws(function() {
+    router.handleURL("/index");
+  }, /no route matched/i);
+
+  equal(currentPath, "showPost", "stayed on postShow");
+
+  router.transitionTo("index");
+
+  equal(currentPath, "index", "could transition into index via transitionTo");
+
+  start();
+});
+
+
+asyncTest("updateURLImmediately", function() {
+  var post = { post: true, id: 123 };
+  var events = [];
+
+  var showPostHandler = {
+    serialize: function(object, params) {
+      deepEqual(params, ['id'], 'showPostHandler should get correct serialize');
+      return { id: object.id };
+    }
+  }
+
+  var indexHandler = { };
+
+  var currentURL = "";
+  router.updateURL = function(url) { 
+    currentURL = url;
+  };
+
+  var count = 0;
+  router.didTransition = function(infos) {
+    count++;
+  };
+
+  handlers = {
+    index: indexHandler,
+    showPost: showPostHandler
+  }
+
+  router.transitionTo('index');
+  equal(currentURL, "/index", "index was entered");
+  equal(count, 1);
+
+  router.transitionTo('showPost', post);
+  equal(currentURL, "/posts/123", "showPost was entered and the URL updated immediately");
+  equal(count, 2);
+
+  router.transitionTo('index');
+  equal(currentURL, "/index", "index was entered");
+  equal(count, 3);
+
+  var promise = new RSVP.Promise();
+  promise.id = 123;
+  router.transitionTo('showPost', promise);
+  equal(currentURL, "/posts/123", "showPost was entered with a promise with ID info and therefore URL updated immediately");
+  equal(count, 4);
+
+  router.transitionTo('index');
+  equal(currentURL, "/index", "index was entered");
+  equal(count, 5);
+
+  promise = new RSVP.Promise();
+  router.transitionTo('showPost', promise);
+  equal(currentURL, "/index", "showPost was entered but URL wasn't immediately updated due to missing ID and failed serialize");
+  equal(count, 6);
+
+  promise.then(afterFirstPromiseResolved);
+  promise.resolve(post);
+
+  function afterFirstPromiseResolved() {
+    equal(currentURL, "/posts/123", "URL was updated after promises resolved");
+
+    router.updateURLImmediately = true;
+
+    router.transitionTo('index');
+    equal(currentURL, "/index", "index was entered");
+    equal(count, 7);
+
+    throws(function() {
+      router.transitionTo('showPost', new RSVP.Promise());
+    }, /Could not generate URL/);
+
+    router.updateURLImmediately = false;
+
+    equal(currentURL, "/index", "URL is still on index");
+
+    router.transitionTo('showPost', post);
+    equal(currentURL, "/posts/123", "showPost was entered and the URL updated immediately");
+    equal(count, 8);
+
+    router.transitionTo('index');
+    equal(currentURL, "/index", "index was entered and URL updated immediately");
+    equal(count, 9);
+
+    router.updateURLImmediately = false;
+
+    var promise = new RSVP.Promise();
+    promise.id = 123;
+    router.transitionTo('showPost', promise);
+    equal(currentURL, "/index", "showPost was entered with a promise with ID info but URL didn't update immediately because updateURLImmediately is false");
+    equal(count, 10);
+
+    promise.then(afterFinalPromiseResolved);
+    promise.resolve(post);
+  }
+
+  function afterFinalPromiseResolved() {
+    equal(currentURL, "/posts/123", "URL was updated after promises resolved");
+    start();
+  }
+});
+
