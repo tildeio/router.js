@@ -564,6 +564,12 @@ test("it aborts transitioning if a handler's setup returns false", function() {
     allPosts: allPostsHandler
   };
 
+  router.didTransition = function() {
+    start();
+
+    ok(false, "the router's didTransition hook should not be called if transitioning is aborted");
+  }
+
   router.handleURL('/posts/all');
 });
 
