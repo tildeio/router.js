@@ -486,7 +486,7 @@
       }
     });
 
-    if (router.didTransition) {
+    if (!aborted && router.didTransition) {
       router.didTransition(handlerInfos);
     }
   }
