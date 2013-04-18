@@ -565,12 +565,112 @@ test("it aborts transitioning if a handler's setup returns false", function() {
   };
 
   router.didTransition = function() {
-    start();
-
     ok(false, "the router's didTransition hook should not be called if transitioning is aborted");
   }
 
   router.handleURL('/posts/all');
+});
+
+test("checking whether a route is active should return true if the router is in the process of routing to it", function() {
+  expect(2);
+
+  router = new Router();
+
+  router.map(function(match) {
+    match("/").to('index');
+    match("/posts/").to('posts', function(match) {
+      match("/").to('postsIndex');
+      match("/new").to('postsNew');
+    });
+  });
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  router.updateURL = function() { };
+
+  var indexHandler = {};
+
+  var postsHandler = {
+    setup: function() {
+      ok(router.isActive('postsIndex'), "current target should be active");
+      ok(!router.isActive('postsNew', "non-current target should not be active"));
+    }
+  }
+
+  var postsIndexHandler = {};
+  var postsNewHandler = {};
+
+  handlers = {
+    index: indexHandler,
+    posts: postsHandler,
+    postsIndex: postsIndexHandler,
+    postsNew: postsNewHandler
+  };
+
+  router.handleURL('/posts/');
+});
+
+test("transitioning inside a handler's setup to a different leaf node should cause the parent to be setup again", function() {
+  expect(2);
+
+  router = new Router();
+
+  router.map(function(match) {
+    match("/").to('index');
+    match("/posts/").to('posts', function(match) {
+      match("/").to('postsIndex');
+      match("/new").to('postsNew');
+    });
+  });
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  router.updateURL = function() { };
+
+  var indexHandler = {};
+
+  var callCount = 0;
+  var postsHandler = {
+    setup: function() {
+      callCount++;
+
+      if (!router.isActive('postsNew')) {
+        router.transitionTo('postsNew');
+        return false;
+      }
+    },
+
+    exit: function() {
+      ok(false, "parent should not be exited");
+    }
+  }
+
+  var postsIndexHandler = {
+    setup: function() {
+      ok(false, "child setup is not invoked if parent redirects");
+    }
+  };
+
+  var postsNewHandler = {
+    setup: function() {
+      ok(true, "setup of redirect target is invoked");
+    }
+  };
+
+  handlers = {
+    index: indexHandler,
+    posts: postsHandler,
+    postsIndex: postsIndexHandler,
+    postsNew: postsNewHandler
+  };
+
+  router.handleURL('/posts/');
+
+  equal(callCount, 2,  "parent handler gets called twice if it aborts the first attempt");
 });
 
 test("replaceWith calls replaceURL", function() {
