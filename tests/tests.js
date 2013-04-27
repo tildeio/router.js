@@ -1183,6 +1183,74 @@ asyncTest("events can be targeted at a parent handler", function() {
   router.trigger("expand");
 });
 
+asyncTest("events can bubble up to a parent handler via `return true`", function() {
+  expect(4);
+
+  var postIndexHandler = {
+    enter: function() {
+      ok(true, "The post index handler was entered");
+    },
+
+    events: {
+      expand: function() {
+        equal(this, postIndexHandler, "The handler is the `this` in events");
+        start();
+      }
+    }
+  };
+
+  var showAllPostsHandler = {
+    enter: function() {
+      ok(true, "The show all posts handler was entered");
+    },
+    events: {
+      expand: function() {
+        equal(this, showAllPostsHandler, "The handler is the `this` in events");
+        return true;
+      }
+    }
+  }
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler
+  };
+
+  router.handleURL("/posts");
+  router.trigger("expand");
+});
+
+asyncTest("handled-then-bubbled events don't throw an exception if uncaught by parent route", function() {
+  expect(3);
+
+  var postIndexHandler = {
+    enter: function() {
+      ok(true, "The post index handler was entered");
+    }
+  };
+
+  var showAllPostsHandler = {
+    enter: function() {
+      ok(true, "The show all posts handler was entered");
+    },
+    events: {
+      expand: function() {
+        equal(this, showAllPostsHandler, "The handler is the `this` in events");
+        start();
+        return true;
+      }
+    }
+  }
+
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler
+  };
+
+  router.handleURL("/posts");
+  router.trigger("expand");
+});
+
 asyncTest("events only fire on the closest handler", function() {
   expect(5);
 
