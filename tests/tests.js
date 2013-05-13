@@ -1703,3 +1703,31 @@ test("A final handler can specify an additional non-routable handler", function(
   router.handleURL("/index");
   router.transitionTo('showPost', { id: 1 });
 });
+
+test("reset exits and clears the current and target route handlers", function() {
+  var postIndexExited = false;
+  var showAllPostsExited = false;
+
+  var postIndexHandler = {
+    exit: function() {
+      postIndexExited = true;
+    }
+  };
+  var showAllPostsHandler = {
+    exit: function() {
+      showAllPostsExited = true;
+    }
+  };
+  handlers = {
+    postIndex: postIndexHandler,
+    showAllPosts: showAllPostsHandler
+  };
+
+  router.handleURL("/posts/all");
+  router.reset();
+
+  ok(postIndexExited, "Post index handler did not exit");
+  ok(showAllPostsExited, "Show all posts handler did not exit");
+  equal(router.currentHandlerInfos, null, "currentHandlerInfos should be null");
+  equal(router.targetHandlerInfos, null, "targetHandlerInfos should be null");
+});
