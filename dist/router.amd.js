@@ -80,7 +80,12 @@ define("router",
         var results = this.recognizer.recognize(url);
 
         if (!results) {
-          throw new Error("No route matched the URL '" + url + "'");
+          var handler = this.getHandler('error');
+          if (handler)  {
+            results = [{handler: 'error', params: {}, isDynamic: false}];
+          } else {
+            throw new Error("No route matched the URL '" + url + "'");
+          }
         }
 
         collectObjects(this, results, 0, []);

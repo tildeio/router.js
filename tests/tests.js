@@ -41,10 +41,60 @@ test("Mapping adds named routes to the end", function() {
   equal(url, "/posts");
 });
 
-test("Handling an invalid URL raises an exception", function() {
+test("Handling an invalid URL without error handler raises an exception ", function() {
+  handlers = {};
   throws(function() {
     router.handleURL("/unknown");
   }, /no route matched/i);
+});
+
+asyncTest("Handling an invalid URL with an error handler, it enters the error state", function() {
+
+  expect(1);
+
+  var errorHandler = {
+    setup: function() {
+      ok(true, "error was called");
+      start();
+    }
+  }
+
+  handlers = {error: errorHandler};
+
+  router.handleURL("/unknown");
+});
+
+asyncTest("When transitioned via URL change to an unknow route, triggers exit callbacks on the current route", function() {
+  expect(3);
+
+  var indexHandler = {
+
+    enter: function() {
+
+      ok(true, "The index handler was entered only once");
+      setTimeout(function() {
+        router.handleURL("/unknown");
+      }, 0);
+    },
+
+    exit: function() {
+      ok(true, "The index handler was exited");
+    }
+  };
+
+  var errorHandler = {
+    setup: function() {
+      ok(true, "error was entered");
+      start();
+    }
+  }
+
+  handlers = {
+    index: indexHandler,
+    error: errorHandler
+  };
+
+  router.handleURL("/index");
 });
 
 function routePath(infos) {
