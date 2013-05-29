@@ -1725,6 +1725,7 @@ test("reset exits and clears the current and target route handlers", function() 
 
   router.handleURL("/posts/all");
   router.reset();
+  router.reset(); // two resets back to back should work
 
   ok(postIndexExited, "Post index handler did not exit");
   ok(showAllPostsExited, "Show all posts handler did not exit");
