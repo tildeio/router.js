@@ -1,5 +1,7 @@
 # router.js
 
+[![Build Status](https://travis-ci.org/tildeio/router.js.png?branch=master)](https://travis-ci.org/tildeio/router.js)
+
 `router.js` is a lightweight JavaScript library (under 1k!)
 that builds on
 [`route-recognizer`](https://github.com/tildeio/route-recognizer)
