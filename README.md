@@ -8,6 +8,14 @@ to provide an API for handling routes.
 In keeping with the Unix philosophy, it is a modular library
 that does one thing and does it well.
 
+## Downloads
+
+Passing builds of the 'master' branch will be automatically pubilshed to S3.
+You can find them on the [builds page][builds-page].
+
+**Note**: The S3 files are provided for developer convenience, but you should
+not use the S3 URLs to host `router.js` in production.
+
 ## Usage
 
 Create a new router:
@@ -461,3 +469,5 @@ before a first official release:
   or parent handlers.~~
 
 `router.js` will be the basis for the router in Ember.js.
+
+[builds-page]: http://routerjs.builds.emberjs.com.s3-website-us-east-1.amazonaws.com/index.html
