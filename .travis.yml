@@ -1,0 +1,15 @@
+---
+env:
+  global:
+  - S3_BUCKET_NAME=router.js.builds.emberjs.com
+  - secure: ! 'TafdUQgYdnuj20fSRX9pv8hGsPG5PkNs8Nq+j5IYoZnD2FSNFdzq1o9mwEsS
+
+      KxhHOGDn/ZVw+GzxfZksLr1CfdwqbXtUPDrpHIG1JHrZ3cbYQ9U6vY7uY5GJ
+
+      xypZPhqzHkN8D4RG+NY7mbKtxYsMsH/G15u6qsquixTyWe1VlIw='
+  - secure: ! 'YG1i+TUkEmTpFxwgNjkE4AYrzEdM+1QAX/cRSrno8xJoo3dSQMoFxtF46V6B
+
+      4yqfe/+pNQtUjC8P0ooOxeuE4QLQ8GoWNpPwvsYeXC+jIcT/YZWTTtAjS7ss
+
+      tThLHIl+R69ejdQggC2WbaN8Co20CvsdtW5v7ZOBoaW4+DZLBAI='
+after_success: 'bundle exec rake publish'
