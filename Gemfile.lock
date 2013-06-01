@@ -17,14 +17,22 @@ GIT
 GEM
   remote: https://rubygems.org/
   specs:
+    aws-sdk (1.11.0)
+      json (~> 1.4)
+      nokogiri (>= 1.4.4)
+      uuidtools (~> 2.1)
     colored (1.2)
+    json (1.8.0)
+    nokogiri (1.5.9)
     rake (10.0.2)
     thor (0.16.0)
+    uuidtools (2.1.4)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
+  aws-sdk
   js_module_transpiler!
   qunit-cli-runner!
   rake
