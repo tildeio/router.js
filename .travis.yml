@@ -1,7 +1,7 @@
 ---
 env:
   global:
-  - S3_BUCKET_NAME=router.js.builds.emberjs.com
+  - S3_BUCKET_NAME=routerjs.builds.emberjs.com
   - secure: ! 'TafdUQgYdnuj20fSRX9pv8hGsPG5PkNs8Nq+j5IYoZnD2FSNFdzq1o9mwEsS
 
       KxhHOGDn/ZVw+GzxfZksLr1CfdwqbXtUPDrpHIG1JHrZ3cbYQ9U6vY7uY5GJ
