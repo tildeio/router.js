@@ -2,9 +2,10 @@
 
 [![Build Status](https://travis-ci.org/tildeio/router.js.png?branch=master)](https://travis-ci.org/tildeio/router.js)
 
-`router.js` is a lightweight JavaScript library (under 1k!)
+`router.js` is a lightweight JavaScript library 
 that builds on
 [`route-recognizer`](https://github.com/tildeio/route-recognizer)
+and [`rsvp`](https://github.com/tildeio/rsvp.js)
 to provide an API for handling routes.
 
 In keeping with the Unix philosophy, it is a modular library
@@ -40,7 +41,7 @@ Add your handlers:
 
 ```javascript
 router.handlers.showPost = {
-  deserialize: function(params) {
+  model: function(params) {
     return App.Post.find(params.id);
   },
 
@@ -50,7 +51,7 @@ router.handlers.showPost = {
 };
 
 router.handlers.postIndex = {
-  deserialize: function(params) {
+  model: function(params) {
     return App.Post.findAll();
   },
 
@@ -76,8 +77,8 @@ urlWatcher.onUpdate(function(url) {
 ```
 
 The router will parse the URL for parameters and then pass
-the parameters into the handler's `deserialize` method. It
-will then pass the return value of `deserialize` into the
+the parameters into the handler's `model` method. It
+will then pass the return value of `model` into the
 `setup` method. These two steps are broken apart to support
 async loading via **promises** (see below).
 
@@ -97,7 +98,7 @@ method to extract the parameters. Let's flesh out the
 router.handlers.showPost = {
   // when coming in from a URL, convert parameters into
   // an object
-  deserialize: function(params) {
+  model: function(params) {
     return App.Post.find(params.id);
   },
 
@@ -153,19 +154,19 @@ top-level objects will always be in sync with the URL,
 no matter whether you are extracting the object from the
 URL or if you already have the object.
 
-## Asynchronous Loading
+## Asynchronous Transitions
 
 When extracting an object from the parameters, you may
 need to make a request to the server before the object
 is ready.
 
 You can easily achieve this by returning a **promise**
-from your `deserialize` method. Because jQuery's Ajax
+from your `model` method. Because jQuery's Ajax
 methods already return promises, this is easy!
 
 ```javascript
 router.handlers.showPost = {
-  deserialize: function(params) {
+  model: function(params) {
     return $.getJSON("/posts/" + params.id).then(function(json) {
       return new App.Post(json.post);
     });
@@ -181,23 +182,27 @@ router.handlers.showPost = {
 };
 ```
 
-You can register a `loading` handler for `router.js` to
-call while it waits for promises to resolve:
+Because transitions so often involve the resolution of
+asynchronous data, all transitions in `router.js`,
+are performed asynchronously, leveraging the
+[RSVP promise library](https://github.com/tildeio/rsvp.js).
+For instance, the value returned from a call
+to `transitionTo` is a `Transition` object with a
+`then` method, adhering to the Promise API. Any code
+that you want to run after the transition has finished
+must be placed in the success handler of `.then`, e.g.:
 
 ```javascript
-router.handlers.loading = {
-  // no deserialize or serialize because this is not
-  // a handler for a URL
-
-  setup: function() {
-    // show a loading UI
-  }
-}
+router.transitionTo('showPost', post).then(function() {
+  // Fire a 'displayWelcomeBanner' event on the
+  // newly entered route.
+  router.send('displayWelcomeBanner');
+});
 ```
 
 ## Nesting
 
-You can nest routes, and each level of nesting can have
+You can nested routes, and each level of nesting can have
 its own handler.
 
 If you move from one child of a parent route to another,
@@ -215,7 +220,7 @@ router.map(function(match) {
 });
 
 router.handlers.posts = {
-  deserialize: function() {
+  model: function() {
     return $.getJSON("/posts").then(function(json) {
       return App.Post.loadPosts(json.posts);
     });
@@ -237,7 +242,7 @@ router.handlers.postIndex = {
 };
 
 router.handlers.showPost = {
-  deserialize: function(params) {
+  model: function(params) {
     return $.getJSON("/posts/" + params.id, function(json) {
       return new App.Post(json.post);
     });
@@ -264,7 +269,7 @@ the inner route.
 
 Routes at any nested level can deserialize parameters into a
 promise. The router will remain in the `loading` state until
-all promises are resolved. If a parent state deserializes
+all promises are resolved. If a parent state models
 the parameters into a promise, that promise will be resolved
 before a child route is handled.
 
@@ -273,13 +278,63 @@ before a child route is handled.
 When the URL changes and a handler becomes active, `router.js`
 invokes a number of callbacks:
 
-* **deserialize** on all recognized handlers, if the transition
-  occurred through the URL
-* **serialize** on as many handlers as necessary to consume
-  the passed in contexts, if the transition occurred through
-  `transitionTo`. A context is consumed if the handler's
-  route fragment has a dynamic segment and the handler has a
-  deserialize method.
+#### Model Resolution / Entry Validation Callbacks
+
+Before any routes are entered or exited, `router.js` first 
+attempts to resolve all of the model objects for destination 
+routes while also validating whether the destination routes
+can be entered at this time. To do this, `router.js` makes
+use of the `model`, `beforeModel`, and `afterModel` hooks.
+
+The value returned from the `model` callback is the model
+object that will eventually be supplied to `setup` 
+(described below) once all other routes have finished 
+validating/resolving their models. It is passed a hash 
+of URL parameters specific to its route that can be used
+to resolve the model.
+
+```javascript
+router.handlers.showPost = {
+  model: function(params, transition) {
+    return App.Post.find(params.id);
+  }
+```
+
+`model` will be called for every newly entered route,
+except for when a model is explicitly provided as an 
+argument to `transitionTo`. 
+
+There are two other hooks you can use that will always
+fire when attempting to enter a route:
+
+* **beforeModel** is called before `model` is called, 
+  or before the passed-in model is attempted to be 
+  resolved. It receives a `transition` as its sole
+  parameter (see below).
+* **afterModel** is called after `after` is called,
+  or after the passed-in model has resolved. It 
+  receives both the resolved model and `transition`
+  as its two parameters.
+
+If the values returned from `model`, `beforeModel`,
+or `afterModel` are promises, the transition will
+wait until the promise resolves (or rejects) before
+proceeding with (or aborting) the transition. 
+
+#### `serialize`
+
+`serialize` should be implemented on as many handlers 
+as necessary to consume the passed in contexts, if the 
+transition occurred through `transitionTo`. A context 
+is consumed if the handler's route fragment has a 
+dynamic segment and the handler has a model method.
+
+#### Entry, update, exit hooks.
+
+The following hooks are called after all 
+model resolution / route validation hooks
+have resolved:
+
 * **enter** only when the handler becomes active, not when
   it remains active after a change
 * **setup** when the handler becomes active, or when the
@@ -310,16 +365,22 @@ followed by the URL segment it handles.
 Consider the following transitions:
 
 1. A URL transition to `/posts/1`.
-   1. Triggers the `deserialize` callback on the
-      `index`, `posts`, and `showPost` handlers
+   1. Triggers the `beforeModel`, `model`, `afterModel` 
+      callbacks on the `index`, `posts`, and `showPost`
+      handlers
    2. Triggers the `enter` callback on the same
    3. Triggers the `setup` callback on the same
 2. A direct transition to `newPost`
-   1. Triggers the `exit` callback on `showPost`
-   2. Triggers the `enter` callback on `newPost`
-   3. Triggers the `setup` callback on `newPost`
+   1. Triggers the `beforeModel`, `model`, `afterModel` 
+      callbacks on the `newPost`.
+   2. Triggers the `exit` callback on `showPost`
+   3. Triggers the `enter` callback on `newPost`
+   4. Triggers the `setup` callback on `newPost`
 3. A direct transition to `about` with a specified
    context object
+   1. Triggers `beforeModel`, resolves the specified
+      context object if it's a prmise, and triggers
+      `afterModel`.
    1. Triggers the `exit` callback on `newPost`
       and `posts`
    2. Triggers the `serialize` callback on `about`
@@ -434,6 +495,83 @@ first argument.
 This allows you to define general event handlers higher
 up in the router's nesting that you override at more
 specific routes.
+
+If you would like an event to continue bubbling after it
+has been handled, you can trigger this behavior by returning
+true from the event handler.
+
+## Built-in events
+
+There are a few built-in events pertaining to transitions that you
+can use to customize transition behavior: `willTransition` and
+`error`.
+
+### `willTransition`
+
+The `willTransition` event is fired at the beginning of any
+attempted transition with a `Transition` object as the sole
+argument. This event can be used for aborting, redirecting,
+or decorating the transition from the currently active routes.
+
+```js
+var formRoute = {
+  events: {
+    willTransition: function(transition) {
+      if (!formEmpty() && !confirm("Discard Changes?")) {
+        transition.abort();
+      }
+    }
+  }
+};
+```
+
+You can also redirect elsewhere by calling 
+`this.transitionTo('elsewhere')` from within `willTransition`.
+Note that `willTransition` will not be fired for the
+redirecting `transitionTo`, since `willTransition` doesn't
+fire when there is already a transition underway. If you want
+subsequent `willTransition` events to fire for the redirecting
+transition, you must first explicitly call
+`transition.abort()`.
+
+### `error`
+
+When attempting to transition into a route, any of the hooks
+may throw an error, or return a promise that rejects, at which
+point an `error` event will be fired on the partially-entered
+routes, allowing for per-route error handling logic, or shared
+error handling logic defined on a parent route. 
+
+Here is an example of an error handler that will be invoked
+for rejected promises / thrown errors from the various hooks
+on the route, as well as any unhandled errors from child
+routes:
+
+```js
+var adminRoute = {
+  beforeModel: function() {
+    throw "bad things!";
+    // ...or, equivalently:
+    return RSVP.reject("bad things!");
+  },
+
+  events: {
+    error: function(error, transition) {
+      // Assuming we got here due to the error in `beforeModel`,
+      // we can expect that error === "bad things!",
+      // but a promise model rejecting would also 
+      // call this hook, as would any errors encountered
+      // in `afterModel`. 
+
+      // The `error` hook is also provided the failed
+      // `transition`, which can be stored and later
+      // `.retry()`d if desired.
+
+      router.transitionTo('login');
+    }
+  }
+};
+```
 
 ## Route Recognizer
 

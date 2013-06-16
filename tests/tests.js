@@ -1,4 +1,4 @@
-QUnit.config.testTimeout = 100;
+QUnit.config.testTimeout = 5000;
 
 var router, url, handlers;
 
@@ -8,6 +8,8 @@ module("The router", {
 
     router.map(function(match) {
       match("/index").to("index");
+      match("/about").to("about");
+      match("/faq").to("faq");
       match("/posts", function(match) {
         match("/:id").to("showPost");
         match("/admin/:id").to("admin", function(match) {
@@ -26,12 +28,17 @@ module("The router", {
     });
 
     router.getHandler = function(name) {
-      return handlers[name];
+      return handlers && handlers[name] || {};
     };
 
     router.updateURL = function() { };
   }
 });
+
+function shouldNotHappen(error) {
+  console.error(error.stack);
+  ok(false, "this .then handler should not be called");
+}
 
 test("Mapping adds named routes to the end", function() {
   url = router.recognizer.generate("showPost", { id: 1 });
@@ -41,10 +48,13 @@ test("Mapping adds named routes to the end", function() {
   equal(url, "/posts");
 });
 
-test("Handling an invalid URL raises an exception", function() {
-  throws(function() {
-    router.handleURL("/unknown");
-  }, /no route matched/i);
+asyncTest("Handling an invalid URL returns a rejecting promise", function() {
+
+  router.handleURL("/unknown").then(shouldNotHappen, function(e) {
+    ok(e instanceof Router.UnrecognizedURLError, "rejects with UnrecognizedURLError");
+    ok(e.name, "UnrecognizedURLError", "error.name is UnrecognizedURLError");
+    start();
+  }, shouldNotHappen);
 });
 
 function routePath(infos) {
@@ -57,14 +67,14 @@ function routePath(infos) {
   return path.join(".");
 }
 
-asyncTest("Handling a URL triggers deserialize on the handler and passes the result into the setup method", function() {
+asyncTest("Handling a URL triggers model on the handler and passes the result into the setup method", function() {
   expect(4);
 
   var post = { post: true };
   var posts = { index: true };
 
   var showPostHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       deepEqual(params, { id: "1" });
       return post;
     },
@@ -84,13 +94,12 @@ asyncTest("Handling a URL triggers deserialize on the handler and passes the res
 
   router.didTransition = function(infos) {
     equal(routePath(infos), "showPost");
-    start();
   }
 
-  router.handleURL("/posts/1");
+  router.handleURL("/posts/1").then(start, shouldNotHappen);
 });
 
-test("when transitioning with the same context, setup should only be called once", function() {
+asyncTest("when transitioning with the same context, setup should only be called once", function() {
   var parentSetupCount = 0,
       childSetupCount = 0;
 
@@ -118,7 +127,7 @@ test("when transitioning with the same context, setup should only be called once
       parentSetupCount++;
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       return params;
     }
   };
@@ -135,23 +144,24 @@ test("when transitioning with the same context, setup should only be called once
     postDetails: postDetailsHandler
   };
 
-  router.handleURL('/');
+  router.handleURL('/').then(function() {
+    equal(parentSetupCount, 0, 'precond - parent not setup');
+    equal(childSetupCount, 0, 'precond - parent not setup');
 
-  equal(parentSetupCount, 0, 'precond - parent not setup');
-  equal(childSetupCount, 0, 'precond - parent not setup');
+    return router.transitionTo('postDetails', context);
+  }, shouldNotHappen).then(function() {
+    equal(parentSetupCount, 1, 'after one transition parent is setup once');
+    equal(childSetupCount, 1, 'after one transition child is setup once');
 
-  router.transitionTo('postDetails', context);
-
-  equal(parentSetupCount, 1, 'after one transition parent is setup once');
-  equal(childSetupCount, 1, 'after one transition child is setup once');
-
-  router.transitionTo('postDetails', context);
-
-  equal(parentSetupCount, 1, 'after two transitions, parent is still setup once');
-  equal(childSetupCount, 1, 'after two transitions, child is still setup once');
+    return router.transitionTo('postDetails', context);
+  }, shouldNotHappen).then(function() {
+    equal(parentSetupCount, 1, 'after two transitions, parent is still setup once');
+    equal(childSetupCount, 1, 'after two transitions, child is still setup once');
+    start();
+  }, shouldNotHappen);
 });
 
-test("when transitioning to a new parent and child state, the parent's context should be available to the child's deserialize", function() {
+asyncTest("when transitioning to a new parent and child state, the parent's context should be available to the child's model", function() {
   var contexts = [];
 
   router = new Router();
@@ -172,15 +182,15 @@ test("when transitioning to a new parent and child state, the parent's context s
   var indexHandler = { };
 
   var postHandler = {
-    deserialize: function(params) {
-      return params;
+    model: function(params, transition) {
+      return contexts.post;
     }
   };
 
   var postDetailsHandler = {
     name: 'postDetails',
-    deserialize: function(params) {
-      contexts.push(postHandler.context);
+    afterModel: function(model, transition) {
+      contexts.push(transition.resolvedModels.post);
     }
   };
 
@@ -190,18 +200,21 @@ test("when transitioning to a new parent and child state, the parent's context s
     postDetails: postDetailsHandler
   };
 
-  router.handleURL('/');
+  router.handleURL('/').then(function() {
 
-  // This is a crucial part of the test
-  // In some cases, calling `generate` was preventing `deserialize` from being called
-  router.generate('postDetails', { id: 1 });
+    // This is a crucial part of the test
+    // In some cases, calling `generate` was preventing `model` from being called
+    router.generate('postDetails', { id: 1 });
 
-  router.transitionTo('postDetails', { id: 1 });
-
-  deepEqual(contexts, [{ id: 1 }], 'parent context is available');
+    return router.transitionTo('postDetails', { id: 1 });
+  }, shouldNotHappen).then(function() {
+    deepEqual(contexts, [{ id: 1 }], 'parent context is available');
+    start();
+  }, shouldNotHappen);
 });
 
-test("A delegate provided to router.js is passed along to route-recognizer", function() {
+
+asyncTest("A delegate provided to router.js is passed along to route-recognizer", function() {
   router = new Router();
 
   router.delegate = {
@@ -236,27 +249,28 @@ test("A delegate provided to router.js is passed along to route-recognizer", fun
     return {};
   }
 
-  router.handleURL("/posts");
-
-  deepEqual(handlers, [ "application", "application", "posts", "posts", "posts.index", "posts.index", "loading" ]);
+  router.handleURL("/posts").then(function() {
+    deepEqual(handlers, [ "application", "posts", "posts.index", "application", "posts", "posts.index" ]);
+    start();
+  });
 });
 
-asyncTest("Handling a nested URL triggers each handler", function() {
-  expect(31);
+asyncTest("handleURL: Handling a nested URL triggers each handler", function() {
+  expect(28);
 
   var posts = [];
   var allPosts = { all: true };
   var popularPosts = { popular: true };
-  var amazingPosts = { filtered: "amazing" };
-  var sadPosts = { filtered: "sad" };
+  var amazingPosts = { id: "amazing" };
+  var sadPosts = { id: "sad" };
 
   var counter = 0;
 
   var postIndexHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       // this will always get called, since it's at the root
       // of all of the routes tested here
-      deepEqual(params, {}, "params should be empty in postIndexHandler#deserialize");
+      deepEqual(params, {}, "params should be empty in postIndexHandler#model");
       return posts;
     },
 
@@ -271,13 +285,13 @@ asyncTest("Handling a nested URL triggers each handler", function() {
   };
 
   var showAllPostsHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       if (counter > 0 && counter < 4) {
-        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showAllPostsHandler#deserialize");
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showAllPostsHandler#model");
       }
 
       if (counter < 4) {
-        deepEqual(params, {}, "params should be empty in showAllPostsHandler#deserialize");
+        deepEqual(params, {}, "params should be empty in showAllPostsHandler#model");
         return allPosts;
       } else {
         ok(false, "Should not get here");
@@ -296,11 +310,11 @@ asyncTest("Handling a nested URL triggers each handler", function() {
   };
 
   var showPopularPostsHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       if (counter < 3) {
         ok(false, "Should not get here");
       } else if (counter === 3) {
-        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showPopularPostsHandler#deserialize");
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showPopularPostsHandler#model");
         deepEqual(params, {}, "params should be empty in showPopularPostsHandler#serialize");
         return popularPosts;
       } else {
@@ -320,16 +334,16 @@ asyncTest("Handling a nested URL triggers each handler", function() {
   };
 
   var showFilteredPostsHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       if (counter < 4) {
         ok(false, "Should not get here");
       } else if (counter === 4) {
-        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showFilteredPostsHandler#deserialize");
-        deepEqual(params, { filter_id: 'amazing' }, "params should be { filter_id: 'amazing' } in showFilteredPostsHandler#deserialize");
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be set up in showFilteredPostsHandler#model");
+        deepEqual(params, { filter_id: 'amazing' }, "params should be { filter_id: 'amazing' } in showFilteredPostsHandler#model");
         return amazingPosts;
       } else if (counter === 5) {
-        equal(postIndexHandler.context, posts, "postIndexHandler context should be posts in showFilteredPostsHandler#deserialize");
-        deepEqual(params, { filter_id: 'sad' }, "params should be { filter_id: 'sad' } in showFilteredPostsHandler#deserialize");
+        equal(postIndexHandler.context, posts, "postIndexHandler context should be posts in showFilteredPostsHandler#model");
+        deepEqual(params, { filter_id: 'sad' }, "params should be { filter_id: 'sad' } in showFilteredPostsHandler#model");
         return sadPosts;
       } else {
         ok(false, "Should not get here");
@@ -354,11 +368,6 @@ asyncTest("Handling a nested URL triggers each handler", function() {
 
   var started = false;
 
-  // Test that didTransition gets called
-  router.didTransition = function(infos) {
-    if (started) { start(); }
-  }
-
   handlers = {
     postIndex: postIndexHandler,
     showAllPosts: showAllPostsHandler,
@@ -366,30 +375,33 @@ asyncTest("Handling a nested URL triggers each handler", function() {
     showFilteredPosts: showFilteredPostsHandler
   };
 
-  router.handleURL("/posts");
-
-  counter++;
-
-  router.handleURL("/posts/all");
-
-  counter++;
-
-  router.handleURL("/posts");
-
-  counter++;
-
-  router.handleURL("/posts/popular");
-
-  counter++;
-
-  router.handleURL("/posts/filter/amazing");
-
-  counter++;
-
-  router.handleURL("/posts/filter/sad");
+  router.transitionTo("/posts").then(function() {
+    ok(true, "1: Finished, trying /posts/all");
+    counter++;
+    return router.transitionTo("/posts/all");
+  }, shouldNotHappen).then(function() {
+    ok(true, "2: Finished, trying /posts");
+    counter++;
+    return router.transitionTo("/posts");
+  }, shouldNotHappen).then(function() {
+    ok(true, "3: Finished, trying /posts/popular");
+    counter++;
+    return router.transitionTo("/posts/popular");
+  }, shouldNotHappen).then(function() {
+    ok(true, "4: Finished, trying /posts/filter/amazing");
+    counter++;
+    return router.transitionTo("/posts/filter/amazing");
+  }, shouldNotHappen).then(function() {
+    ok(true, "5: Finished, trying /posts/filter/sad");
+    counter++;
+    return router.transitionTo("/posts/filter/sad");
+  }, shouldNotHappen).then(function() {
+    ok(true, "6: Finished!");
+    start();
+  }, shouldNotHappen);
 });
 
-test("it can handle direct transitions to named routes", function() {
+asyncTest("it can handle direct transitions to named routes", function() {
   var posts = [];
   var allPosts = { all: true };
   var popularPosts = { popular: true };
@@ -397,7 +409,7 @@ test("it can handle direct transitions to named routes", function() {
   var sadPosts = { filter: "sad" };
 
   postIndexHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       return allPosts;
     },
 
@@ -411,8 +423,8 @@ test("it can handle direct transitions to named routes", function() {
   };
 
   showAllPostsHandler = {
-    deserialize: function(params) {
-      deepEqual(params, {});
+    model: function(params) {
+      //ok(!params, 'params is falsy for non dynamic routes');
       return allPosts;
     },
 
@@ -426,8 +438,7 @@ test("it can handle direct transitions to named routes", function() {
   };
 
   showPopularPostsHandler = {
-    deserialize: function(params) {
-      deepEqual(params, {});
+    model: function(params) {
       return popularPosts;
     },
 
@@ -441,7 +452,8 @@ test("it can handle direct transitions to named routes", function() {
   };
 
   showFilteredPostsHandler = {
-    deserialize: function(params) {
+    model: function(params) {
+      if (!params) { return; }
       if (params.filter_id === "amazing") {
         return amazingPosts;
       } else if (params.filter_id === "sad") {
@@ -482,198 +494,26 @@ test("it can handle direct transitions to named routes", function() {
     equal(url, expected[counter], 'updateURL should be called with correct url');
   };
 
-
-  router.handleURL("/posts");
-
   var counter = 0;
 
-  router.transitionTo("showAllPosts");
-
-  counter++;
-
-  router.transitionTo("showPopularPosts");
-
-  counter++;
-
-  router.transitionTo("showFilteredPosts", amazingPosts);
-
-  counter++;
-
-  router.transitionTo("showFilteredPosts", sadPosts);
-
-  counter++;
-
-  router.transitionTo("showAllPosts");
+  router.handleURL("/posts").then(function() {
+    return router.transitionTo("showAllPosts");
+  }, shouldNotHappen).then(function() {
+    counter++;
+    return router.transitionTo("showPopularPosts");
+  }, shouldNotHappen).then(function() {
+    counter++;
+    return router.transitionTo("showFilteredPosts", amazingPosts);
+  }, shouldNotHappen).then(function() {
+    counter++;
+    return router.transitionTo("showFilteredPosts", sadPosts);
+  }, shouldNotHappen).then(function() {
+    counter++;
+    return router.transitionTo("showAllPosts");
+  }, shouldNotHappen).then(start);
 });
 
-test("it aborts transitioning if a handler's setup returns false", function() {
-  expect(2);
-
-  router = new Router();
-
-  router.map(function(match) {
-    match("/").to('index');
-    match("/posts/").to('posts', function(match) {
-      match("/").to('postsIndex', function(match) {
-        match("/all").to('allPosts')
-      });
-    });
-  });
-
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
-
-  router.updateURL = function() { };
-
-  var indexHandler = {
-  };
-
-  var postsHandler = {
-    enter: function() {
-      ok(true, "Posts enter was called");
-    },
-    setup: function() {
-      ok(true, "Posts setup was called");
-      return false;
-    }
-  };
-
-  var postsIndexHandler = {
-    enter: function() {
-      ok(false, "Should not get here");
-    },
-    setup: function() {
-      ok(false, "Should not get here");
-    }
-  };
-
-  var allPostsHandler = {
-    enter: function() {
-      ok(false, "Should not get here");
-    },
-    setup: function() {
-      ok(false, "Should not get here");
-    }
-  };
-
-  handlers = {
-    index: indexHandler,
-    posts: postsHandler,
-    postsIndex: postsIndexHandler,
-    allPosts: allPostsHandler
-  };
-
-  router.didTransition = function() {
-    ok(false, "the router's didTransition hook should not be called if transitioning is aborted");
-  }
-
-  router.handleURL('/posts/all');
-});
-
-test("checking whether a route is active should return true if the router is in the process of routing to it", function() {
-  expect(2);
-
-  router = new Router();
-
-  router.map(function(match) {
-    match("/").to('index');
-    match("/posts/").to('posts', function(match) {
-      match("/").to('postsIndex');
-      match("/new").to('postsNew');
-    });
-  });
-
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
-
-  router.updateURL = function() { };
-
-  var indexHandler = {};
-
-  var postsHandler = {
-    setup: function() {
-      ok(router.isActive('postsIndex'), "current target should be active");
-      ok(!router.isActive('postsNew', "non-current target should not be active"));
-    }
-  }
-
-  var postsIndexHandler = {};
-  var postsNewHandler = {};
-
-  handlers = {
-    index: indexHandler,
-    posts: postsHandler,
-    postsIndex: postsIndexHandler,
-    postsNew: postsNewHandler
-  };
-
-  router.handleURL('/posts/');
-});
-
-test("transitioning inside a handler's setup to a different leaf node should cause the parent to be setup again", function() {
-  expect(2);
-
-  router = new Router();
-
-  router.map(function(match) {
-    match("/").to('index');
-    match("/posts/").to('posts', function(match) {
-      match("/").to('postsIndex');
-      match("/new").to('postsNew');
-    });
-  });
-
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
-
-  router.updateURL = function() { };
-
-  var indexHandler = {};
-
-  var callCount = 0;
-  var postsHandler = {
-    setup: function() {
-      callCount++;
-
-      if (!router.isActive('postsNew')) {
-        router.transitionTo('postsNew');
-        return false;
-      }
-    },
-
-    exit: function() {
-      ok(false, "parent should not be exited");
-    }
-  }
-
-  var postsIndexHandler = {
-    setup: function() {
-      ok(false, "child setup is not invoked if parent redirects");
-    }
-  };
-
-  var postsNewHandler = {
-    setup: function() {
-      ok(true, "setup of redirect target is invoked");
-    }
-  };
-
-  handlers = {
-    index: indexHandler,
-    posts: postsHandler,
-    postsIndex: postsIndexHandler,
-    postsNew: postsNewHandler
-  };
-
-  router.handleURL('/posts/');
-
-  equal(callCount, 2,  "parent handler gets called twice if it aborts the first attempt");
-});
-
-test("replaceWith calls replaceURL", function() {
+asyncTest("replaceWith calls replaceURL", function() {
   var updateCount = 0,
       replaceCount = 0;
 
@@ -687,176 +527,29 @@ test("replaceWith calls replaceURL", function() {
 
   handlers = {
     postIndex: { },
-    showAllPosts: { }
+    showAllPosts: { },
+    about: { }
   };
 
-  router.handleURL('/posts');
-
-  router.replaceWith('showAllPosts');
-
-  equal(updateCount, 0, "should not call updateURL");
-  equal(replaceCount, 1, "should call replaceURL once");
-});
-
-asyncTest("if deserialize returns a promise, it enters a loading state", function() {
-  var post = { post: true };
-
-  var events = [];
-
-  var showPostHandler = {
-    deserialize: function(params) {
-      deepEqual(events, []);
-      events.push("deserialize");
-
-      var promise = new RSVP.Promise();
-
-      setTimeout(function() {
-        promise.resolve(post);
-      }, 1);
-
-      return promise;
-    },
-
-    setup: function(object) {
-      deepEqual(events, ["deserialize", "loading", "loaded"]);
-      events.push("setup");
-
-      strictEqual(object, post);
-      start();
-    }
-  }
-
-  router.didTransition = function(infos) {
-    equal(routePath(infos), "showPost");
+  router.handleURL('/posts').then(function(handlerInfos) {
+    return router.replaceWith('about');
+  }).then(function() {
+    equal(updateCount, 0, "should not call updateURL");
+    equal(replaceCount, 1, "should call replaceURL once");
     start();
-  };
-
-  var loadingHandler = {
-    setup: function() {
-      deepEqual(events, ["deserialize"]);
-      events.push("loading");
-      ok(true, "Loading was called");
-    },
-
-    exit: function() {
-      deepEqual(events, ["deserialize", "loading"]);
-      events.push("loaded");
-      ok(true, "Loading was exited");
-    }
-  }
-
-  handlers = {
-    showPost: showPostHandler,
-    loading: loadingHandler
-  }
-
-  router.handleURL("/posts/1");
+  });
 });
 
-asyncTest("if deserialize returns a promise that is later rejected, it enters a failure state", function() {
-  var post = { post: true };
-  var err = { error: true };
-
-  var events = [];
-
-  var showPostHandler = {
-    deserialize: function(params) {
-      deepEqual(events, []);
-      events.push("deserialize");
-
-      var promise = new RSVP.Promise();
-
-      setTimeout(function() {
-        promise.reject(err);
-      }, 1);
-
-      return promise;
-    },
-
-    setup: function(object) {
-      deepEqual(events, ["deserialize", "loading", "loaded"]);
-      events.push("setup");
-
-      strictEqual(object, post);
-    }
-  }
-
-  var loadingHandler = {
-    setup: function() {
-      deepEqual(events, ["deserialize"]);
-      events.push("loading");
-      ok(true, "Loading was called");
-    },
-
-    exit: function() {
-      deepEqual(events, ["deserialize", "loading"]);
-      events.push("loaded");
-      ok(true, "Loading was exited");
-    }
-  }
-
-  var failureHandler = {
-    setup: function(error) {
-      start();
-      strictEqual(error, err);
-    }
-  }
-
-  handlers = {
-    showPost: showPostHandler,
-    loading: loadingHandler,
-    failure: failureHandler
-  }
-
-  router.handleURL("/posts/1");
-});
-
-asyncTest("if deserialize returns a promise that fails in the callback, it enters a failure state", function() {
-  var post = { post: true };
-
-  var events = [];
-
-  var showPostHandler = {
-    deserialize: function(params) {
-      deepEqual(events, []);
-      events.push("deserialize");
-
-      var promise = new RSVP.Promise();
-
-      promise.resolve(post);
-
-      return promise;
-    },
-
-    setup: function(object) {
-      throw 'Setup error';
-    }
-  }
-
-  var failureHandler = {
-    setup: function(error) {
-      start();
-      strictEqual(error, err);
-    }
-  }
-
-  handlers = {
-    showPost: showPostHandler,
-    failure: failureHandler
-  }
-
-  router.handleURL("/posts/1");
-});
 
 asyncTest("Moving to a new top-level route triggers exit callbacks", function() {
-  expect(6);
+  expect(5);
 
   var allPosts = { posts: "all" };
   var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
   var currentId, currentURL, currentPath;
 
   var showAllPostsHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       return allPosts;
     },
 
@@ -864,11 +557,6 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
       equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
       currentPath = "postIndex.showAllPosts";
 
-      setTimeout(function() {
-        currentURL = "/posts/1";
-        currentId = 1;
-        router.transitionTo('showPost', postsStore[1]);
-      }, 0);
     },
 
     exit: function() {
@@ -877,9 +565,8 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
   };
 
   var showPostHandler = {
-    deserialize: function(params) {
-      if (postsStore[params.id]) { return postsStore[params.id]; }
-      return postsStore[params.id] = { post: params.id };
+    model: function(params, resolvedModels) {
+      return postsStore[params.id];
     },
 
     serialize: function(post) {
@@ -904,28 +591,30 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
     equal(url, currentURL, "The url is " + currentURL + " as expected");
   };
 
-  router.didTransition = function(infos) {
-    equal(routePath(infos), currentPath);
+  router.handleURL("/posts").then(function() {
+    currentURL = "/posts/1";
+    currentId = 1;
+    return router.transitionTo('showPost', postsStore[1]);
+  }, shouldNotHappen).then(function() {
+    equal(routePath(router.currentHandlerInfos), currentPath);
     start();
-  };
-
-  router.handleURL("/posts");
+  }, shouldNotHappen);
 });
 
-test("Moving to the same route with a different parent dynamic segment re-runs deserialize", function() {
+asyncTest("Moving to the same route with a different parent dynamic segment re-runs model", function() {
   var admins = { 1: { id: 1 }, 2: { id: 2 } },
       adminPosts = { 1: { id: 1 }, 2: { id: 2 } },
-      adminPostDeserialize = 0;
+      adminPostModel = 0;
 
   var adminHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       return this.currentModel = admins[params.id];
     }
   };
 
   var adminPostsHandler = {
-    deserialize: function() {
-      adminPostDeserialize++;
+    model: function() {
+      adminPostModel++;
       return adminPosts[adminHandler.currentModel.id];
     }
   };
@@ -935,14 +624,15 @@ test("Moving to the same route with a different parent dynamic segment re-runs d
     adminPosts: adminPostsHandler
   }
 
-  router.handleURL("/posts/admin/1/posts");
-
-  equal(adminHandler.context, admins[1]);
-  equal(adminPostsHandler.context, adminPosts[1]);
-
-  router.handleURL("/posts/admin/2/posts");
-  equal(adminHandler.context, admins[2]);
-  equal(adminPostsHandler.context, adminPosts[2]);
+  router.handleURL("/posts/admin/1/posts").then(function() {
+    equal(adminHandler.context, admins[1]);
+    equal(adminPostsHandler.context, adminPosts[1]);
+    return router.handleURL("/posts/admin/2/posts");
+  }).then(function() {
+    equal(adminHandler.context, admins[2]);
+    equal(adminPostsHandler.context, adminPosts[2]);
+    start();
+  });
 });
 
 asyncTest("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)", function() {
@@ -953,19 +643,13 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
   var currentId, currentURL;
 
   var showAllPostsHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       return allPosts;
     },
 
     setup: function(posts) {
       equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
 
-      setTimeout(function() {
-        currentURL = "/posts/filter/favorite";
-        router.transitionTo('showFilteredPosts', {
-          id: 'favorite'
-        });
-      }, 0);
     },
 
     enter: function() {
@@ -988,7 +672,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
       ok(false, "The new handler should not be exited");
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       var id = params.filter_id;
       if (!filters[id]) {
         filters[id] = { id: id }
@@ -1004,7 +688,6 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
 
     setup: function(filter) {
       equal(filter.id, "favorite", "showFilteredPostsHandler#setup was called with the favorite filter");
-      start();
     }
   };
 
@@ -1028,7 +711,10 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
     equal(url, currentURL, "The url is " + currentURL + " as expected");
   };
 
-  router.handleURL("/posts");
+  router.handleURL("/posts").then(function() {
+    currentURL = "/posts/filter/favorite";
+    return router.transitionTo('showFilteredPosts', { id: 'favorite' });
+  }).then(start);
 });
 
 asyncTest("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned via a URL change)", function() {
@@ -1039,7 +725,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
   var currentId, currentURL;
 
   var showAllPostsHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       return allPosts;
     },
 
@@ -1072,7 +758,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
       ok(false, "The new handler should not be exited");
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       equal(params.filter_id, "favorite", "The filter should be 'favorite'");
 
       var id = params.filter_id;
@@ -1134,8 +820,9 @@ asyncTest("events can be targeted at the current handler", function() {
     showPost: showPostHandler
   };
 
-  router.handleURL("/posts/1");
-  router.trigger("expand");
+  router.handleURL("/posts/1").then(function() {
+    router.trigger("expand");
+  });
 });
 
 test("Unhandled events raise an exception", function() {
@@ -1179,8 +866,9 @@ asyncTest("events can be targeted at a parent handler", function() {
     showAllPosts: showAllPostsHandler
   };
 
-  router.handleURL("/posts");
-  router.trigger("expand");
+  router.handleURL("/posts").then(function(result) {
+    router.trigger("expand");
+  });
 });
 
 asyncTest("events can bubble up to a parent handler via `return true`", function() {
@@ -1216,8 +904,9 @@ asyncTest("events can bubble up to a parent handler via `return true`", function
     showAllPosts: showAllPostsHandler
   };
 
-  router.handleURL("/posts");
-  router.trigger("expand");
+  router.handleURL("/posts").then(function(result) {
+    router.trigger("expand");
+  });
 });
 
 asyncTest("handled-then-bubbled events don't throw an exception if uncaught by parent route", function() {
@@ -1247,8 +936,9 @@ asyncTest("handled-then-bubbled events don't throw an exception if uncaught by p
     showAllPosts: showAllPostsHandler
   };
 
-  router.handleURL("/posts");
-  router.trigger("expand");
+  router.handleURL("/posts").then(function(result) {
+    router.trigger("expand");
+  });
 });
 
 asyncTest("events only fire on the closest handler", function() {
@@ -1287,8 +977,9 @@ asyncTest("events only fire on the closest handler", function() {
   };
 
   var context1 = {}, context2 = {};
-  router.handleURL("/posts");
-  router.trigger("expand", context1, context2);
+  router.handleURL("/posts").then(function(result) {
+    router.trigger("expand", context1, context2);
+  });
 });
 
 test("paramsForHandler returns params", function() {
@@ -1299,7 +990,7 @@ test("paramsForHandler returns params", function() {
       return { id: object.id };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       equal(params.id, 12, "The parameters are correct");
       return post;
     }
@@ -1310,7 +1001,7 @@ test("paramsForHandler returns params", function() {
   deepEqual(router.paramsForHandler('showPost', post), { id: 12 }, "The correct parameters were retrieved");
 });
 
-test("paramsForHandler uses the current context if you are already in a handler with a context that is not changing", function() {
+asyncTest("when leaving a handler, the context is nulled out", function() {
   var admin = { id: 47 },
       adminPost = { id: 74 };
 
@@ -1320,7 +1011,7 @@ test("paramsForHandler uses the current context if you are already in a handler 
       return { id: 47 };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       equal(params.id, 47, "The object passed to serialize is correct");
       return admin;
     }
@@ -1331,63 +1022,13 @@ test("paramsForHandler uses the current context if you are already in a handler 
       return { post_id: object.id };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       equal(params.id, 74, "The object passed to serialize is correct");
       return adminPost;
     }
   };
 
-  handlers = {
-    admin: adminHandler,
-    adminPost: adminPostHandler
-  };
-
-  var url;
-
-  router.updateURL = function(passedURL) {
-    url = passedURL;
-  };
-
-  router.transitionTo('adminPost', admin, adminPost);
-  equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
-
-  var params = router.paramsForHandler('adminPost', { id: 75 });
-  deepEqual(params, { id: 47, post_id: 75 });
-
-  var url = router.generate('adminPost', { id: 75 });
-  deepEqual(url, '/posts/admin/47/posts/75');
-});
-
-test("when leaving a handler, the context is nulled out", function() {
-  var admin = { id: 47 },
-      adminPost = { id: 74 };
-
-  var adminHandler = {
-    serialize: function(object) {
-      equal(object.id, 47, "The object passed to serialize is correct");
-      return { id: 47 };
-    },
-
-    deserialize: function(params) {
-      equal(params.id, 47, "The object passed to serialize is correct");
-      return admin;
-    }
-  };
-
-  var adminPostHandler = {
-    serialize: function(object) {
-      return { post_id: object.id };
-    },
-
-    deserialize: function(params) {
-      equal(params.id, 74, "The object passed to serialize is correct");
-      return adminPost;
-    }
-  };
-
-  var showPostHandler = {
-
-  };
+  var showPostHandler = {};
 
   handlers = {
     admin: adminHandler,
@@ -1401,22 +1042,26 @@ test("when leaving a handler, the context is nulled out", function() {
     url = passedURL;
   };
 
-  router.transitionTo('adminPost', admin, adminPost);
-  equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
-  deepEqual(router.currentHandlerInfos, [
-    { context: { id: 47 }, handler: adminHandler, isDynamic: true, name: 'admin' },
-    { context: { id: 74 }, handler: adminPostHandler, isDynamic: true, name: 'adminPost' }
-  ]);
+  router.transitionTo('adminPost', admin, adminPost).then(function(result) {
+    equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
 
-  router.transitionTo('showPost');
-  ok(!adminHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
-  ok(!adminPostHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
-  deepEqual(router.currentHandlerInfos, [
-    { context: undefined, handler: showPostHandler, isDynamic: true, name: 'showPost' }
-  ]);
+    deepEqual(router.currentHandlerInfos, [
+      { context: { id: 47 }, handler: adminHandler, isDynamic: true, name: 'admin' },
+      { context: { id: 74 }, handler: adminPostHandler, isDynamic: true, name: 'adminPost' }
+    ]);
+
+    return router.transitionTo('showPost');
+  }, shouldNotHappen).then(function() {
+    ok(!adminHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
+    ok(!adminPostHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
+    deepEqual(router.currentHandlerInfos, [
+      { context: undefined, handler: showPostHandler, isDynamic: true, name: 'showPost' }
+    ]);
+    start();
+  }, shouldNotHappen);
 });
 
-test("transitionTo uses the current context if you are already in a handler with a context that is not changing", function() {
+asyncTest("transitionTo uses the current context if you are already in a handler with a context that is not changing", function() {
   var admin = { id: 47 },
       adminPost = { id: 74 };
 
@@ -1426,7 +1071,7 @@ test("transitionTo uses the current context if you are already in a handler with
       return { id: 47 };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       equal(params.id, 47, "The object passed to serialize is correct");
       return admin;
     }
@@ -1437,7 +1082,7 @@ test("transitionTo uses the current context if you are already in a handler with
       return { post_id: object.id };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       equal(params.id, 74, "The object passed to serialize is correct");
       return adminPost;
     }
@@ -1454,14 +1099,16 @@ test("transitionTo uses the current context if you are already in a handler with
     url = passedURL;
   };
 
-  router.transitionTo('adminPost', admin, adminPost);
-  equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
-
-  router.transitionTo('adminPost', { id: 75 });
-  equal(url, '/posts/admin/47/posts/75', "the current context was used");
+  router.transitionTo('adminPost', admin, adminPost).then(function(result) {
+    equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
+    return router.transitionTo('adminPost', { id: 75 });
+  }).then(function(result) {
+    equal(url, '/posts/admin/47/posts/75', "the current context was used");
+    start();
+  });
 });
 
-test("tests whether arguments to transitionTo are considered active", function() {
+asyncTest("tests whether arguments to transitionTo are considered active", function() {
   var admin = { id: 47 },
       adminPost = { id: 74 };
       posts = {
@@ -1475,7 +1122,7 @@ test("tests whether arguments to transitionTo are considered active", function()
       return { id: 47 };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       return admin;
     }
   };
@@ -1485,7 +1132,7 @@ test("tests whether arguments to transitionTo are considered active", function()
       return { post_id: object.id };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       return adminPost;
     }
   };
@@ -1495,7 +1142,7 @@ test("tests whether arguments to transitionTo are considered active", function()
       return { post_id: object.id };
     },
 
-    deserialize: function(params) {
+    model: function(params) {
       return posts[params.id];
     }
   }
@@ -1512,21 +1159,24 @@ test("tests whether arguments to transitionTo are considered active", function()
     url = passedURL;
   };
 
-  router.handleURL("/posts/1");
-  ok(router.isActive('showPost'), "The showPost handler is active");
-  ok(router.isActive('showPost', posts[1]), "The showPost handler is active with the appropriate context");
-  ok(!router.isActive('showPost', posts[2]), "The showPost handler is inactive when the context is different");
-  ok(!router.isActive('adminPost'), "The adminPost handler is inactive");
+  router.handleURL("/posts/1").then(function(result) {
+    ok(router.isActive('showPost'), "The showPost handler is active");
+    ok(router.isActive('showPost', posts[1]), "The showPost handler is active with the appropriate context");
+    ok(!router.isActive('showPost', posts[2]), "The showPost handler is inactive when the context is different");
+    ok(!router.isActive('adminPost'), "The adminPost handler is inactive");
 
-  router.transitionTo('adminPost', admin, adminPost);
-  ok(router.isActive('adminPost'), "The adminPost handler is active");
-  ok(router.isActive('adminPost', adminPost), "The adminPost handler is active with the current context");
-  ok(router.isActive('adminPost', admin, adminPost), "The adminPost handler is active with the current and parent context");
-  ok(router.isActive('admin'), "The admin handler is active");
-  ok(router.isActive('admin', admin), "The admin handler is active with its context");
+    return router.transitionTo('adminPost', admin, adminPost);
+  }).then(function(result) {
+    ok(router.isActive('adminPost'), "The adminPost handler is active");
+    ok(router.isActive('adminPost', adminPost), "The adminPost handler is active with the current context");
+    ok(router.isActive('adminPost', admin, adminPost), "The adminPost handler is active with the current and parent context");
+    ok(router.isActive('admin'), "The admin handler is active");
+    ok(router.isActive('admin', admin), "The admin handler is active with its context");
+    start();
+  });
 });
 
-test("calling generate on a non-dynamic route does not blow away parent contexts", function() {
+asyncTest("calling generate on a non-dynamic route does not blow away parent contexts", function() {
   router = new Router();
 
   router.map(function(match) {
@@ -1547,7 +1197,7 @@ test("calling generate on a non-dynamic route does not blow away parent contexts
   var projects = {};
 
   var projectsHandler = {
-    deserialize: function(){
+    model: function(){
       return projects;
     }
   };
@@ -1563,16 +1213,15 @@ test("calling generate on a non-dynamic route does not blow away parent contexts
     projectIndex:  projectIndexHandler
   };
 
-  router.handleURL('/projects');
-
-  equal(projectsHandler.context, projects, 'projects handler has correct context');
-
-  router.generate('projectIndex');
-
-  equal(projectsHandler.context, projects, 'projects handler retains correct context');
+  router.handleURL('/projects').then(function(result) {
+    equal(projectsHandler.context, projects, 'projects handler has correct context');
+    router.generate('projectIndex');
+    equal(projectsHandler.context, projects, 'projects handler retains correct context');
+    start();
+  });
 });
 
-test("calling transitionTo on a dynamic parent route causes non-dynamic child context to be updated", function() {
+asyncTest("calling transitionTo on a dynamic parent route causes non-dynamic child context to be updated", function() {
   router = new Router();
 
   router.map(function(match) {
@@ -1588,14 +1237,14 @@ test("calling transitionTo on a dynamic parent route causes non-dynamic child co
   };
 
   var projectHandler = {
-    deserialize: function(params) {
+    model: function(params) {
       return params;
     }
   };
 
   var projectIndexHandler = {
-    deserialize: function() {
-      return projectHandler.context;
+    model: function(params, transition) {
+      return transition.resolvedModels.project;
     }
   };
 
@@ -1604,107 +1253,24 @@ test("calling transitionTo on a dynamic parent route causes non-dynamic child co
     projectIndex:  projectIndexHandler
   };
 
-  router.handleURL('/project/1');
+  router.handleURL('/project/1').then(function(result) {
+    deepEqual(projectHandler.context, { project_id: '1' }, 'project handler retains correct context');
+    deepEqual(projectIndexHandler.context, { project_id: '1' }, 'project index handler has correct context');
 
-  deepEqual(projectHandler.context, { project_id: '1' }, 'project handler retains correct context');
-  deepEqual(projectIndexHandler.context, { project_id: '1' }, 'project index handler has correct context');
+    router.generate('projectIndex', { project_id: '2' });
 
-  router.generate('projectIndex', { project_id: '2' });
+    deepEqual(projectHandler.context, { project_id: '1' }, 'project handler retains correct context');
+    deepEqual(projectIndexHandler.context, { project_id: '1' }, 'project index handler retains correct context');
 
-  deepEqual(projectHandler.context, { project_id: '1' }, 'project handler retains correct context');
-  deepEqual(projectIndexHandler.context, { project_id: '1' }, 'project index handler retains correct context');
-
-  router.transitionTo('projectIndex', { project_id: '2' });
-
-  deepEqual(projectHandler.context, { project_id: '2' }, 'project handler has updated context');
-  deepEqual(projectIndexHandler.context, { project_id: '2' }, 'project index handler has updated context');
+    return router.transitionTo('projectIndex', { project_id: '2' });
+  }).then(function(result) {
+    deepEqual(projectHandler.context, { project_id: '2' }, 'project handler has updated context');
+    deepEqual(projectIndexHandler.context, { project_id: '2' }, 'project index handler has updated context');
+    start();
+  });
 });
 
-test("A final handler can specify an additional non-routable handler", function() {
-  expect(2);
-
-  var additionalHandler = {
-    enter: function() {
-      ok(true, "Enter was called");
-    },
-
-    setup: function() {
-      ok(true, "Setup was called");
-    }
-  };
-
-  var showPostHandler = {
-    additionalHandler: function() {
-      return "additional";
-    }
-  };
-
-  handlers = {
-    showPost: showPostHandler,
-    additional: additionalHandler
-  };
-
-  router.handleURL("/posts/1");
-});
-
-test("A final handler can specify an additional non-routable handler", function() {
-  expect(7);
-
-  var additionalHandler = {
-    enter: function() {
-      ok(true, "Enter was called");
-    },
-
-    setup: function() {
-      ok(true, "Setup was called");
-    }
-  };
-
-  var showPostHandler = {
-    additionalHandler: function() {
-      return "additional";
-    },
-
-    serialize: function(params) {
-      deepEqual(params, { id: 1 }, "Serialize should receive the params passed to transitionTo");
-      return params;
-    },
-
-    deserialize: function(params) {
-      return params;
-    }
-  };
-
-  var indexHandler = {
-    enter: function() {
-      ok(true, "Enter was called in index");
-    },
-
-    setup: function() {
-      ok(true, "Setup was called in index");
-    },
-
-    exit: function() {
-      ok(true, "Exit was called in index");
-
-    }
-  }
-
-  handlers = {
-    index: indexHandler,
-    showPost: showPostHandler,
-    additional: additionalHandler
-  };
-
-  router.updateURL = function(url) {
-    equal(url, "/posts/1", "The updated URL is correct");
-  };
-
-  router.handleURL("/index");
-  router.transitionTo('showPost', { id: 1 });
-});
-
-test("reset exits and clears the current and target route handlers", function() {
+asyncTest("reset exits and clears the current and target route handlers", function() {
   var postIndexExited = false;
   var showAllPostsExited = false;
 
@@ -1723,12 +1289,861 @@ test("reset exits and clears the current and target route handlers", function() 
     showAllPosts: showAllPostsHandler
   };
 
-  router.handleURL("/posts/all");
-  router.reset();
-  router.reset(); // two resets back to back should work
 
-  ok(postIndexExited, "Post index handler did not exit");
-  ok(showAllPostsExited, "Show all posts handler did not exit");
-  equal(router.currentHandlerInfos, null, "currentHandlerInfos should be null");
-  equal(router.targetHandlerInfos, null, "targetHandlerInfos should be null");
+  router.handleURL("/posts/all").then(function(result) {
+    router.reset();
+    router.reset(); // two resets back to back should work
+
+    ok(postIndexExited, "Post index handler did not exit");
+    ok(showAllPostsExited, "Show all posts handler did not exit");
+    equal(router.currentHandlerInfos, null, "currentHandlerInfos should be null");
+    equal(router.targetHandlerInfos, null, "targetHandlerInfos should be null");
+    start();
+  });
 });
+
+asyncTest("any of the model hooks can redirect with or without promise", function() {
+  expect(21);
+  var setupShouldBeEntered = false;
+  var returnPromise = false;
+  var redirectTo;
+  var shouldFinish;
+
+  function redirectToAbout() {
+    if (returnPromise) {
+      return RSVP.reject().then(null, function() {
+        router.transitionTo(redirectTo);
+      });
+    } else {
+      router.transitionTo(redirectTo);
+    }
+  }
+
+  handlers = {
+    index: {
+      beforeModel: redirectToAbout,
+      model: redirectToAbout,
+      afterModel: function() {
+        redirectToAbout();
+      },
+
+      setup: function() {
+        ok(setupShouldBeEntered, "setup should be entered at this time");
+      }
+    },
+
+    about: {
+      setup: function() {
+        ok(true, "about handler's setup function was called");
+      }
+    },
+
+    borf: {
+      setup: function() {
+        ok(true, "borf setup entered");
+      }
+    }
+  };
+
+
+  function testStartup() {
+    router = new Router();
+
+    router.getHandler = function(name) {
+      return handlers[name];
+    };
+
+    router.updateURL = function() { };
+
+    router.map(function(match) {
+      match("/").to('index');
+      match("/about").to('about');
+      match("/foo").to('foo');
+      match("/borf").to('borf');
+    });
+
+    redirectTo = 'about';
+
+    // Perform a redirect on startup.
+    return router.handleURL('/').then(null, function(e) { 
+
+      ok(e instanceof Router.TransitionAborted, 'transition was redirected');
+      redirectTo = 'borf';
+
+      // Run transitionTo
+      return router.transitionTo('index').then(null, function(e) {
+        ok(e instanceof Router.TransitionAborted, 'second transition was redirected');
+
+
+        // This is the problem. We're catching the failure handler here, but not the 
+        // promise that gets redirected to. So how tracks that?
+      });
+    });
+  }
+
+  // Note: the .resolve() paddings are here because there's no way
+  // to .then the redirected-to transitions.
+  testStartup().then(function(result) {
+    returnPromise = true;
+    return RSVP.resolve().then(testStartup);
+  }, shouldNotHappen).then(function(result) {
+    delete handlers.index.beforeModel;
+    returnPromise = false;
+    return RSVP.resolve().then(testStartup);
+  }, shouldNotHappen).then(function(result) {
+    returnPromise = true;
+    return RSVP.resolve().then(testStartup);
+  }, shouldNotHappen).then(function(result) {
+    delete handlers.index.model;
+    returnPromise = false;
+    return RSVP.resolve().then(testStartup);
+  }, shouldNotHappen).then(function(result) {
+    returnPromise = true;
+    return RSVP.resolve().then(testStartup);
+  }, shouldNotHappen).then(function(result) {
+    delete handlers.index.afterModel;
+    setupShouldBeEntered = true;
+    shouldFinish = true;
+    return RSVP.resolve().then(testStartup);
+  }, shouldNotHappen).then(start);
+});
+
+
+
+function testNamedTransitionsPauseAtPromise(methodName) {
+  handlers = {
+    index: {},
+    showPost: {
+      setup: function(context) {
+        deepEqual(context, { id: 1 }, "setup receives a resolved context");
+      }
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    return router.transitionTo('showPost', new RSVP.Promise(function(resolve, reject) {
+      resolve({ id: 1 });
+    }));
+  }).then(start);
+}
+
+asyncTest("transitionTo with a promise pauses the transition until resolve, passes resolved context to setup", function() {
+  testNamedTransitionsPauseAtPromise('transitionTo');
+});
+
+asyncTest("transitionTo with a promise pauses the transition until resolve, passes resolved context to setup", function() {
+  testNamedTransitionsPauseAtPromise('transitionTo');
+});
+
+asyncTest("error handler gets called for errors in validation hooks", function() {
+  expect(25);
+  var setupShouldBeEntered = false;
+  var returnPromise = false;
+  var expectedReason = { reason: 'No funciona, mon frere.' };
+
+  function throwAnError() {
+    if (returnPromise) {
+      return RSVP.reject(expectedReason);
+    } else {
+      throw expectedReason;
+    }
+  }
+
+
+  handlers = {
+    index: {
+      beforeModel: throwAnError,
+      model: throwAnError,
+      afterModel: throwAnError,
+
+      events: {
+        error: function(reason) {
+          equal(reason, expectedReason, "the value passed to the error handler is what was 'thrown' from the hook");
+        },
+      },
+
+      setup: function() {
+        ok(setupShouldBeEntered, "setup should be entered at this time");
+      }
+    },
+
+    about: {
+      setup: function() {
+        ok(true, "about handler's setup function was called");
+      }
+    }
+  };
+
+
+  function testStartup() {
+    router = new Router();
+
+    router.getHandler = function(name) {
+      return handlers[name];
+    };
+
+    router.updateURL = function() { };
+
+    router.map(function(match) {
+      match("/").to('index');
+      match("/about").to('about');
+    });
+
+    // Perform a redirect on startup.
+    return router.handleURL('/').then(null, function(reason) { 
+      equal(reason, expectedReason, "handleURL error reason is what was originally thrown");
+
+      return router.transitionTo('index').then(null, function(newReason) {
+        equal(newReason, expectedReason, "transitionTo error reason is what was originally thrown");
+      });
+    });
+  }
+
+  testStartup().then(function(result) {
+    returnPromise = true;
+    return testStartup();
+  }).then(function(result) {
+    delete handlers.index.beforeModel;
+    returnPromise = false;
+    return testStartup();
+  }).then(function(result) {
+    returnPromise = true;
+    return testStartup();
+  }).then(function(result) {
+    delete handlers.index.model;
+    returnPromise = false;
+    return testStartup();
+  }).then(function(result) {
+    returnPromise = true;
+    return testStartup();
+  }).then(function(result) {
+    delete handlers.index.afterModel;
+    setupShouldBeEntered = true;
+    return testStartup();
+  }).then(function(result) {
+    setTimeout(start, 200);
+  }, shouldNotHappen);
+});
+
+
+asyncTest("can redirect from error handler", function() {
+
+  expect(4);
+
+  var errorCount = 0;
+
+  handlers = {
+    index: { },
+
+    showPost: {
+      model: function() {
+        return RSVP.reject('borf!');
+      },
+      events: {
+        error: function(e) {
+          errorCount++;
+
+          equal(e, 'borf!', "received error thrown from model");
+
+          // Redirect to index.
+          router.transitionTo('index').then(function() {
+            
+            if (errorCount === 1) {
+              // transition back here to test transitionTo error handling.
+
+              var p = new RSVP.Promise(function(resolve, reject) {
+                reject('borf!');
+              });
+
+              return router.transitionTo('showPost', p).then(shouldNotHappen, function(e) {
+                equal(e, 'borf!');
+                start();
+              });
+            }
+
+          }, shouldNotHappen);
+        }
+      },
+
+      setup: function(context) {
+        ok(false, 'should not get here');
+      }
+    }
+  };
+
+  router.handleURL('/posts/123').then(shouldNotHappen, function(reason) {
+    equal(reason, 'borf!', 'expected reason received from first failed transition');
+  });
+});
+
+asyncTest("errors in enter/setup hooks fire `error`", function() {
+  expect(4);
+
+  var count = 0;
+
+  handlers = {
+    index: {
+      enter: function() {
+        throw "OMG ENTER";
+      },
+      setup: function() {
+        throw "OMG SETUP";
+      },
+      events: {
+        error: function(e) {
+          if (count === 0) {
+            equal(e, "OMG ENTER", "enter's throw value passed to error hook");
+          } else if(count === 1) {
+            equal(e, "OMG SETUP", "setup's throw value passed to error hook");
+          } else {
+            ok(false, 'should not happen');
+          }
+        }
+      }
+    }
+  };
+
+  router.handleURL('/index').then(shouldNotHappen, function(reason) {
+    equal(reason, "OMG ENTER", "enters's error was propagated");
+    count++;
+    delete handlers.index.enter;
+    return router.handleURL('/index');
+  }).then(shouldNotHappen, function(reason) {
+    equal(reason, "OMG SETUP", "setup's error was propagated");
+    delete handlers.index.setup;
+  }).then(start, shouldNotHappen);
+});
+
+function assertAbort(e) {
+  ok(e instanceof Router.TransitionAborted, "transition was aborted");
+}
+
+asyncTest("can redirect from setup/enter", function() {
+  expect(6);
+
+  var count = 0;
+
+  handlers = {
+    index: {
+      enter: function() {
+        ok(true, "enter called");
+        router.transitionTo('about').then(secondAttempt);
+      },
+      setup: function() {
+        ok(true, "setup called");
+        router.transitionTo('/about').then(thirdAttempt);
+      },
+      events: {
+        error: function(e) {
+          ok(false, "redirects should not call error hook");
+        }
+      }
+    },
+    about: {
+      setup: function() {
+        ok(true, "setup was entered");
+      }
+    }
+  };
+
+  router.handleURL('/index').then(shouldNotHappen, assertAbort);
+
+  function secondAttempt() {
+    delete handlers.index.enter;
+    router.transitionTo('index').then(shouldNotHappen, assertAbort);
+  }
+
+  function thirdAttempt() {
+    delete handlers.index.setup;
+    router.transitionTo('index').then(start, shouldNotHappen);
+  }
+});
+
+
+asyncTest("redirecting to self from validation hooks should no-op (and not infinite loop)", function() {
+
+  expect(2);
+
+  var count = 0;
+
+  handlers = {
+    index: {
+      afterModel: function() {
+        if (count++ > 10) {
+          ok(false, 'infinite loop occurring');
+        } else {
+          ok(count <= 2, 'running index no more than twice');
+          var p = router.transitionTo('index');
+        }
+      },
+      setup: function() {
+        ok(true, 'setup was called');
+      }
+    }
+  };
+
+  router.handleURL('/index');
+
+  // TODO: use start in .then() handler instead of setTimeout, but CLI
+  // test runner doesn't seem to like this.
+  setTimeout(start, 500);
+});
+
+asyncTest("redirecting to self from enter hooks should no-op (and not infinite loop)", function() {
+  expect(1);
+
+  var count = 0;
+
+  handlers = {
+    index: {
+      setup: function() {
+        if (count++ > 10) {
+          ok(false, 'infinite loop occurring');
+        } else {
+          ok(true, 'setup was called');
+          router.transitionTo('index');
+        }
+      }
+    }
+  };
+
+  router.handleURL('/index');
+
+  // TODO: use start in .then() handler instead of setTimeout, but CLI
+  // test runner doesn't seem to like this.
+  setTimeout(start, 500);
+});
+
+asyncTest("redirecting to child handler from validation hooks should no-op (and not infinite loop)", function() {
+  expect(4);
+
+  handlers = {
+
+    postIndex: {
+      beforeModel: function() {
+        ok(true, 'postIndex beforeModel called');
+        router.transitionTo('showAllPosts');
+      }
+    },
+
+    showAllPosts: {
+      beforeModel: function() {
+        ok(true, 'showAllPosts beforeModel called');
+      }
+    },
+
+    showPopularPosts: {
+      beforeModel: function() {
+        ok(true, 'showPopularPosts beforeModel called');
+      }
+    }
+  };
+
+  router.handleURL('/posts/popular').then(function() {
+    ok(false, 'redirected handleURL should not succeed');
+  }, function() {
+    ok(true, 'redirected handleURL should fail');
+    start();
+  });
+});
+
+function startUpSetup() {
+  handlers = {
+    index: {
+      setup: function() {
+        ok(true, 'index setup called');
+      }
+    },
+    about: {
+      setup: function() {
+        ok(true, 'about setup called');
+      }
+    },
+    faq: {
+      setup: function() {
+        ok(true, 'faq setup called');
+      }
+    }
+  };
+}
+
+asyncTest("transitionTo with named transition can be called at startup", function() {
+  expect(2);
+
+  startUpSetup();
+
+  router.transitionTo('index').then(function() {
+    ok(true, 'success handler called');
+    start();
+  }, function(e) {
+    ok(false, 'failure handle should not be called');
+  });
+});
+
+asyncTest("transitionTo with URL transition can be called at startup", function() {
+  expect(2);
+
+  startUpSetup();
+
+  router.transitionTo('/index').then(function() {
+    ok(true, 'success handler called');
+    start();
+  }, function(e) {
+    ok(false, 'failure handle should not be called');
+  });
+});
+
+asyncTest("transitions can aborted in the willTransition event", function() {
+
+  expect(3);
+
+  handlers = {
+    index: {
+      setup: function() {
+        ok(true, 'index setup called');
+      },
+      events: {
+        willTransition: function(transition) {
+          ok(true, "index's transitionTo was called");
+          transition.abort();
+        }
+      }
+    },
+    about: {
+      setup: function() {
+        ok(true, 'about setup called');
+      }
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    router.transitionTo('about').then(shouldNotHappen, function(e) {
+      equal(e.name, 'TransitionAborted', 'reject object is a TransitionAborted');
+    }).then(start);
+  });
+});
+
+asyncTest("transitions can redirected in the willTransition event", function() {
+
+  expect(2);
+
+  var destFlag = true;
+
+  handlers = {
+    index: {
+      setup: function() {
+        ok(true, 'index setup called');
+      },
+      events: {
+        willTransition: function(transition) {
+          // Router code must be careful here not to refire
+          // `willTransition` when a transition is already
+          // underway, else infinite loop.
+          var dest = destFlag ? 'about' : 'faq';
+          destFlag = !destFlag;
+          router.transitionTo(dest).then(start);
+        }
+      }
+    },
+    about: {
+      setup: function() {
+        ok(true, 'about setup called');
+      }
+    },
+    faq: {
+      setup: function() {
+        ok(false, 'faq setup should not be called');
+      }
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    router.transitionTo('faq');
+  });
+});
+
+asyncTest("transitions can be saved and later retried", function() {
+
+  expect(8);
+
+  var shouldPrevent = true,
+      lastTransitionEvent,
+      transitionToAbout;
+
+  handlers = {
+    index: {
+      setup: function() {
+        ok(true, 'index setup called');
+      },
+      events: {
+        willTransition: function(transition) {
+          ok(true, "index's willTransition was called");
+          if (shouldPrevent) {
+            transition.data.foo = "hello";
+            transition.foo = "hello";
+            transition.abort();
+            lastTransition = transition;
+          } else {
+            ok(!transition.foo, "no foo property exists on new transition");
+            equal(transition.data.foo, "hello", "values stored in data hash of old transition persist when retried");
+          }
+        }
+      }
+    },
+    about: {
+      setup: function() {
+        ok(true, 'about setup called');
+      }
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    router.transitionTo('about').then(shouldNotHappen, function(e) {
+      ok(true, 'transition was blocked');
+      shouldPrevent = false;
+      transitionToAbout = lastTransition;
+      return transitionToAbout.retry();
+    }).then(function() {
+      ok(true, 'transition succeeded via .retry()');
+      start();
+    }, shouldNotHappen);
+  });
+});
+
+
+
+function setupAuthenticatedExample() {
+  router = new Router();
+
+  router.map(function(match) {
+    match("/index").to("index");
+    match("/login").to("login");
+
+    match("/admin").to("admin", function(match) {
+      match("/about").to("about");
+      match("/posts/:post_id").to("adminPost");
+    });
+  });
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  router.updateURL = function() { };
+
+  var isLoggedIn = false, lastRedirectedTransition;
+
+  handlers = {
+    index: { },
+    login: {
+      events: {
+        logUserIn: function() {
+          isLoggedIn = true;
+          lastRedirectedTransition.retry();
+        }
+      }
+    },
+    admin: { 
+      beforeModel: function(transition) {
+        lastRedirectedTransition = transition;
+        ok(true, 'beforeModel redirect was called');
+        if (!isLoggedIn) { router.transitionTo('login') }
+      }
+    },
+    about: { 
+      setup: function() {
+        ok(isLoggedIn, 'about was entered only after user logged in');
+        start();
+      }
+    },
+    adminPost: { }
+  };
+}
+
+
+asyncTest("authenticated routes: starting on non-auth route", function() {
+  expect(8);
+
+  setupAuthenticatedExample();
+
+  router.handleURL('/index').then(function() {
+    return router.transitionTo('about');
+  }).then(shouldNotHappen, function(result) {
+    equal(result.name, "TransitionAborted", "transition was redirected");
+
+    return router.transitionTo('about');
+  }).then(shouldNotHappen, function(result) {
+    equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
+    
+    return router.handleURL('/admin/about');
+  }).then(shouldNotHappen, function(result) {
+    equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
+
+    // Log in. This will retry the last failed transition to 'about'.
+    router.trigger('logUserIn');
+  });
+});
+
+asyncTest("authenticated routes: starting on auth route", function() {
+  expect(8);
+
+  setupAuthenticatedExample();
+
+  router.handleURL('/admin/about').then(null, function(result) {
+    equal(result.name, "TransitionAborted", "transition was redirected");
+
+    // Nav back to previously-redirected page.
+    return router.handleURL('/admin/about');
+  }).then(null, function(result) {
+    equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
+    
+    // Try a URL navigation.
+    return router.transitionTo('about');
+  }).then(null, function(result) {
+    equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
+
+    // Log in. This will retry the last failed transition to 'about'.
+    router.trigger('logUserIn');
+  });
+});
+
+asyncTest("An instantly aborted transition fires no hooks", function() {
+
+  var hooksShouldBeCalled = false;
+
+  handlers = {
+    index: {
+      beforeModel: function() {
+        ok(hooksShouldBeCalled, "index beforeModel hook should be called at this time");
+      }
+    },
+    about: {
+      beforeModel: function() {
+        ok(hooksShouldBeCalled, "about beforeModel hook should be called at this time");
+      },
+      setup: function() {
+        start();
+      }
+    }
+  };
+
+  router.transitionTo('index').abort().then(shouldNotHappen, function() {
+    ok(true, "Failure handler called for index");
+    return router.transitionTo('/index').abort();
+  }).then(shouldNotHappen, function() {
+    ok(true, "Failure handler called for /index");
+    hooksShouldBeCalled = true;
+    return router.transitionTo('index');
+  }).then(function(result) {
+    ok(true, "Success handler called for index");
+    hooksShouldBeCalled = false;
+    return router.transitionTo('about').abort();
+  }, shouldNotHappen).then(shouldNotHappen, function() {
+    ok(true, "failure handler called for about");
+    return router.transitionTo('/about').abort();
+  }, shouldNotHappen).then(shouldNotHappen, function() {
+    ok(true, "failure handler called for /about");
+    hooksShouldBeCalled = true;
+    return router.transitionTo('/about');
+  });
+});
+
+asyncTest("a successful transition resolves with the target handler", function() {
+  // Note: this is extra convenient for Ember where you can all
+  // .transitionTo right on the route.
+
+  handlers = {
+    index: { borfIndex: true },
+    about: { borfAbout: true }
+  };
+
+  router.handleURL('/index').then(function(result) {
+    ok(result.borfIndex, "resolved to index handler");
+    return router.transitionTo('about');
+  }, shouldNotHappen).then(function(result) {
+    ok(result.borfAbout, "resolved to about handler");
+    start();
+  });
+});
+
+asyncTest("transitions have a .promise property", function() {
+  router.handleURL('/index').promise.then(function(result) {
+    var promise = router.transitionTo('about').abort().promise;
+    ok(promise, "promise exists on aborted transitions");
+    return promise;
+  }, shouldNotHappen).then(shouldNotHappen, function(result) {
+    ok(true, "failure handler called");
+    start();
+  });
+});
+
+asyncTest("transitionTo will soak up resolved parent models of active transition", function() {
+
+  var admin = { id: 47 },
+      adminPost = { id: 74 },
+      adminPosts = [adminPost],
+      lastAdminPromise,
+      adminSetupShouldBeEntered = false;
+
+  function adminPromise() {
+    return lastAdminPromise = new RSVP.Promise(function(res) {
+      res(admin);
+    });
+  }
+
+  var adminHandler = {
+    serialize: function(object) {
+      equal(object.id, 47, "The object passed to serialize is correct");
+      return { id: 47 };
+    },
+
+    model: function(params) {
+      equal(params.id, 47, "The object passed to serialize is correct");
+      return admin;
+    },
+
+    setup: function(model) {
+      ok(adminSetupShouldBeEntered, "adminHandler's setup should be called at this time");
+    }
+  };
+
+  var adminPostHandler = {
+    serialize: function(object) {
+      return { post_id: object.id };
+    },
+
+    setup: function(model) {
+      equal(adminHandler.context, admin, "adminPostHandler receives resolved soaked promise from previous transition");
+      start();
+    },
+
+    model: function(params) {
+      return adminPost;
+    }
+  };
+
+  var adminPostsHandler = {
+    beforeModel: function() {
+      adminSetupShouldBeEntered = true;
+      router.transitionTo('adminPost', adminPost);
+    }
+  };
+
+  var indexHandler = {
+    setup: function() {
+      ok(true, 'index entered');
+    }
+  };
+
+  handlers = {
+    index: indexHandler,
+    admin: adminHandler,
+    adminPost: adminPostHandler,
+    adminPosts: adminPostsHandler
+  };
+
+  router.transitionTo('index').then(function(result) {
+    router.transitionTo('adminPosts', adminPromise()).then(shouldNotHappen, assertAbort);
+  });
+});
+
