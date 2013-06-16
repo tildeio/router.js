@@ -1,3 +1,6 @@
+"use strict";
+var RouteRecognizer = require("route-recognizer");
+var RSVP = require("rsvp");
 /**
   @private
 
@@ -16,8 +19,6 @@
   * `{Object} context`: the active context for the handler
 */
 
-import "route-recognizer" as RouteRecognizer;
-import "rsvp" as RSVP;
 
 var slice = Array.prototype.slice;
 
@@ -140,7 +141,6 @@ function Router() {
   this.recognizer = new RouteRecognizer();
 }
 
-export = Router;
 
 
 /**
@@ -1072,3 +1072,4 @@ function serialize(handler, model, names) {
   return object;
 }
 
+module.exports = Router;
