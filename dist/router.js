@@ -341,14 +341,15 @@
    */
   function getMatchPoint(router, handlers, objects, inputParams) {
 
-    var objectsToMatch = objects.length, 
+    var objects = slice.call(objects), 
         matchPoint = handlers.length, 
         providedModels = {}, i,
         currentHandlerInfos = router.currentHandlerInfos || [],
         params = {},
         oldParams = router.currentParams || {},
         activeTransition = router.activeTransition,
-        handlerParams = {};
+        handlerParams = {},
+        obj;
 
     merge(params, inputParams);
    
@@ -364,9 +365,9 @@
       if (handlerObj.isDynamic) {
         // URL transition.
 
-        if (objectsToMatch > 0) {
+        if (obj = getMatchPointObject(objects, handlerName, activeTransition, true)) {
           hasChanged = true;
-          providedModels[handlerName] = objects[--objectsToMatch];
+          providedModels[handlerName] = obj;
         } else {
           handlerParams[handlerName] = {};
           for (var prop in handlerObj.params) {
@@ -376,18 +377,12 @@
             handlerParams[handlerName][prop] = params[prop] = newParam;
           }
         }
-      } else if (handlerObj.hasOwnProperty('names') && handlerObj.names.length) {
+      } else if (handlerObj.hasOwnProperty('names')) {
         // Named transition.
 
-        if (objectsToMatch > 0) {
+        if (obj = getMatchPointObject(objects, handlerName, activeTransition, handlerObj.names.length)) {
           hasChanged = true;
-          providedModels[handlerName] = objects[--objectsToMatch];
-        } else if (activeTransition && activeTransition.providedModels[handlerName]) {
-
-          // Use model from previous transition attempt, preferably the resolved one.
-          hasChanged = true;
-          providedModels[handlerName] = activeTransition.providedModels[handlerName] ||
-                                        activeTransition.resolvedModels[handlerName];
+          providedModels[handlerName] = obj;
         } else {
           var names = handlerObj.names;
           handlerParams[handlerName] = {};
@@ -401,11 +396,21 @@
       if (hasChanged) { matchPoint = i; }
     }
 
-    if (objectsToMatch > 0) {
+    if (objects.length > 0) {
       throw "More context objects were passed than there are dynamic segments for the route: " + handlers[handlers.length - 1].handler;
     }
 
     return { matchPoint: matchPoint, providedModels: providedModels, params: params, handlerParams: handlerParams };
+  }
+
+  function getMatchPointObject(objects, handlerName, activeTransition, canUseProvidedObject) {
+    if (objects.length && canUseProvidedObject) {
+      return objects.pop();
+    } else if (activeTransition) {
+      // Use model from previous transition attempt, preferably the resolved one.
+      return (canUseProvidedObject && activeTransition.providedModels[handlerName]) ||
+             activeTransition.resolvedModels[handlerName];
+    } 
   }
 
   /**
@@ -880,15 +885,14 @@
         handler = handlerInfo.handler,
         handlerName = handlerInfo.name,
         seq = transition.sequence,
-        errorAlreadyHandled = false,
-        resolvedModel;
+        errorAlreadyHandled = false;
 
     if (index < matchPoint) {
       log(router, seq, handlerName + ": using context from already-active handler");
 
       // We're before the match point, so don't run any hooks,
       // just use the already resolved context from the handler.
-      resolvedModel = handlerInfo.handler.context;
+      transition.resolvedModels[handlerInfo.name] = handlerInfo.handler.context;
       return proceed();
     }
 
@@ -928,8 +932,8 @@
       trigger(handlerInfos.slice(0, index + 1), true, ['error', reason, transition]);
 
       if (handler.error) { 
-        handler.error(reason, transition); }
-
+        handler.error(reason, transition); 
+      }
 
       // Propagate the original error.
       return RSVP.reject(reason);
@@ -956,14 +960,14 @@
       // want to use the value returned from `afterModel` in any way, but rather
       // always resolve with the original `context` object.
 
-      resolvedModel = context;
-      return handler.afterModel && handler.afterModel(resolvedModel, transition);
+      transition.resolvedModels[handlerInfo.name] = context;
+      return handler.afterModel && handler.afterModel(context, transition);
     }
 
     function proceed() {
       log(router, seq, handlerName + ": validation succeeded, proceeding");
 
-      handlerInfo.context = transition.resolvedModels[handlerInfo.name] = resolvedModel;
+      handlerInfo.context = transition.resolvedModels[handlerInfo.name];
       return validateEntry(transition, handlerInfos, index + 1, matchPoint, handlerParams);
     }
   }
@@ -995,7 +999,7 @@
       return handler.context;
     }
 
-    if (handlerInfo.isDynamic && transition.providedModels.hasOwnProperty(handlerName)) {
+    if (transition.providedModels.hasOwnProperty(handlerName)) {
       var providedModel = transition.providedModels[handlerName];
       return typeof providedModel === 'function' ? providedModel() : providedModel;
     }

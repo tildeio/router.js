@@ -2147,3 +2147,69 @@ asyncTest("transitionTo will soak up resolved parent models of active transition
   });
 });
 
+asyncTest("transitionTo will soak up resolved all models of active transition, including present route's resolved model", function() {
+
+  var modelCalled = 0,
+      hasRedirected = false;
+
+  router = new Router();
+
+  router.map(function(match) {
+    match("/post").to('post', function(match) {
+      match("/").to('postIndex');
+      match("/new").to('postNew');
+    });
+  });
+
+  router.getHandler = function(name) { return handlers[name]; };
+
+  router.updateURL = function() { };
+
+  var postHandler = {
+    model: function(params) {
+      equal(modelCalled++, 0, "postHandler's model should only be called once");
+      return { title: 'Hello world' };
+    },
+
+    afterModel: function(resolvedModel, transition) {
+      if (!hasRedirected) {
+        hasRedirected = true;
+        router.transitionTo('postNew').then(start, shouldNotHappen);
+      }
+    }
+  };
+
+  handlers = {
+    post: postHandler,
+    postIndex: {},
+    postNew: {}
+  };
+
+  router.transitionTo('postIndex').then(shouldNotHappen, assertAbort);
+});
+
+
+asyncTest("resolved models can be swapped out within afterModel", function() {
+
+  var modelPre = {},
+      modelPost = {};
+
+  handlers = {
+    index: {
+      model: function() {
+        return modelPre;
+      },
+      afterModel: function(resolvedModel, transition) {
+        equal(resolvedModel, transition.resolvedModels.index, "passed-in resolved model equals model in transition's hash");
+        equal(resolvedModel, modelPre, "passed-in resolved model equals model returned from `model`");
+        transition.resolvedModels.index = modelPost;
+      },
+      setup: function(model) {
+        equal(model, modelPost, "the model passed to `setup` is the one substituted in afterModel");
+      }
+    }
+  };
+
+  router.transitionTo('index').then(start);
+});
+
