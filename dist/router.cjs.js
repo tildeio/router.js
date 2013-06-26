@@ -228,7 +228,7 @@ Router.prototype = {
     @param {String} url a URL to update to
   */
   updateURL: function() {
-    throw "updateURL is not implemented";
+    throw new Error("updateURL is not implemented");
   },
 
   /**
@@ -398,7 +398,7 @@ function getMatchPoint(router, handlers, objects, inputParams) {
   }
 
   if (objects.length > 0) {
-    throw "More context objects were passed than there are dynamic segments for the route: " + handlers[handlers.length - 1].handler;
+    throw new Error("More context objects were passed than there are dynamic segments for the route: " + handlers[handlers.length - 1].handler);
   }
 
   return { matchPoint: matchPoint, providedModels: providedModels, params: params, handlerParams: handlerParams };
