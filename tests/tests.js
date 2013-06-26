@@ -1956,7 +1956,16 @@ function setupAuthenticatedExample() {
         start();
       }
     },
-    adminPost: { }
+    adminPost: { 
+      model: function(params) {
+        deepEqual(params, { post_id: '5' }, "adminPost received params previous transition attempt");
+        return "adminPost";
+      },
+      setup: function(model) {
+        equal(model, "adminPost", "adminPost was entered with correct model");
+        start();
+      }
+    }
   };
 }
 
@@ -2003,6 +2012,17 @@ asyncTest("authenticated routes: starting on auth route", function() {
     equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
 
     // Log in. This will retry the last failed transition to 'about'.
+    router.trigger('logUserIn');
+  });
+});
+
+asyncTest("authenticated routes: starting on parameterized auth route", function() {
+  expect(4);
+
+  setupAuthenticatedExample();
+
+  router.handleURL('/admin/posts/5').then(shouldNotHappen, function(result) {
+    // Log in. This will retry the last failed transition to '/posts/5'.
     router.trigger('logUserIn');
   });
 });
