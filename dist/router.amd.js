@@ -343,8 +343,7 @@ define("router",
      */
     function getMatchPoint(router, handlers, objects, inputParams) {
 
-      var objects = slice.call(objects), 
-          matchPoint = handlers.length, 
+      var matchPoint = handlers.length, 
           providedModels = {}, i,
           currentHandlerInfos = router.currentHandlerInfos || [],
           params = {},
@@ -353,6 +352,7 @@ define("router",
           handlerParams = {},
           obj;
 
+      objects = slice.call(objects);
       merge(params, inputParams);
    
       for (i = handlers.length - 1; i >= 0; i--) {
