@@ -389,7 +389,7 @@ function getMatchPoint(router, handlers, objects, inputParams) {
         handlerParams[handlerName] = {};
         for (var j = 0, len = names.length; j < len; ++j) {
           var name = names[j];
-          handlerParams[handlerName][name] = params[name] = oldParams[name];
+          handlerParams[handlerName][name] = params[name] = oldParams[name] || params[name];
         }
       }
     } 
