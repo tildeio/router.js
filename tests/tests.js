@@ -31,7 +31,7 @@ module("The router", {
       return handlers && handlers[name] || {};
     };
 
-    router.updateURL = function() { };
+    router.updateURL = function(url) { };
   }
 });
 
@@ -998,7 +998,9 @@ test("paramsForHandler returns params", function() {
 
   handlers = { showPost: showPostHandler };
 
-  deepEqual(router.paramsForHandler('showPost', post), { id: 12 }, "The correct parameters were retrieved");
+  deepEqual(router.paramsForHandler('showPost', post), { id: 12 }, "The correct parameters were retrieved with a context object");
+  deepEqual(router.paramsForHandler('showPost', 12),   { id: 12 }, "The correct parameters were retrieved with a numeric id");
+  deepEqual(router.paramsForHandler('showPost', "12"), { id: "12" }, "The correct parameters were retrieved with a string id");
 });
 
 asyncTest("when leaving a handler, the context is nulled out", function() {
@@ -2231,5 +2233,47 @@ asyncTest("resolved models can be swapped out within afterModel", function() {
   };
 
   router.transitionTo('index').then(start);
+});
+
+
+asyncTest("String/number args in transitionTo are treated as url params", function() {
+
+  expect(4);
+
+  var adminModel = { id: "1" }, adminPostModel = { id: "2" }, lastUrl;
+
+  handlers = {
+    index: { },
+    postsHandler: { },
+    admin: {
+      model: function(params) {
+        deepEqual(params, { id: "1" }, "admin handler gets the number passed in via transitionTo, converts to string");
+        return adminModel;
+      },
+      serialize: function(model) {
+        return { id: model.id };
+      }
+    },
+    adminPost: {
+      model: function(params) {
+        deepEqual(params, { post_id: "2" }, "adminPost handler gets the string passed in via transitionTo");
+        return adminPostModel;
+      },
+      setup: function() {
+        ok(true, "adminPost setup was entered");
+      }
+    }
+  };
+
+  router.updateURL = function (url) {
+    lastUrl = url;
+  };
+
+  router.handleURL('/index').then(function() {
+    return router.transitionTo('adminPost', 1, "2");
+  }).then(function() {
+    equal(lastUrl, "/posts/admin/1/posts/2", "updateURL is called with a correct URL")
+    start();
+  }, shouldNotHappen);
 });
 

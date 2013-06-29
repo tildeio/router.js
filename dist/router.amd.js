@@ -367,7 +367,7 @@ define("router",
         if (handlerObj.isDynamic) {
           // URL transition.
 
-          if (obj = getMatchPointObject(objects, handlerName, activeTransition, true)) {
+          if (obj = getMatchPointObject(objects, handlerName, activeTransition, true, params)) {
             hasChanged = true;
             providedModels[handlerName] = obj;
           } else {
@@ -382,15 +382,16 @@ define("router",
         } else if (handlerObj.hasOwnProperty('names')) {
           // Named transition.
 
-          if (obj = getMatchPointObject(objects, handlerName, activeTransition, handlerObj.names.length)) {
-            hasChanged = true;
+          if (objects.length) { hasChanged = true; }
+
+          if (obj = getMatchPointObject(objects, handlerName, activeTransition, handlerObj.names[0], params)) {
             providedModels[handlerName] = obj;
           } else {
             var names = handlerObj.names;
             handlerParams[handlerName] = {};
             for (var j = 0, len = names.length; j < len; ++j) {
               var name = names[j];
-              handlerParams[handlerName][name] = params[name] = oldParams[name] || params[name];
+              handlerParams[handlerName][name] = params[name] = params[name] || oldParams[name];
             }
           }
         } 
@@ -405,14 +406,27 @@ define("router",
       return { matchPoint: matchPoint, providedModels: providedModels, params: params, handlerParams: handlerParams };
     }
 
-    function getMatchPointObject(objects, handlerName, activeTransition, canUseProvidedObject) {
-      if (objects.length && canUseProvidedObject) {
-        return objects.pop();
+    function getMatchPointObject(objects, handlerName, activeTransition, paramName, params) {
+
+      if (objects.length && paramName) {
+
+        var object = objects.pop();
+
+        // If provided object is string or number, treat as param.
+        if (isParam(object)) {
+          params[paramName] = object.toString();
+        } else {
+          return object;
+        }
       } else if (activeTransition) {
         // Use model from previous transition attempt, preferably the resolved one.
-        return (canUseProvidedObject && activeTransition.providedModels[handlerName]) ||
+        return (paramName && activeTransition.providedModels[handlerName]) ||
                activeTransition.resolvedModels[handlerName];
       } 
+    }
+
+    function isParam(object) {
+      return object && (typeof object === "string" || object instanceof String || !isNaN(object));
     }
 
     /**
@@ -1060,6 +1074,12 @@ define("router",
     */
     function serialize(handler, model, names) {
 
+      var object = {};
+      if (isParam(model)) {
+        object[names[0]] = model;
+        return object;
+      }
+
       // Use custom serialize if it exists.
       if (handler.serialize) {
         return handler.serialize(model, names);
@@ -1067,7 +1087,7 @@ define("router",
 
       if (names.length !== 1) { return; }
 
-      var name = names[0], object = {};
+      var name = names[0];
 
       if (/_id$/.test(name)) {
         object[name] = model.id;
