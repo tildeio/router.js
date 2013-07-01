@@ -219,7 +219,9 @@ Router.prototype = {
   handleURL: function(url) {
     // Perform a URL-based transition, but don't change
     // the URL afterward, since it already happened.
-    return doTransition(this, arguments).method(null);
+    var args = slice.call(arguments);
+    if (url.charAt(0) !== '/') { args[0] = '/' + url; }
+    return doTransition(this, args).method(null);
   },
 
   /**
