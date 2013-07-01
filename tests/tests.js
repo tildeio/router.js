@@ -99,6 +99,21 @@ asyncTest("Handling a URL triggers model on the handler and passes the result in
   router.handleURL("/posts/1").then(start, shouldNotHappen);
 });
 
+asyncTest("handleURL accepts slash-less URLs", function() {
+
+  handlers = {
+    posts: {},
+    postIndex: {},
+    showAllPosts: {
+      setup: function() {
+        ok(true, "showAllPosts' setup called");
+      }
+    }
+  };
+
+  router.handleURL("posts/all").then(start);
+});
+
 asyncTest("when transitioning with the same context, setup should only be called once", function() {
   var parentSetupCount = 0,
       childSetupCount = 0;
