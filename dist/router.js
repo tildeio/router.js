@@ -959,13 +959,15 @@
 
       log(router, seq, handlerName + ": calling beforeModel hook");
 
-      return handler.beforeModel && handler.beforeModel(transition);
+      var p = handler.beforeModel && handler.beforeModel(transition);
+      return (p instanceof Transition) ? null : p;
     }
 
     function model() {
       log(router, seq, handlerName + ": resolving model");
 
-      return getModel(handlerInfo, transition, handlerParams[handlerName], index >= matchPoint);
+      var p = getModel(handlerInfo, transition, handlerParams[handlerName], index >= matchPoint);
+      return (p instanceof Transition) ? null : p;
     }
 
     function afterModel(context) {
@@ -977,7 +979,9 @@
       // always resolve with the original `context` object.
 
       transition.resolvedModels[handlerInfo.name] = context;
-      return handler.afterModel && handler.afterModel(context, transition);
+
+      var p = handler.afterModel && handler.afterModel(context, transition);
+      return (p instanceof Transition) ? null : p;
     }
 
     function proceed() {
