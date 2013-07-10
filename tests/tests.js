@@ -2292,3 +2292,57 @@ asyncTest("String/number args in transitionTo are treated as url params", functi
   }, shouldNotHappen);
 });
 
+asyncTest("Transitions returned from beforeModel/model/afterModel hooks aren't treated as pausing promises", function(){
+
+  expect(6);
+
+  handlers = {
+
+    index: {
+      beforeModel: function() {
+        ok(true, 'index beforeModel called');
+        return router.transitionTo('index');
+      },
+      model: function(){
+        ok(true, 'index model called');
+        return router.transitionTo('index');
+      },
+      afterModel: function(){
+        ok(true, 'index afterModel called');
+        return router.transitionTo('index');
+      }
+    }
+
+  };
+
+  function testStartup(){
+
+    router = new Router();
+
+    router.getHandler = function(name) {
+      return handlers[name];
+    };
+
+    router.updateURL = function() { };
+
+    router.map(function(match) {
+      match("/index").to('index');
+    });
+
+    return router.handleURL('/index');
+  }
+
+  testStartup().then(function(result) {
+    delete handlers.index.beforeModel;
+    return testStartup();
+  }).then(function(result) {
+    delete handlers.index.model;
+    return testStartup();
+  }).then(function(result) {
+    delete handlers.index.afterModel;
+    return testStartup();
+  }).then(function(result) {
+    start();
+  });
+
+});
