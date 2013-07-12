@@ -1,5 +1,5 @@
 define("router",
-  ["route-recognizer", "rsvp"],
+  ["route-recognizer","rsvp"],
   function(RouteRecognizer, RSVP) {
     "use strict";
     /**
@@ -1102,6 +1102,7 @@ define("router",
       }
       return object;
     }
+
 
     return Router;
   });
