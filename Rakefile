@@ -1,5 +1,3 @@
-directory "dist"
-
 def replace_debug(file)
   content = File.read(file)
 
@@ -13,7 +11,7 @@ def replace_debug(file)
 end
 
 require "bundler/setup"
-require "js_module_transpiler"
+require File.expand_path("../tasks/support/js_module_transpiler", __FILE__)
 require 'qunit-cli-runner'
 
 directory "dist"

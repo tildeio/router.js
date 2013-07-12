@@ -1101,5 +1101,6 @@
     return object;
   }
 
+
   exports.Router = Router;
 })(window, window.RouteRecognizer, window.RSVP);
