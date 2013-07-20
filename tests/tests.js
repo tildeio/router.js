@@ -2253,7 +2253,7 @@ asyncTest("resolved models can be swapped out within afterModel", function() {
 
 asyncTest("String/number args in transitionTo are treated as url params", function() {
 
-  expect(4);
+  expect(6);
 
   var adminModel = { id: "1" }, adminPostModel = { id: "2" }, lastUrl;
 
@@ -2264,9 +2264,6 @@ asyncTest("String/number args in transitionTo are treated as url params", functi
       model: function(params) {
         deepEqual(params, { id: "1" }, "admin handler gets the number passed in via transitionTo, converts to string");
         return adminModel;
-      },
-      serialize: function(model) {
-        return { id: model.id };
       }
     },
     adminPost: {
@@ -2287,6 +2284,10 @@ asyncTest("String/number args in transitionTo are treated as url params", functi
   router.handleURL('/index').then(function() {
     return router.transitionTo('adminPost', 1, "2");
   }).then(function() {
+
+    ok(router.isActive('adminPost', 1, "2"), "adminPost is active via params");
+    ok(router.isActive('adminPost', 1, adminPostModel), "adminPost is active via contexts");
+
     equal(lastUrl, "/posts/admin/1/posts/2", "updateURL is called with a correct URL")
     start();
   }, shouldNotHappen);
