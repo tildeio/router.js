@@ -304,6 +304,8 @@
 
       if (!targetHandlerInfos) { return false; }
 
+      var recogHandlers = this.recognizer.handlersFor(targetHandlerInfos[targetHandlerInfos.length - 1].name);
+
       for (var i=targetHandlerInfos.length-1; i>=0; i--) {
         handlerInfo = targetHandlerInfos[i];
         if (handlerInfo.name === handlerName) { found = true; }
@@ -313,7 +315,13 @@
 
           if (handlerInfo.isDynamic) {
             object = contexts.pop();
-            if (handlerInfo.context !== object) { return false; }
+
+            if (isParam(object)) {
+              var recogHandler = recogHandlers[i], name = recogHandler.names[0];
+              if (object.toString() !== this.currentParams[name]) { return false; }
+            } else if (handlerInfo.context !== object) { 
+              return false; 
+            }
           }
         }
       }
@@ -851,11 +859,12 @@
     log(router, seq, "Validation succeeded, finalizing transition;");
 
     // Collect params for URL.
-    var objects = [];
-    for (var i = 0, len = handlerInfos.length; i < len; ++i) {
+    var objects = [], providedModels = transition.providedModelsArray.slice();
+    for (var i = handlerInfos.length - 1; i>=0; --i) {
       var handlerInfo = handlerInfos[i];
       if (handlerInfo.isDynamic) {
-        objects.push(handlerInfo.context);
+        var providedModel = providedModels.pop();
+        objects.unshift(isParam(providedModel) ? providedModel.toString() : handlerInfo.context);
       }
     }
 
