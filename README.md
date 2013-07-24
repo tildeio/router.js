@@ -37,10 +37,12 @@ router.map(function(match) {
 });
 ```
 
-Add your handlers:
+Add your handlers. Note that you're responsible for implementing your
+own handler lookup.
 
 ```javascript
-router.handlers.showPost = {
+var myHandlers = {}
+myHandlers.showPost = {
   model: function(params) {
     return App.Post.find(params.id);
   },
@@ -50,7 +52,7 @@ router.handlers.showPost = {
   }
 };
 
-router.handlers.postIndex = {
+myHandlers.postIndex = {
   model: function(params) {
     return App.Post.findAll();
   },
@@ -60,10 +62,14 @@ router.handlers.postIndex = {
   }
 };
 
-router.handlers.newPost = {
+myHandlers.newPost = {
   setup: function(post) {
     // render a template with the post
   }
+};
+
+router.getHandler = function(name) {
+  return myHandlers[name];
 };
 ```
 
@@ -95,7 +101,7 @@ method to extract the parameters. Let's flesh out the
 `showPost` handler:
 
 ```javascript
-router.handlers.showPost = {
+myHandlers.showPost = {
   // when coming in from a URL, convert parameters into
   // an object
   model: function(params) {
@@ -165,7 +171,7 @@ from your `model` method. Because jQuery's Ajax
 methods already return promises, this is easy!
 
 ```javascript
-router.handlers.showPost = {
+myHandlers.showPost = {
   model: function(params) {
     return $.getJSON("/posts/" + params.id).then(function(json) {
       return new App.Post(json.post);
@@ -219,7 +225,7 @@ router.map(function(match) {
   });
 });
 
-router.handlers.posts = {
+myHandlers.posts = {
   model: function() {
     return $.getJSON("/posts").then(function(json) {
       return App.Post.loadPosts(json.posts);
@@ -235,13 +241,13 @@ router.handlers.posts = {
   }
 };
 
-router.handlers.postIndex = {
+myHandlers.postIndex = {
   setup: function() {
     $("#detail").hide();
   }
 };
 
-router.handlers.showPost = {
+myHandlers.showPost = {
   model: function(params) {
     return $.getJSON("/posts/" + params.id, function(json) {
       return new App.Post(json.post);
@@ -249,7 +255,7 @@ router.handlers.showPost = {
   }
 };
 
-router.handlers.loading = {
+myHandlers.loading = {
   setup: function() {
     $("#content").hide();
     $("#loading").show();
@@ -294,7 +300,7 @@ of URL parameters specific to its route that can be used
 to resolve the model.
 
 ```javascript
-router.handlers.showPost = {
+myHandlers.showPost = {
   model: function(params, transition) {
     return App.Post.find(params.id);
   }
@@ -456,7 +462,7 @@ router.map(function(match) {
   });
 });
 
-router.handlers.posts = {
+myHandlers.posts = {
   events: {
     collapseSidebar: function(handler) {
       // do something to collapse the sidebar
@@ -464,10 +470,10 @@ router.handlers.posts = {
   }
 };
 
-router.handlers.postIndex = {};
-router.handlers.showPost = {};
+myHandlers.postIndex = {};
+myHandlers.showPost = {};
 
-router.handlers.editPost = {
+myHandlers.editPost = {
   events: {
     collapseSidebar: function(handler) {
       // override the collapseSidebar handler from
