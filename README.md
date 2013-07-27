@@ -385,7 +385,7 @@ Consider the following transitions:
 3. A direct transition to `about` with a specified
    context object
    1. Triggers `beforeModel`, resolves the specified
-      context object if it's a prmise, and triggers
+      context object if it's a promise, and triggers
       `afterModel`.
    1. Triggers the `exit` callback on `newPost`
       and `posts`
