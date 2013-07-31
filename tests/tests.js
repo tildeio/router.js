@@ -1,4 +1,4 @@
-QUnit.config.testTimeout = 5000;
+QUnit.config.testTimeout = 1000;
 
 var router, url, handlers;
 
@@ -2445,4 +2445,41 @@ asyncTest("Transitions returned from beforeModel/model/afterModel hooks aren't t
     start();
   });
 
+});
+
+
+asyncTest("Redirect back to the present route doesn't update URL", function() {
+
+  expect(2);
+
+  handlers = {
+
+    index: {
+      setup: function() {
+        ok(true, "index was entered");
+      }
+    },
+
+    about: {
+      beforeModel: function() {
+        router.transitionTo('index');
+      }
+    }
+  };
+
+  var didTransitionCount = 0;
+  router.didTransition = function(infos) {
+    didTransitionCount++;
+  }
+
+  router.updateURL = function() { 
+    ok(false, "Should not update the URL");
+  };
+
+  router.handleURL('/index').then(function() {
+    return router.transitionTo('about');
+  }).then(shouldNotHappen, function() {
+    equal(didTransitionCount, 2, "didTransition was called twice");
+    start();
+  });
 });

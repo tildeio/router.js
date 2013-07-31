@@ -575,10 +575,6 @@
     eachHandler(partition.entered, function(handlerInfo) {
       handlerEnteredOrUpdated(transition, currentHandlerInfos, handlerInfo, true);
     });
-
-    if (router.didTransition) {
-      router.didTransition(handlerInfos);
-    }
   }
 
   /**
@@ -747,7 +743,8 @@
 
     var matchPointResults = getMatchPoint(router, recogHandlers, providedModelsArray, params),
         targetName = recogHandlers[recogHandlers.length - 1].handler,
-        wasTransitioning = false;
+        wasTransitioning = false,
+        currentHandlerInfos = router.currentHandlerInfos;
 
     // Check if there's already a transition underway.
     if (router.activeTransition) { 
@@ -773,7 +770,7 @@
     // Fire 'willTransition' event on current handlers, but don't fire it
     // if a transition was already underway.
     if (!wasTransitioning) {
-      trigger(router.currentHandlerInfos, true, ['willTransition', transition]);
+      trigger(currentHandlerInfos, true, ['willTransition', transition]);
     }
 
     log(router, transition.sequence, "Beginning validation for transition to " + transition.targetName);
@@ -786,7 +783,19 @@
       checkAbort(transition);
 
       try {
-        finalizeTransition(transition, handlerInfos);
+        log(router, transition.sequence, "Validation succeeded, finalizing transition;");
+
+        // Don't overwrite contexts / update URL if this was a noop transition.
+        if (!currentHandlerInfos || !currentHandlerInfos.length ||
+            currentHandlerInfos.length !== matchPointResults.matchPoint) { 
+          finalizeTransition(transition, handlerInfos);
+        }
+
+        if (router.didTransition) {
+          router.didTransition(handlerInfos);
+        }
+
+        log(router, transition.sequence, "TRANSITION COMPLETE.");
 
         // Resolve with the final handler.
         deferred.resolve(handlerInfos[handlerInfos.length - 1].handler);
@@ -856,8 +865,6 @@
         seq = transition.sequence,
         handlerName = handlerInfos[handlerInfos.length - 1].name;
 
-    log(router, seq, "Validation succeeded, finalizing transition;");
-
     // Collect params for URL.
     var objects = [], providedModels = transition.providedModelsArray.slice();
     for (var i = handlerInfos.length - 1; i>=0; --i) {
@@ -887,7 +894,6 @@
     }
 
     setupContexts(transition, handlerInfos);
-    log(router, seq, "TRANSITION COMPLETE.");
   }
 
   /**
