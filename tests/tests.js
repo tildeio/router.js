@@ -1,4 +1,4 @@
-QUnit.config.testTimeout = 1000;
+QUnit.config.testTimeout = 5000;
 
 var router, url, handlers;
 
