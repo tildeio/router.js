@@ -1082,12 +1082,6 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
   router.handleURL("/posts/1").then(function(result) {
     ok(router.isActive('showPost'), "The showPost handler is active");
     ok(router.isActive('showPost', posts[1]), "The showPost handler is active with the appropriate context");
-    ok(router.isActive('showPost', '1'), "The showPost handler is active with the appropriate context (string param)");
-    ok(router.isActive('showPost', 1), "The showPost handler is active with the appropriate context (numeric param)");
-
-    ok(router.isActive('showPost', { id: 1 }), "The showPost handler is active with the appropriate context (different object serializing to same value)");
-    ok(!router.isActive('showPost', { id: 2 }), "The showPost handler is not active with a different context (different object serializing to same value)");
-
     ok(!router.isActive('showPost', posts[2]), "The showPost handler is inactive when the context is different");
     ok(!router.isActive('adminPost'), "The adminPost handler is inactive");
 
@@ -1096,8 +1090,6 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
     ok(router.isActive('adminPost'), "The adminPost handler is active");
     ok(router.isActive('adminPost', adminPost), "The adminPost handler is active with the current context");
     ok(router.isActive('adminPost', admin, adminPost), "The adminPost handler is active with the current and parent context");
-    ok(router.isActive('adminPost', 47, adminPost), "The adminPost handler is active with the current and parent context (string param)");
-    ok(router.isActive('adminPost', admin, '74'), "The adminPost handler is active with the current and parent context (numeric param)");
     ok(router.isActive('admin'), "The admin handler is active");
     ok(router.isActive('admin', admin), "The admin handler is active with its context");
     start();
