@@ -1,12 +1,13 @@
 QUnit.config.testTimeout = 5000;
 
-var router, url, handlers;
+var router, url, handlers, expectedUrl;
 
 module("The router", {
   setup: function() {
-    router = new Router();
+    handlers = {};
+    expectedUrl = null;
 
-    router.map(function(match) {
+    map(function(match) {
       match("/index").to("index");
       match("/about").to("about");
       match("/faq").to("faq");
@@ -26,14 +27,26 @@ module("The router", {
         });
       });
     });
-
-    router.getHandler = function(name) {
-      return handlers && handlers[name] || {};
-    };
-
-    router.updateURL = function(url) { };
   }
 });
+
+function map(fn) {
+  router = new Router();
+  router.map(fn);
+
+  router.getHandler = function(name) {
+    return handlers[name] || (handlers[name] = {});
+  };
+
+  router.updateURL = function(newUrl) {
+
+    if (expectedUrl) {
+      equal(newUrl, expectedUrl, "The url is " + newUrl+ " as expected");
+    }
+
+    url = newUrl;
+  };
+}
 
 function shouldNotHappen(error) {
   console.error(error.stack);
@@ -73,23 +86,18 @@ asyncTest("Handling a URL triggers model on the handler and passes the result in
   var post = { post: true };
   var posts = { index: true };
 
-  var showPostHandler = {
-    model: function(params) {
-      deepEqual(params, { id: "1" });
-      return post;
-    },
-
-    setup: function(object) {
-      strictEqual(object, post);
-      equal(showPostHandler.context, post);
-    }
-  };
-
-  var postIndexHandler = {};
-
   handlers = {
-    showPost: showPostHandler,
-    postIndex: postIndexHandler
+    showPost: {
+      model: function(params) {
+        deepEqual(params, { id: "1" });
+        return post;
+      },
+
+      setup: function(object) {
+        strictEqual(object, post);
+        equal(handlers.showPost.context, post);
+      }
+    }
   };
 
   router.didTransition = function(infos) {
@@ -102,8 +110,6 @@ asyncTest("Handling a URL triggers model on the handler and passes the result in
 asyncTest("handleURL accepts slash-less URLs", function() {
 
   handlers = {
-    posts: {},
-    postIndex: {},
     showAllPosts: {
       setup: function() {
         ok(true, "showAllPosts' setup called");
@@ -120,43 +126,29 @@ asyncTest("when transitioning with the same context, setup should only be called
 
   var context = { id: 1 };
 
-  router = new Router();
-
-  router.map(function(match) {
+  map(function(match) {
     match("/").to('index');
     match("/posts/:id").to('post', function(match) {
       match("/details").to('postDetails');
     });
   });
 
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
+  handlers = {
+    post: {
+      setup: function() {
+        parentSetupCount++;
+      },
 
-  router.updateURL = function() { };
-
-  var indexHandler = { };
-
-  var postHandler = {
-    setup: function() {
-      parentSetupCount++;
+      model: function(params) {
+        return params;
+      }
     },
 
-    model: function(params) {
-      return params;
+    postDetails: {
+      setup: function() {
+        childSetupCount++;
+      }
     }
-  };
-
-  var postDetailsHandler = {
-    setup: function() {
-      childSetupCount++;
-    }
-  };
-
-  handlers = {
-    index: indexHandler,
-    post: postHandler,
-    postDetails: postDetailsHandler
   };
 
   router.handleURL('/').then(function() {
@@ -179,40 +171,26 @@ asyncTest("when transitioning with the same context, setup should only be called
 asyncTest("when transitioning to a new parent and child state, the parent's context should be available to the child's model", function() {
   var contexts = [];
 
-  router = new Router();
-
-  router.map(function(match) {
+  map(function(match) {
     match("/").to('index');
     match("/posts/:id").to('post', function(match) {
       match("/details").to('postDetails');
     });
   });
 
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
-
-  router.updateURL = function() { };
-
-  var indexHandler = { };
-
-  var postHandler = {
-    model: function(params, transition) {
-      return contexts.post;
-    }
-  };
-
-  var postDetailsHandler = {
-    name: 'postDetails',
-    afterModel: function(model, transition) {
-      contexts.push(transition.resolvedModels.post);
-    }
-  };
-
   handlers = {
-    index: indexHandler,
-    post: postHandler,
-    postDetails: postDetailsHandler
+    post: {
+      model: function(params, transition) {
+        return contexts.post;
+      }
+    },
+
+    postDetails: {
+      name: 'postDetails',
+      afterModel: function(model, transition) {
+        contexts.push(transition.resolvedModels.post);
+      }
+    }
   };
 
   router.handleURL('/').then(function() {
@@ -540,12 +518,6 @@ asyncTest("replaceWith calls replaceURL", function() {
     replaceCount++;
   }
 
-  handlers = {
-    postIndex: { },
-    showAllPosts: { },
-    about: { }
-  };
-
   router.handleURL('/posts').then(function(handlerInfos) {
     return router.replaceWith('about');
   }).then(function() {
@@ -561,53 +533,42 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
 
   var allPosts = { posts: "all" };
   var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
-  var currentId, currentURL, currentPath;
-
-  var showAllPostsHandler = {
-    model: function(params) {
-      return allPosts;
-    },
-
-    setup: function(posts) {
-      equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
-      currentPath = "postIndex.showAllPosts";
-
-    },
-
-    exit: function() {
-      ok(true, "Should get here");
-    }
-  };
-
-  var showPostHandler = {
-    model: function(params, resolvedModels) {
-      return postsStore[params.id];
-    },
-
-    serialize: function(post) {
-      return { id: post.id };
-    },
-
-    setup: function(post) {
-      currentPath = "showPost";
-      equal(post.id, currentId, "The post id is " + currentId);
-    }
-  };
-
-  var postIndexHandler = {};
+  var currentId, currentPath;
 
   handlers = {
-    postIndex: postIndexHandler,
-    showAllPosts: showAllPostsHandler,
-    showPost: showPostHandler
-  };
+    showAllPosts: {
+      model: function(params) {
+        return allPosts;
+      },
 
-  router.updateURL = function(url) {
-    equal(url, currentURL, "The url is " + currentURL + " as expected");
+      setup: function(posts) {
+        equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
+        currentPath = "postIndex.showAllPosts";
+      },
+
+      exit: function() {
+        ok(true, "Should get here");
+      }
+    },
+
+    showPost: {
+      model: function(params, resolvedModels) {
+        return postsStore[params.id];
+      },
+
+      serialize: function(post) {
+        return { id: post.id };
+      },
+
+      setup: function(post) {
+        currentPath = "showPost";
+        equal(post.id, currentId, "The post id is " + currentId);
+      }
+    }
   };
 
   router.handleURL("/posts").then(function() {
-    currentURL = "/posts/1";
+    expectedUrl = "/posts/1";
     currentId = 1;
     return router.transitionTo('showPost', postsStore[1]);
   }, shouldNotHappen).then(function() {
@@ -621,31 +582,28 @@ asyncTest("Moving to the same route with a different parent dynamic segment re-r
       adminPosts = { 1: { id: 1 }, 2: { id: 2 } },
       adminPostModel = 0;
 
-  var adminHandler = {
-    model: function(params) {
-      return this.currentModel = admins[params.id];
-    }
-  };
-
-  var adminPostsHandler = {
-    model: function() {
-      adminPostModel++;
-      return adminPosts[adminHandler.currentModel.id];
-    }
-  };
-
   handlers = {
-    admin: adminHandler,
-    adminPosts: adminPostsHandler
-  }
+    admin: {
+      model: function(params) {
+        return this.currentModel = admins[params.id];
+      }
+    },
+
+    adminPosts: {
+      model: function() {
+        adminPostModel++;
+        return adminPosts[handlers.admin.currentModel.id];
+      }
+    }
+  };
 
   router.handleURL("/posts/admin/1/posts").then(function() {
-    equal(adminHandler.context, admins[1]);
-    equal(adminPostsHandler.context, adminPosts[1]);
+    equal(handlers.admin.context, admins[1]);
+    equal(handlers.adminPosts.context, adminPosts[1]);
     return router.handleURL("/posts/admin/2/posts");
   }).then(function() {
-    equal(adminHandler.context, admins[2]);
-    equal(adminPostsHandler.context, adminPosts[2]);
+    equal(handlers.admin.context, admins[2]);
+    equal(handlers.adminPosts.context, adminPosts[2]);
     start();
   });
 });
@@ -655,7 +613,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
 
   var allPosts = { posts: "all" };
   var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
-  var currentId, currentURL;
+  var currentId;
 
   var showAllPostsHandler = {
     model: function(params) {
@@ -722,12 +680,8 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
     showFilteredPosts: showFilteredPostsHandler
   };
 
-  router.updateURL = function(url) {
-    equal(url, currentURL, "The url is " + currentURL + " as expected");
-  };
-
   router.handleURL("/posts").then(function() {
-    currentURL = "/posts/filter/favorite";
+    expectedUrl = "/posts/filter/favorite";
     return router.transitionTo('showFilteredPosts', { id: 'favorite' });
   }).then(start);
 });
@@ -737,7 +691,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
 
   var allPosts = { posts: "all" };
   var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
-  var currentId, currentURL;
+  var currentId;
 
   var showAllPostsHandler = {
     model: function(params) {
@@ -748,8 +702,8 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
       equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
 
       setTimeout(function() {
-        currentURL = "/posts/filter/favorite";
-        router.handleURL(currentURL);
+        expectedUrl = "/posts/filter/favorite";
+        router.handleURL(expectedUrl);
       }, 0);
     },
 
@@ -810,29 +764,24 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
     showFilteredPosts: showFilteredPostsHandler
   };
 
-  router.updateURL = function(url) {
-    equal(url, currentURL, "The url is " + currentURL + " as expected");
-  };
-
   router.handleURL("/posts");
 });
 
 asyncTest("events can be targeted at the current handler", function() {
-  var showPostHandler = {
-    enter: function() {
-      ok(true, "The show post handler was entered");
-    },
-
-    events: {
-      expand: function() {
-        equal(this, showPostHandler, "The handler is the `this` for the event");
-        start();
-      }
-    }
-  };
 
   handlers = {
-    showPost: showPostHandler
+    showPost: {
+      enter: function() {
+        ok(true, "The show post handler was entered");
+      },
+
+      events: {
+        expand: function() {
+          equal(this, handlers.showPost, "The handler is the `this` for the event");
+          start();
+        }
+      }
+    }
   };
 
   router.handleURL("/posts/1").then(function() {
@@ -841,12 +790,6 @@ asyncTest("events can be targeted at the current handler", function() {
 });
 
 test("Unhandled events raise an exception", function() {
-  var showPostHandler = {};
-
-  handlers = {
-    showPost: showPostHandler
-  };
-
   router.handleURL("/posts/1");
 
   throws(function() {
@@ -857,28 +800,24 @@ test("Unhandled events raise an exception", function() {
 asyncTest("events can be targeted at a parent handler", function() {
   expect(3);
 
-  var postIndexHandler = {
-    enter: function() {
-      ok(true, "The post index handler was entered");
-    },
+  handlers = {
+    postIndex: {
+      enter: function() {
+        ok(true, "The post index handler was entered");
+      },
 
-    events: {
-      expand: function() {
-        equal(this, postIndexHandler, "The handler is the `this` in events");
-        start();
+      events: {
+        expand: function() {
+          equal(this, handlers.postIndex, "The handler is the `this` in events");
+          start();
+        }
+      }
+    },
+    showAllPosts: {
+      enter: function() {
+        ok(true, "The show all posts handler was entered");
       }
     }
-  };
-
-  var showAllPostsHandler = {
-    enter: function() {
-      ok(true, "The show all posts handler was entered");
-    }
-  }
-
-  handlers = {
-    postIndex: postIndexHandler,
-    showAllPosts: showAllPostsHandler
   };
 
   router.handleURL("/posts").then(function(result) {
@@ -889,34 +828,30 @@ asyncTest("events can be targeted at a parent handler", function() {
 asyncTest("events can bubble up to a parent handler via `return true`", function() {
   expect(4);
 
-  var postIndexHandler = {
-    enter: function() {
-      ok(true, "The post index handler was entered");
-    },
-
-    events: {
-      expand: function() {
-        equal(this, postIndexHandler, "The handler is the `this` in events");
-        start();
-      }
-    }
-  };
-
-  var showAllPostsHandler = {
-    enter: function() {
-      ok(true, "The show all posts handler was entered");
-    },
-    events: {
-      expand: function() {
-        equal(this, showAllPostsHandler, "The handler is the `this` in events");
-        return true;
-      }
-    }
-  }
-
   handlers = {
-    postIndex: postIndexHandler,
-    showAllPosts: showAllPostsHandler
+    postIndex: {
+      enter: function() {
+        ok(true, "The post index handler was entered");
+      },
+
+      events: {
+        expand: function() {
+          equal(this, handlers.postIndex, "The handler is the `this` in events");
+          start();
+        }
+      }
+    },
+    showAllPosts: {
+      enter: function() {
+        ok(true, "The show all posts handler was entered");
+      },
+      events: {
+        expand: function() {
+          equal(this, handlers.showAllPosts, "The handler is the `this` in events");
+          return true;
+        }
+      }
+    }
   };
 
   router.handleURL("/posts").then(function(result) {
@@ -927,28 +862,25 @@ asyncTest("events can bubble up to a parent handler via `return true`", function
 asyncTest("handled-then-bubbled events don't throw an exception if uncaught by parent route", function() {
   expect(3);
 
-  var postIndexHandler = {
-    enter: function() {
-      ok(true, "The post index handler was entered");
-    }
-  };
-
-  var showAllPostsHandler = {
-    enter: function() {
-      ok(true, "The show all posts handler was entered");
+  handlers = {
+    postIndex: {
+      enter: function() {
+        ok(true, "The post index handler was entered");
+      }
     },
-    events: {
-      expand: function() {
-        equal(this, showAllPostsHandler, "The handler is the `this` in events");
-        start();
-        return true;
+
+    showAllPosts: {
+      enter: function() {
+        ok(true, "The show all posts handler was entered");
+      },
+      events: {
+        expand: function() {
+          equal(this, handlers.showAllPosts, "The handler is the `this` in events");
+          start();
+          return true;
+        }
       }
     }
-  }
-
-  handlers = {
-    postIndex: postIndexHandler,
-    showAllPosts: showAllPostsHandler
   };
 
   router.handleURL("/posts").then(function(result) {
@@ -959,36 +891,33 @@ asyncTest("handled-then-bubbled events don't throw an exception if uncaught by p
 asyncTest("events only fire on the closest handler", function() {
   expect(5);
 
-  var postIndexHandler = {
-    enter: function() {
-      ok(true, "The post index handler was entered");
-    },
-
-    events: {
-      expand: function() {
-        ok(false, "Should not get to the parent handler");
-      }
-    }
-  };
-
-  var showAllPostsHandler = {
-    enter: function() {
-      ok(true, "The show all posts handler was entered");
-    },
-
-    events: {
-      expand: function(passedContext1, passedContext2) {
-        equal(context1, passedContext1, "A context is passed along");
-        equal(context2, passedContext2, "A second context is passed along");
-        equal(this, showAllPostsHandler, "The handler is passed into events as `this`");
-        start();
-      }
-    }
-  }
-
   handlers = {
-    postIndex: postIndexHandler,
-    showAllPosts: showAllPostsHandler
+    postIndex: {
+      enter: function() {
+        ok(true, "The post index handler was entered");
+      },
+
+      events: {
+        expand: function() {
+          ok(false, "Should not get to the parent handler");
+        }
+      }
+    },
+
+    showAllPosts: {
+      enter: function() {
+        ok(true, "The show all posts handler was entered");
+      },
+
+      events: {
+        expand: function(passedContext1, passedContext2) {
+          equal(context1, passedContext1, "A context is passed along");
+          equal(context2, passedContext2, "A second context is passed along");
+          equal(this, handlers.showAllPosts, "The handler is passed into events as `this`");
+          start();
+        }
+      }
+    }
   };
 
   var context1 = {}, context2 = {};
@@ -1000,18 +929,18 @@ asyncTest("events only fire on the closest handler", function() {
 test("paramsForHandler returns params", function() {
   var post = { id: 12 };
 
-  var showPostHandler = {
-    serialize: function(object) {
-      return { id: object.id };
-    },
+  handlers = {
+    showPost: {
+      serialize: function(object) {
+        return { id: object.id };
+      },
 
-    model: function(params) {
-      equal(params.id, 12, "The parameters are correct");
-      return post;
+      model: function(params) {
+        equal(params.id, 12, "The parameters are correct");
+        return post;
+      }
     }
   };
-
-  handlers = { showPost: showPostHandler };
 
   deepEqual(router.paramsForHandler('showPost', post), { id: 12 }, "The correct parameters were retrieved with a context object");
   deepEqual(router.paramsForHandler('showPost', 12),   { id: 12 }, "The correct parameters were retrieved with a numeric id");
@@ -1022,57 +951,46 @@ asyncTest("when leaving a handler, the context is nulled out", function() {
   var admin = { id: 47 },
       adminPost = { id: 74 };
 
-  var adminHandler = {
-    serialize: function(object) {
-      equal(object.id, 47, "The object passed to serialize is correct");
-      return { id: 47 };
-    },
-
-    model: function(params) {
-      equal(params.id, 47, "The object passed to serialize is correct");
-      return admin;
-    }
-  };
-
-  var adminPostHandler = {
-    serialize: function(object) {
-      return { post_id: object.id };
-    },
-
-    model: function(params) {
-      equal(params.id, 74, "The object passed to serialize is correct");
-      return adminPost;
-    }
-  };
-
-  var showPostHandler = {};
-
   handlers = {
-    admin: adminHandler,
-    adminPost: adminPostHandler,
-    showPost: showPostHandler
+    admin: {
+      serialize: function(object) {
+        equal(object.id, 47, "The object passed to serialize is correct");
+        return { id: 47 };
+      },
+
+      model: function(params) {
+        equal(params.id, 47, "The object passed to serialize is correct");
+        return admin;
+      }
+    },
+
+    adminPost: {
+      serialize: function(object) {
+        return { post_id: object.id };
+      },
+
+      model: function(params) {
+        equal(params.id, 74, "The object passed to serialize is correct");
+        return adminPost;
+      }
+    }
   };
 
-  var url;
-
-  router.updateURL = function(passedURL) {
-    url = passedURL;
-  };
-
+  expectedUrl = '/posts/admin/47/posts/74';
   router.transitionTo('adminPost', admin, adminPost).then(function(result) {
-    equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
 
     deepEqual(router.currentHandlerInfos, [
-      { context: { id: 47 }, handler: adminHandler, isDynamic: true, name: 'admin' },
-      { context: { id: 74 }, handler: adminPostHandler, isDynamic: true, name: 'adminPost' }
+      { context: { id: 47 }, handler: handlers.admin, isDynamic: true, name: 'admin' },
+      { context: { id: 74 }, handler: handlers.adminPost, isDynamic: true, name: 'adminPost' }
     ]);
 
+    expectedUrl = null;
     return router.transitionTo('showPost');
   }, shouldNotHappen).then(function() {
-    ok(!adminHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
-    ok(!adminPostHandler.hasOwnProperty('context'), "The inactive handler's context was nulled out");
+    ok(!handlers.admin.hasOwnProperty('context'), "The inactive handler's context was nulled out");
+    ok(!handlers.adminPost.hasOwnProperty('context'), "The inactive handler's context was nulled out");
     deepEqual(router.currentHandlerInfos, [
-      { context: undefined, handler: showPostHandler, isDynamic: true, name: 'showPost' }
+      { context: undefined, handler: handlers.showPost, isDynamic: true, name: 'showPost' }
     ]);
     start();
   }, shouldNotHappen);
@@ -1082,45 +1000,36 @@ asyncTest("transitionTo uses the current context if you are already in a handler
   var admin = { id: 47 },
       adminPost = { id: 74 };
 
-  var adminHandler = {
-    serialize: function(object) {
-      equal(object.id, 47, "The object passed to serialize is correct");
-      return { id: 47 };
-    },
-
-    model: function(params) {
-      equal(params.id, 47, "The object passed to serialize is correct");
-      return admin;
-    }
-  };
-
-  var adminPostHandler = {
-    serialize: function(object) {
-      return { post_id: object.id };
-    },
-
-    model: function(params) {
-      equal(params.id, 74, "The object passed to serialize is correct");
-      return adminPost;
-    }
-  };
-
   handlers = {
-    admin: adminHandler,
-    adminPost: adminPostHandler
+    admin: {
+      serialize: function(object) {
+        equal(object.id, 47, "The object passed to serialize is correct");
+        return { id: 47 };
+      },
+
+      model: function(params) {
+        equal(params.id, 47, "The object passed to serialize is correct");
+        return admin;
+      }
+    },
+
+    adminPost: {
+      serialize: function(object) {
+        return { post_id: object.id };
+      },
+
+      model: function(params) {
+        equal(params.id, 74, "The object passed to serialize is correct");
+        return adminPost;
+      }
+    }
   };
 
-  var url;
-
-  router.updateURL = function(passedURL) {
-    url = passedURL;
-  };
-
+  expectedUrl = '/posts/admin/47/posts/74';
   router.transitionTo('adminPost', admin, adminPost).then(function(result) {
-    equal(url, '/posts/admin/47/posts/74', 'precond - the URL is correct');
+    expectedUrl =  '/posts/admin/47/posts/75';
     return router.transitionTo('adminPost', { id: 75 });
   }).then(function(result) {
-    equal(url, '/posts/admin/47/posts/75', "the current context was used");
     start();
   });
 });
@@ -1156,7 +1065,7 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
 
   showPostHandler = {
     serialize: function(object) {
-      return { post_id: object.id };
+      return { id: object.id };
     },
 
     model: function(params) {
@@ -1170,15 +1079,15 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
     showPost: showPostHandler
   };
 
-  var url;
-
-  router.updateURL = function(passedURL) {
-    url = passedURL;
-  };
-
   router.handleURL("/posts/1").then(function(result) {
     ok(router.isActive('showPost'), "The showPost handler is active");
     ok(router.isActive('showPost', posts[1]), "The showPost handler is active with the appropriate context");
+    ok(router.isActive('showPost', '1'), "The showPost handler is active with the appropriate context (string param)");
+    ok(router.isActive('showPost', 1), "The showPost handler is active with the appropriate context (numeric param)");
+
+    ok(router.isActive('showPost', { id: 1 }), "The showPost handler is active with the appropriate context (different object serializing to same value)");
+    ok(!router.isActive('showPost', { id: 2 }), "The showPost handler is not active with a different context (different object serializing to same value)");
+
     ok(!router.isActive('showPost', posts[2]), "The showPost handler is inactive when the context is different");
     ok(!router.isActive('adminPost'), "The adminPost handler is inactive");
 
@@ -1187,6 +1096,8 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
     ok(router.isActive('adminPost'), "The adminPost handler is active");
     ok(router.isActive('adminPost', adminPost), "The adminPost handler is active with the current context");
     ok(router.isActive('adminPost', admin, adminPost), "The adminPost handler is active with the current and parent context");
+    ok(router.isActive('adminPost', 47, adminPost), "The adminPost handler is active with the current and parent context (string param)");
+    ok(router.isActive('adminPost', admin, '74'), "The adminPost handler is active with the current and parent context (numeric param)");
     ok(router.isActive('admin'), "The admin handler is active");
     ok(router.isActive('admin', admin), "The admin handler is active with its context");
     start();
@@ -1194,9 +1105,7 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
 });
 
 asyncTest("calling generate on a non-dynamic route does not blow away parent contexts", function() {
-  router = new Router();
-
-  router.map(function(match) {
+  map(function(match) {
     match("/projects").to('projects', function(match) {
       match("/").to('projectsIndex');
       match("/project").to('project', function(match) {
@@ -1205,53 +1114,30 @@ asyncTest("calling generate on a non-dynamic route does not blow away parent con
     });
   });
 
-  router.updateURL = function() { };
-
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
-
   var projects = {};
 
-  var projectsHandler = {
-    model: function(){
-      return projects;
+  handlers = {
+    projects: {
+      model: function(){
+        return projects;
+      }
     }
   };
 
-  var projectsIndexHandler = {};
-  var projectHandler = {};
-  var projectIndexHandler = {};
-
-  handlers = {
-    projects:      projectsHandler,
-    projectsIndex: projectsIndexHandler,
-    project:       projectHandler,
-    projectIndex:  projectIndexHandler
-  };
-
   router.handleURL('/projects').then(function(result) {
-    equal(projectsHandler.context, projects, 'projects handler has correct context');
+    equal(handlers.projects.context, projects, 'projects handler has correct context');
     router.generate('projectIndex');
-    equal(projectsHandler.context, projects, 'projects handler retains correct context');
+    equal(handlers.projects.context, projects, 'projects handler retains correct context');
     start();
   });
 });
 
 asyncTest("calling transitionTo on a dynamic parent route causes non-dynamic child context to be updated", function() {
-  router = new Router();
-
-  router.map(function(match) {
+  map(function(match) {
     match("/project/:project_id").to('project', function(match) {
       match("/").to('projectIndex');
     });
   });
-
-  router.updateURL = function() { };
-
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
 
   var projectHandler = {
     model: function(params) {
@@ -1364,15 +1250,7 @@ asyncTest("any of the model hooks can redirect with or without promise", functio
 
 
   function testStartup() {
-    router = new Router();
-
-    router.getHandler = function(name) {
-      return handlers[name];
-    };
-
-    router.updateURL = function() { };
-
-    router.map(function(match) {
+    map(function(match) {
       match("/").to('index');
       match("/about").to('about');
       match("/foo").to('foo');
@@ -1493,15 +1371,7 @@ asyncTest("error handler gets called for errors in validation hooks", function()
 
 
   function testStartup() {
-    router = new Router();
-
-    router.getHandler = function(name) {
-      return handlers[name];
-    };
-
-    router.updateURL = function() { };
-
-    router.map(function(match) {
+    map(function(match) {
       match("/").to('index');
       match("/about").to('about');
     });
@@ -1583,15 +1453,7 @@ asyncTest("error handler gets called for errors in validation hooks, even if tra
   };
 
   function testStartup() {
-    router = new Router();
-
-    router.getHandler = function(name) {
-      return handlers[name];
-    };
-
-    router.updateURL = function() { };
-
-    router.map(function(match) {
+    map(function(match) {
       match("/").to('index');
       match("/about").to('about');
     });
@@ -2019,9 +1881,7 @@ asyncTest("transitions can be saved and later retried", function() {
 
 
 function setupAuthenticatedExample() {
-  router = new Router();
-
-  router.map(function(match) {
+  map(function(match) {
     match("/index").to("index");
     match("/login").to("login");
 
@@ -2030,12 +1890,6 @@ function setupAuthenticatedExample() {
       match("/posts/:post_id").to("adminPost");
     });
   });
-
-  router.getHandler = function(name) {
-    return handlers[name];
-  };
-
-  router.updateURL = function() { };
 
   var isLoggedIn = false, lastRedirectedTransition;
 
@@ -2278,18 +2132,12 @@ asyncTest("transitionTo will soak up resolved all models of active transition, i
   var modelCalled = 0,
       hasRedirected = false;
 
-  router = new Router();
-
-  router.map(function(match) {
+  map(function(match) {
     match("/post").to('post', function(match) {
       match("/").to('postIndex');
       match("/new").to('postNew');
     });
   });
-
-  router.getHandler = function(name) { return handlers[name]; };
-
-  router.updateURL = function() { };
 
   var postHandler = {
     model: function(params) {
@@ -2346,11 +2194,9 @@ asyncTest("String/number args in transitionTo are treated as url params", functi
 
   var adminParams = { id: "1" }, 
       adminModel = { id: "1" }, 
-      adminPostModel = { id: "2" }, lastUrl;
+      adminPostModel = { id: "2" };
 
   handlers = {
-    index: { },
-    postsHandler: { },
     admin: {
       model: function(params) {
         deepEqual(params, adminParams, "admin handler gets the number passed in via transitionTo, converts to string");
@@ -2368,23 +2214,18 @@ asyncTest("String/number args in transitionTo are treated as url params", functi
     }
   };
 
-  router.updateURL = function (url) {
-    lastUrl = url;
-  };
-
   router.handleURL('/index').then(function() {
+    expectedUrl = "/posts/admin/1/posts/2";
     return router.transitionTo('adminPost', 1, "2");
   }).then(function() {
 
     ok(router.isActive('adminPost', 1, "2"), "adminPost is active via params");
     ok(router.isActive('adminPost', 1, adminPostModel), "adminPost is active via contexts");
 
-    equal(lastUrl, "/posts/admin/1/posts/2", "updateURL is called with a correct URL")
-
     adminParams = { id: "0" };
+    expectedUrl = "/posts/admin/0/posts/2";
     return router.transitionTo('adminPost', 0, "2");
   }).then(function() {
-    equal(lastUrl, "/posts/admin/0/posts/2", "updateURL is called with a correct URL and 0 id")
     ok(router.isActive('adminPost', 0, "2"), "adminPost is active via params");
     ok(router.isActive('adminPost', 0, adminPostModel), "adminPost is active via contexts");
 
@@ -2397,7 +2238,6 @@ asyncTest("Transitions returned from beforeModel/model/afterModel hooks aren't t
   expect(6);
 
   handlers = {
-
     index: {
       beforeModel: function() {
         ok(true, 'index beforeModel called');
@@ -2412,20 +2252,10 @@ asyncTest("Transitions returned from beforeModel/model/afterModel hooks aren't t
         return router.transitionTo('index');
       }
     }
-
   };
 
   function testStartup(){
-
-    router = new Router();
-
-    router.getHandler = function(name) {
-      return handlers[name];
-    };
-
-    router.updateURL = function() { };
-
-    router.map(function(match) {
+    map(function(match) {
       match("/index").to('index');
     });
 
@@ -2483,3 +2313,4 @@ asyncTest("Redirect back to the present route doesn't update URL", function() {
     start();
   });
 });
+
