@@ -48,6 +48,11 @@ function map(fn) {
   };
 }
 
+function followRedirect(reason) {
+  ok(reason.name === "TransitionAborted" && router.activeTransition, "Transition was redirected");
+  return router.activeTransition;
+}
+
 function shouldNotHappen(error) {
   console.error(error.stack);
   ok(false, "this .then handler should not be called");
@@ -1252,7 +1257,7 @@ asyncTest("any of the model hooks can redirect with or without promise", functio
     redirectTo = 'about';
 
     // Perform a redirect on startup.
-    return router.handleURL('/').then(null, function(e) { 
+    return router.handleURL('/').then(null, function(e) {
 
       ok(e instanceof Router.TransitionAborted, 'transition was redirected');
       redirectTo = 'borf';
@@ -1262,7 +1267,7 @@ asyncTest("any of the model hooks can redirect with or without promise", functio
         ok(e instanceof Router.TransitionAborted, 'second transition was redirected');
 
 
-        // This is the problem. We're catching the failure handler here, but not the 
+        // This is the problem. We're catching the failure handler here, but not the
         // promise that gets redirected to. So how tracks that?
       });
     });
@@ -1369,7 +1374,7 @@ asyncTest("error handler gets called for errors in validation hooks", function()
     });
 
     // Perform a redirect on startup.
-    return router.handleURL('/').then(null, function(reason) { 
+    return router.handleURL('/').then(null, function(reason) {
       equal(reason, expectedReason, "handleURL error reason is what was originally thrown");
 
       return router.transitionTo('index').then(null, function(newReason) {
@@ -1507,7 +1512,7 @@ asyncTest("can redirect from error handler", function() {
 
           // Redirect to index.
           router.transitionTo('index').then(function() {
-            
+
             if (errorCount === 1) {
               // transition back here to test transitionTo error handling.
 
@@ -1895,20 +1900,20 @@ function setupAuthenticatedExample() {
         }
       }
     },
-    admin: { 
+    admin: {
       beforeModel: function(transition) {
         lastRedirectedTransition = transition;
         ok(true, 'beforeModel redirect was called');
         if (!isLoggedIn) { router.transitionTo('login') }
       }
     },
-    about: { 
+    about: {
       setup: function() {
         ok(isLoggedIn, 'about was entered only after user logged in');
         start();
       }
     },
-    adminPost: { 
+    adminPost: {
       model: function(params) {
         deepEqual(params, { post_id: '5' }, "adminPost received params previous transition attempt");
         return "adminPost";
@@ -1935,7 +1940,7 @@ asyncTest("authenticated routes: starting on non-auth route", function() {
     return router.transitionTo('about');
   }).then(shouldNotHappen, function(result) {
     equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
-    
+
     return router.handleURL('/admin/about');
   }).then(shouldNotHappen, function(result) {
     equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
@@ -1957,7 +1962,7 @@ asyncTest("authenticated routes: starting on auth route", function() {
     return router.handleURL('/admin/about');
   }).then(null, function(result) {
     equal(result.name, "TransitionAborted", "transition from login to restricted about was redirected back to login");
-    
+
     // Try a URL navigation.
     return router.transitionTo('about');
   }).then(null, function(result) {
@@ -2184,8 +2189,8 @@ asyncTest("String/number args in transitionTo are treated as url params", functi
 
   expect(11);
 
-  var adminParams = { id: "1" }, 
-      adminModel = { id: "1" }, 
+  var adminParams = { id: "1" },
+      adminModel = { id: "1" },
       adminPostModel = { id: "2" };
 
   handlers = {
@@ -2294,7 +2299,7 @@ asyncTest("Redirect back to the present route doesn't update URL", function() {
     didTransitionCount++;
   }
 
-  router.updateURL = function() { 
+  router.updateURL = function() {
     ok(false, "Should not update the URL");
   };
 
@@ -2306,3 +2311,81 @@ asyncTest("Redirect back to the present route doesn't update URL", function() {
   });
 });
 
+module("Preservation of params between redirects", {
+  setup: function() {
+    expectedUrl = null;
+
+    map(function(match) {
+      match("/").to('index');
+      match("/:foo_id").to("foo", function(match) {
+        match("/").to("fooIndex");
+        match("/:bar_id").to("bar", function(match) {
+          match("/").to("barIndex");
+        });
+      });
+    });
+
+    handlers = {
+      foo: {
+        model: function(params) {
+          this.modelCount = this.modelCount ? this.modelCount + 1 : 1;
+          return { id: params.foo_id };
+        },
+        afterModel: function(_, transition) {
+          router.transitionTo('barIndex', '789');
+        }
+      },
+
+      bar: {
+        model: function(params) {
+          this.modelCount = this.modelCount ? this.modelCount + 1 : 1;
+          return { id: params.bar_id };
+        }
+      }
+    };
+  }
+});
+
+asyncTest("Starting on '/' root index", function() {
+  router.handleURL('/').then(function() {
+    expectedUrl = "/123/789";
+
+    // Should call model for foo and bar
+    return router.transitionTo('barIndex', '123', '456');
+  }, shouldNotHappen).then(shouldNotHappen, followRedirect).then(function() {
+
+    equal(handlers.foo.modelCount, 1, "redirect in foo#afterModel should not re-run foo#model");
+
+    deepEqual(handlers.foo.context, { id: '123' });
+    deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+
+    // Try setting foo's context to 200; this should redirect
+    // bar to '789' but preserve the new foo 200.
+    expectedUrl = "/200/789";
+    return router.transitionTo('fooIndex', '200');
+  }, shouldNotHappen).then(shouldNotHappen, followRedirect).then(function() {
+
+    equal(handlers.foo.modelCount, 2, "redirect in foo#afterModel should not re-run foo#model");
+
+    deepEqual(handlers.foo.context, { id: '200' });
+    deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+    start();
+  });
+});
+
+asyncTest("Starting on non root index", function() {
+  router.handleURL('/123/456').then(shouldNotHappen, followRedirect).then(function() {
+    deepEqual(handlers.foo.context, { id: '123' });
+    deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+
+    // Try setting foo's context to 200; this should redirect
+    // bar to '789' but preserve the new foo 200.
+    expectedUrl = "/200/789";
+    return router.transitionTo('fooIndex', '200');
+  }, shouldNotHappen).then(shouldNotHappen, followRedirect).then(function() {
+
+    deepEqual(handlers.foo.context, { id: '200' });
+    deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+    start();
+  });
+});
