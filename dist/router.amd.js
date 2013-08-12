@@ -201,6 +201,7 @@ define("router",
         });
         this.currentHandlerInfos = null;
         this.targetHandlerInfos = null;
+        this.lastTransitionFailed = false;
       },
 
       activeTransition: null,
@@ -788,8 +789,9 @@ define("router",
           log(router, transition.sequence, "Validation succeeded, finalizing transition;");
 
           // Don't overwrite contexts / update URL if this was a noop transition.
-          if (!currentHandlerInfos || !currentHandlerInfos.length ||
-              currentHandlerInfos.length !== matchPointResults.matchPoint) {
+          if (router.lastTransitionFailed || !currentHandlerInfos || !currentHandlerInfos.length ||
+              currentHandlerInfos.length !== matchPointResults.matchPoint &&
+              !router.lastTransitionFailed) {
             finalizeTransition(transition, handlerInfos);
           }
 
@@ -797,11 +799,14 @@ define("router",
             router.didTransition(handlerInfos);
           }
 
+          router.lastTransitionFailed = false;
+
           log(router, transition.sequence, "TRANSITION COMPLETE.");
 
           // Resolve with the final handler.
           deferred.resolve(handlerInfos[handlerInfos.length - 1].handler);
         } catch(e) {
+          router.lastTransitionFailed = true;
           deferred.reject(e);
         }
 
