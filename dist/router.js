@@ -277,7 +277,7 @@
       @param {Array[Object]} contexts
       @return {Object} a serialized parameter hash
     */
-    paramsForHandler: function(handlerName, callback) {
+    paramsForHandler: function(handlerName, contexts) {
       return paramsForHandler(this, handlerName, slice.call(arguments, 1));
     },
 
