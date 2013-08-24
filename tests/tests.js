@@ -1089,6 +1089,7 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
     ok(router.isActive('showPost', posts[1]), "The showPost handler is active with the appropriate context");
     ok(!router.isActive('showPost', posts[2]), "The showPost handler is inactive when the context is different");
     ok(!router.isActive('adminPost'), "The adminPost handler is inactive");
+    ok(!router.isActive('showPost', null), "The showPost handler is inactive with a null context");
 
     return router.transitionTo('adminPost', admin, adminPost);
   }).then(function(result) {

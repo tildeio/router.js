@@ -320,7 +320,7 @@ define("router",
 
               if (isParam(object)) {
                 var recogHandler = recogHandlers[i], name = recogHandler.names[0];
-                if (object.toString() !== this.currentParams[name]) { return false; }
+                if ("" + object !== this.currentParams[name]) { return false; }
               } else if (handlerInfo.context !== object) {
                 return false;
               }
