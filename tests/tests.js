@@ -107,7 +107,7 @@ asyncTest("Handling a URL triggers model on the handler and passes the result in
 
   router.didTransition = function(infos) {
     equal(routePath(infos), "showPost");
-  }
+  };
 
   router.handleURL("/posts/1").then(start, shouldNotHappen);
 });
@@ -245,7 +245,7 @@ asyncTest("A delegate provided to router.js is passed along to route-recognizer"
   router.getHandler = function(handler) {
     handlers.push(handler);
     return {};
-  }
+  };
 
   router.handleURL("/posts").then(function() {
     deepEqual(handlers, [ "application", "posts", "posts.index", "application", "posts", "posts.index" ]);
@@ -406,7 +406,7 @@ asyncTest("it can handle direct transitions to named routes", function() {
   var amazingPosts = { filter: "amazing" };
   var sadPosts = { filter: "sad" };
 
-  postIndexHandler = {
+  var postIndexHandler = {
     model: function(params) {
       return allPosts;
     },
@@ -420,7 +420,7 @@ asyncTest("it can handle direct transitions to named routes", function() {
     }
   };
 
-  showAllPostsHandler = {
+  var showAllPostsHandler = {
     model: function(params) {
       //ok(!params, 'params is falsy for non dynamic routes');
       return allPosts;
@@ -435,7 +435,7 @@ asyncTest("it can handle direct transitions to named routes", function() {
     }
   };
 
-  showPopularPostsHandler = {
+  var showPopularPostsHandler = {
     model: function(params) {
       return popularPosts;
     },
@@ -449,7 +449,7 @@ asyncTest("it can handle direct transitions to named routes", function() {
     }
   };
 
-  showFilteredPostsHandler = {
+  var showFilteredPostsHandler = {
     model: function(params) {
       if (!params) { return; }
       if (params.filter_id === "amazing") {
@@ -471,7 +471,7 @@ asyncTest("it can handle direct transitions to named routes", function() {
         strictEqual(object, sadPosts, 'showFilteredPosts should get setup setup with sadPosts');
       }
     }
-  }
+  };
 
   handlers = {
     postIndex: postIndexHandler,
@@ -481,13 +481,13 @@ asyncTest("it can handle direct transitions to named routes", function() {
   };
 
   router.updateURL = function(url) {
-    expected = {
+    var expected = {
       0: "/posts",
       1: "/posts/popular",
       2: "/posts/filter/amazing",
       3: "/posts/filter/sad",
       4: "/posts"
-    }
+    };
 
     equal(url, expected[counter], 'updateURL should be called with correct url');
   };
@@ -517,11 +517,11 @@ asyncTest("replaceWith calls replaceURL", function() {
 
   router.updateURL = function() {
     updateCount++;
-  }
+  };
 
   router.replaceURL = function() {
     replaceCount++;
-  }
+  };
 
   router.handleURL('/posts').then(function(handlerInfos) {
     return router.replaceWith('about');
@@ -653,7 +653,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
     model: function(params) {
       var id = params.filter_id;
       if (!filters[id]) {
-        filters[id] = { id: id }
+        filters[id] = { id: id };
       }
 
       return filters[id];
@@ -737,7 +737,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
 
       var id = params.filter_id;
       if (!filters[id]) {
-        filters[id] = { id: id }
+        filters[id] = { id: id };
       }
 
       return filters[id];
@@ -1041,7 +1041,7 @@ asyncTest("transitionTo uses the current context if you are already in a handler
 
 asyncTest("tests whether arguments to transitionTo are considered active", function() {
   var admin = { id: 47 },
-      adminPost = { id: 74 };
+      adminPost = { id: 74 },
       posts = {
         1: { id: 1 },
         2: { id: 2 },
@@ -1068,7 +1068,7 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
     }
   };
 
-  showPostHandler = {
+  var showPostHandler = {
     serialize: function(object) {
       return { id: object.id };
     },
@@ -1076,7 +1076,7 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
     model: function(params) {
       return posts[params.id];
     }
-  }
+  };
 
   handlers = {
     admin: adminHandler,
@@ -1458,6 +1458,7 @@ asyncTest("error handler gets called for errors in validation hooks, even if tra
   expect(25);
   var expectedReason = { reason: 'I am an error!' };
   var returnPromise = false;
+  var setupShouldBeEntered = false;
   function aborTransitionAndThrowAnError() {
     var transition = arguments[arguments.length - 1];
     transition.abort();
@@ -1878,7 +1879,8 @@ asyncTest("transitions can be saved and later retried", function() {
 
   var shouldPrevent = true,
       lastTransitionEvent,
-      transitionToAbout;
+      transitionToAbout,
+      lastTransition;
 
   handlers = {
     index: {
@@ -1949,7 +1951,7 @@ function setupAuthenticatedExample() {
       beforeModel: function(transition) {
         lastRedirectedTransition = transition;
         ok(true, 'beforeModel redirect was called');
-        if (!isLoggedIn) { router.transitionTo('login') }
+        if (!isLoggedIn) { router.transitionTo('login'); }
       }
     },
     about: {
@@ -2342,7 +2344,7 @@ asyncTest("Redirect back to the present route doesn't update URL", function() {
   var didTransitionCount = 0;
   router.didTransition = function(infos) {
     didTransitionCount++;
-  }
+  };
 
   router.updateURL = function() {
     ok(false, "Should not update the URL");
