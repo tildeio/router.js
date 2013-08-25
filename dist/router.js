@@ -787,6 +787,7 @@
 
         // Don't overwrite contexts / update URL if this was a noop transition.
         if (!currentHandlerInfos || !currentHandlerInfos.length ||
+            !currentHandlerInfos[currentHandlerInfos.length - 1].isLeaf ||
             currentHandlerInfos.length !== matchPointResults.matchPoint) {
           finalizeTransition(transition, handlerInfos);
         }
@@ -830,6 +831,7 @@
 
       handlerInfos.push({
         isDynamic: !!isDynamic,
+        isLeaf: i === (len - 1),
         name: handlerObj.handler,
         handler: router.getHandler(handlerObj.handler)
       });

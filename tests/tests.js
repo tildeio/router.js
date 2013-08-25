@@ -985,8 +985,8 @@ asyncTest("when leaving a handler, the context is nulled out", function() {
   router.transitionTo('adminPost', admin, adminPost).then(function(result) {
 
     deepEqual(router.currentHandlerInfos, [
-      { context: { id: 47 }, handler: handlers.admin, isDynamic: true, name: 'admin' },
-      { context: { id: 74 }, handler: handlers.adminPost, isDynamic: true, name: 'adminPost' }
+      { context: { id: 47 }, handler: handlers.admin, isDynamic: true, isLeaf: false, name: 'admin' },
+      { context: { id: 74 }, handler: handlers.adminPost, isDynamic: true, isLeaf: true, name: 'adminPost' }
     ]);
 
     expectedUrl = null;
@@ -995,7 +995,7 @@ asyncTest("when leaving a handler, the context is nulled out", function() {
     ok(!handlers.admin.hasOwnProperty('context'), "The inactive handler's context was nulled out");
     ok(!handlers.adminPost.hasOwnProperty('context'), "The inactive handler's context was nulled out");
     deepEqual(router.currentHandlerInfos, [
-      { context: undefined, handler: handlers.showPost, isDynamic: true, name: 'showPost' }
+      { context: undefined, handler: handlers.showPost, isDynamic: true, isLeaf: true, name: 'showPost' }
     ]);
     start();
   }, shouldNotHappen);
@@ -2357,6 +2357,43 @@ asyncTest("Redirect back to the present route doesn't update URL", function() {
     start();
   });
 });
+
+
+asyncTest("A failed handler's setup shouldn't prevent future transitions", function() {
+
+  expect(2);
+
+  map(function(match) {
+    match("/parent").to('parent', function(match) {
+      match("/articles").to('articles');
+      match("/login").to('login');
+    });
+  });
+
+  handlers = {
+    articles: {
+      setup: function() {
+        ok(true, "articles setup was entered");
+        throw new Error(("blorg"));
+      },
+      events: {
+        error: function() {
+          ok(true, "error handled in articles");
+          router.transitionTo('login');
+        }
+      }
+    },
+
+    login: {
+      setup: function() {
+        start();
+      }
+    }
+  };
+
+  router.handleURL('/parent/articles');
+});
+
 
 module("Preservation of params between redirects", {
   setup: function() {
