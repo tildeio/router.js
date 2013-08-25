@@ -935,8 +935,8 @@
                          .then(handleAbort)
                          .then(afterModel)
                          .then(handleAbort)
-                         .then(proceed)
-                         .then(null, handleError);
+                         .then(null, handleError)
+                         .then(proceed);
 
     function handleAbort(result) {
       if (transition.isAborted) {
@@ -962,10 +962,6 @@
       // An error was thrown / promise rejected, so fire an
       // `error` event from this handler info up to root.
       trigger(handlerInfos.slice(0, index + 1), true, ['error', reason, transition]);
-
-      if (handler.error) {
-        handler.error(reason, transition);
-      }
 
       // Propagate the original error.
       return RSVP.reject(reason);

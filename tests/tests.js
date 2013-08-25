@@ -1410,6 +1410,50 @@ asyncTest("error handler gets called for errors in validation hooks", function()
   }, shouldNotHappen);
 });
 
+asyncTest("Errors shouldn't be handled after proceeding to next child route", function() {
+
+  expect(2);
+
+  map(function(match) {
+    match("/parent").to('parent', function(match) {
+      match("/articles").to('articles');
+      match("/login").to('login');
+    });
+  });
+
+  handlers = {
+    articles: {
+      beforeModel: function() {
+        ok(true, "articles beforeModel was entered");
+        return RSVP.reject("blorg");
+      },
+      events: {
+        error: function() {
+          ok(true, "error handled in articles");
+          router.transitionTo('login');
+        }
+      }
+    },
+
+    login: {
+      setup: function() {
+        start();
+      }
+    },
+
+    parent: {
+      events: {
+        error: function() {
+          ok(false, "handled error shouldn't bubble up to parent route");
+        }
+      }
+    }
+  };
+
+  router.handleURL('/parent/articles');
+});
+
+
 asyncTest("error handler gets called for errors in validation hooks, even if transition.abort was also called", function() {
   expect(25);
   var expectedReason = { reason: 'I am an error!' };
