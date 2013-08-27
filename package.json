@@ -1,0 +1,10 @@
+{
+  "name": "router.js",
+  "version": "0.0.0",
+  "description": "A dummy package.json file for installing node_modules",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tildeio/router.js.git"
+  }
+}
