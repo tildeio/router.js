@@ -2436,3 +2436,38 @@ asyncTest("Starting on non root index", function() {
     start();
   });
 });
+
+asyncTest("A failed handler's setup shouldn't prevent future transitions", function() {
+  expect(2);
+
+  map(function(match) {
+    match("/parent").to('parent', function(match) {
+      match("/articles").to('articles');
+      match("/login").to('login');
+    });
+  });
+
+  handlers = {
+    articles: {
+      setup: function() {
+        ok(true, "articles setup was entered");
+        throw new Error(("blorg"));
+      },
+      events: {
+        error: function() {
+          ok(true, "error handled in articles");
+          router.transitionTo('login');
+        }
+      }
+    },
+
+    login: {
+      setup: function() {
+        start();
+      }
+    }
+  };
+
+  router.handleURL('/parent/articles');
+});
+
