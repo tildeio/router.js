@@ -331,7 +331,7 @@
 
     trigger: function(name) {
       var args = slice.call(arguments);
-      trigger(this.currentHandlerInfos, false, args);
+      trigger(this, this.currentHandlerInfos, false, args);
     },
 
     /**
@@ -598,7 +598,7 @@
     } catch(e) {
       if (!(e instanceof Router.TransitionAborted)) {
         // Trigger the `error` event starting from this failed handler.
-        trigger(currentHandlerInfos.concat(handlerInfo), true, ['error', e, transition]);
+        trigger(transition.router, currentHandlerInfos.concat(handlerInfo), true, ['error', e, transition]);
       }
 
       // Propagate the error so that the transition promise will reject.
@@ -700,7 +700,11 @@
     return handlers;
   }
 
-  function trigger(handlerInfos, ignoreFailure, args) {
+  function trigger(router, handlerInfos, ignoreFailure, args) {
+    if (router.triggerEvent) {
+      router.triggerEvent(handlerInfos, ignoreFailure, args);
+      return;
+    }
 
     var name = args.shift();
 
@@ -770,7 +774,7 @@
     // Fire 'willTransition' event on current handlers, but don't fire it
     // if a transition was already underway.
     if (!wasTransitioning) {
-      trigger(currentHandlerInfos, true, ['willTransition', transition]);
+      trigger(router, currentHandlerInfos, true, ['willTransition', transition]);
     }
 
     log(router, transition.sequence, "Beginning validation for transition to " + transition.targetName);
@@ -962,7 +966,7 @@
 
       // An error was thrown / promise rejected, so fire an
       // `error` event from this handler info up to root.
-      trigger(handlerInfos.slice(0, index + 1), true, ['error', reason, transition]);
+      trigger(router, handlerInfos.slice(0, index + 1), true, ['error', reason, transition]);
 
       // Propagate the original error.
       return RSVP.reject(reason);
