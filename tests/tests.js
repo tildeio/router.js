@@ -794,6 +794,51 @@ asyncTest("events can be targeted at the current handler", function() {
   });
 });
 
+asyncTest("event triggering is pluggable", function() {
+
+  handlers = {
+    showPost: {
+      enter: function() {
+        ok(true, "The show post handler was entered");
+      },
+
+      actions: {
+        expand: function() {
+          equal(this, handlers.showPost, "The handler is the `this` for the event");
+          start();
+        }
+      }
+    }
+  };
+  router.triggerEvent = function(handlerInfos, ignoreFailure, args) {
+    var name = args.shift();
+
+
+    if (!handlerInfos) {
+      if (ignoreFailure) { return; }
+      throw new Error("Could not trigger event '" + name + "'. There are no active handlers");
+    }
+
+    var eventWasHandled = false;
+
+    for (var i=handlerInfos.length-1; i>=0; i--) {
+      var handlerInfo = handlerInfos[i],
+          handler = handlerInfo.handler;
+
+      if (handler.actions && handler.actions[name]) {
+        if (handler.actions[name].apply(handler, args) === true) {
+          eventWasHandled = true;
+        } else {
+          return;
+        }
+      }
+    }
+  };
+  router.handleURL("/posts/1").then(function() {
+    router.trigger("expand");
+  });
+});
+
 test("Unhandled events raise an exception", function() {
   router.handleURL("/posts/1");
 
