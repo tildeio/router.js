@@ -1918,7 +1918,7 @@ asyncTest("transitions can redirected in the willTransition event", function() {
   });
 });
 
-asyncTest("transitions can be saved and later retried", function() {
+asyncTest("aborted transitions can be saved and later retried", function() {
 
   expect(8);
 
@@ -1966,6 +1966,38 @@ asyncTest("transitions can be saved and later retried", function() {
     }, shouldNotHappen);
   });
 });
+
+asyncTest("completed transitions can be saved and later retried", function() {
+
+  expect(3);
+
+  var post = { id: "123" },
+      savedTransition;
+
+  handlers = {
+    showPost: {
+      afterModel: function(model, transition) {
+        equal(model, post, "showPost's afterModel got the expected post model");
+        savedTransition = transition;
+      }
+    },
+    index: { },
+    about: {
+      setup: function() {
+        ok(true, "setup was entered");
+      }
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    return router.transitionTo('showPost', post);
+  }).then(function() {
+    return router.transitionTo('about');
+  }).then(function() {
+    return savedTransition.retry();
+  }).then(start);
+});
+
 
 
 

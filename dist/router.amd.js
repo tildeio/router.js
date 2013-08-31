@@ -884,7 +884,6 @@ define("router",
 
       var params = paramsForHandler(router, handlerName, objects);
 
-      transition.providedModelsArray = [];
       router.currentParams = params;
 
       var urlMethod = transition.urlMethod;
