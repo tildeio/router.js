@@ -61,6 +61,11 @@ function shouldNotHappen(error) {
   ok(false, "this .then handler should not be called");
 }
 
+function shouldBeTransition (object) {
+  ok(object.toString().match(/Transition \(sequence \d+\)/), "Object should be transition");
+}
+
+
 test("Mapping adds named routes to the end", function() {
   url = router.recognizer.generate("showPost", { id: 1 });
   equal(url, "/posts/1");
@@ -119,7 +124,7 @@ asyncTest("Handling a URL passes in query params", function() {
   expect(2);
 
   var indexHandler = {
-    model: function(params, transition, queryParams) {
+    model: function(params, queryParams, transition) {
       deepEqual(queryParams, { sort: 'date', filter: true });
     },
 
@@ -268,17 +273,17 @@ asyncTest("setup should be called when query params change", function() {
   router.updateURL = function() {};
 
   var indexHandler = {
-    beforeModel: function (transition, queryParams) {
-      ok(!queryParams, "Index should not have query params");
+    beforeModel: function (transition) {
+      shouldBeTransition(transition);
     },
 
-    model: function(params, transition, queryParams) {
-      ok(!queryParams, "Index should not have query params");
+    model: function(params, transition) {
+      shouldBeTransition(transition);
       return context;
     },
 
-    afterModel: function (resolvedModel, transition, queryParams) {
-      ok(!queryParams, "Index should not have query params");
+    afterModel: function (resolvedModel, transition) {
+      shouldBeTransition(transition);
     },
 
     setup: function(object, queryParams) {
@@ -289,7 +294,7 @@ asyncTest("setup should be called when query params change", function() {
   };
 
   var postHandler = {
-    beforeModel: function (transition, queryParams) {
+    beforeModel: function (queryParams, transition) {
       if(parentBeforeModelCount === 0) {
         deepEqual(queryParams, {}, "Post should not have query params");
       } else if (parentBeforeModelCount === 1) {
@@ -298,7 +303,7 @@ asyncTest("setup should be called when query params change", function() {
       parentBeforeModelCount++;
     },
 
-    model: function(params, transition, queryParams) {
+    model: function(params, queryParams, transition) {
       if(parentModelCount === 0) {
         deepEqual(queryParams, {}, "Post should not have query params");
       } else if (parentModelCount === 1) {
@@ -308,7 +313,7 @@ asyncTest("setup should be called when query params change", function() {
       return context;
     },
 
-    afterModel: function (resolvedModel, transition, queryParams) {
+    afterModel: function (resolvedModel, queryParams, transition) {
       if(parentAfterModelCount === 0) {
         deepEqual(queryParams, {}, "Post should not have query params");
       } else if (parentAfterModelCount === 1) {
@@ -334,19 +339,19 @@ asyncTest("setup should be called when query params change", function() {
   };
 
   var postDetailsHandler = {
-    beforeModel: function(transition, queryParams) {
+    beforeModel: function(queryParams, transition) {
       var paramValue = childBeforeModelCount === 0 ? 'related' : 'author';
       deepEqual(queryParams, {expandedPane: paramValue}, 'postDetails should have expandedPane param');
       childBeforeModelCount++;
     },
 
-    model: function(params, transition, queryParams) {
+    model: function(params, queryParams, transition) {
       var paramValue = childModelCount === 0 ? 'related' : 'author';
       deepEqual(queryParams, {expandedPane: paramValue}, 'postDetails should have expandedPane param');
       childModelCount++;
     },
 
-    afterModel: function(resolvedModel, transition, queryParams) {
+    afterModel: function(resolvedModel, queryParams, transition) {
       var paramValue = childAfterModelCount === 0 ? 'related' : 'author';
       deepEqual(queryParams, {expandedPane: paramValue}, 'postDetails should have expandedPane param');
       childAfterModelCount++;
@@ -463,7 +468,7 @@ asyncTest("when transitioning with the same query params, setup should only be c
       deepEqual(queryParams, {sort: 'author'}, 'index should have sort param');
     },
 
-    model: function(params, transition, queryParams) {
+    model: function(params, queryParams, transition) {
       deepEqual(queryParams, {sort: 'author'}, 'index should have sort param');
     }
 
@@ -475,8 +480,8 @@ asyncTest("when transitioning with the same query params, setup should only be c
       parentSetupCount++;
     },
 
-    model: function(params, transition, queryParams) {
-      ok(!queryParams, "Post should not have query params");
+    model: function(params, transition) {
+      shouldBeTransition(transition);
       return params;
     }
   };
@@ -487,7 +492,7 @@ asyncTest("when transitioning with the same query params, setup should only be c
       deepEqual(queryParams, {expandedPane: 'related'}, 'postDetails should have expandedPane param');
     },
 
-    model: function(params, transition, queryParams) {
+    model: function(params, queryParams, transition) {
       deepEqual(queryParams, {expandedPane: 'related'}, 'postDetails should have expandedPane param');
     }
   };
@@ -520,6 +525,78 @@ asyncTest("when transitioning with the same query params, setup should only be c
 
 
 
+asyncTest("Having query params defined on a route should affect the order of params passed in to the model hooks", function() {
+  expect(13);
+
+  var context = { id: 1 };
+
+  router = new Router();
+
+  router.map(function(match) {
+    match("/").to('index').withQueryParams('sort', 'direction');
+    match("/posts/:id").to('post');
+  });
+
+  router.getHandler = function(name) {
+    return handlers[name];
+  };
+
+  router.updateURL = function() {};
+
+  var indexHandler = {
+    beforeModel: function (queryParams, transition) {
+      deepEqual(queryParams, {sort: 'author'}, 'index should have sort param');
+      shouldBeTransition(transition);
+    },
+
+    model: function(params, queryParams, transition) {
+      deepEqual(params, {}, "params should be blank on index");
+      deepEqual(queryParams, {sort: 'author'}, 'index should have sort param');
+      shouldBeTransition(transition);
+      return [context];
+    },
+
+    afterModel: function (model, queryParams, transition) {
+      deepEqual(model, [context], "Index should have correct model");
+      deepEqual(queryParams, {sort: 'author'}, 'index should have sort param');
+      shouldBeTransition(transition);
+    }
+
+  };
+
+  var postHandler = {
+    beforeModel: function (transition) {
+      shouldBeTransition(transition);
+    },
+
+    model: function(params, transition) {
+      deepEqual(params, {id: '1'});
+      shouldBeTransition(transition);
+      return context;
+    },
+
+    afterModel: function (model, transition) {
+      equal(model, context);
+      shouldBeTransition(transition);
+    }
+  };
+
+  handlers = {
+    index: indexHandler,
+    post: postHandler
+  };
+
+  router.handleURL('/?sort=author').then(function() {
+
+    return router.transitionTo('/posts/1');
+  }, shouldNotHappen).then(function() {
+    start();
+  }, shouldNotHappen);
+});
+
+
+
+
 asyncTest("Sticky query params should be shared among routes", function() {
   expect(78);
   var context = { id: 1 }, expectedIndexParams, expectedPostsParams, currentURL;
@@ -538,15 +615,15 @@ asyncTest("Sticky query params should be shared among routes", function() {
   router.updateURL = function(url) { currentURL = url; };
 
   var indexHandler = {
-    beforeModel: function (transition, queryParams) {
+    beforeModel: function (queryParams, transition) {
       deepEqual(queryParams, expectedIndexParams, "Correct query params in index beforeModel");
     },
 
-    model: function(params, transition, queryParams) {
+    model: function(params, queryParams, transition) {
       deepEqual(queryParams, expectedIndexParams, "Correct query params in index model");
     },
 
-    afterModel: function (resolvedModel, transition, queryParams) {
+    afterModel: function (resolvedModel, queryParams, transition) {
       deepEqual(queryParams, expectedIndexParams, "Correct query params in index afterModel");
     },
 
@@ -556,15 +633,15 @@ asyncTest("Sticky query params should be shared among routes", function() {
   };
 
   var postsHandler = {
-    beforeModel: function (transition, queryParams) {
+    beforeModel: function (queryParams, transition) {
       deepEqual(queryParams, expectedPostsParams, "Correct query params in posts beforeModel");
     },
 
-    model: function(params, transition, queryParams) {
+    model: function(params, queryParams, transition) {
       deepEqual(queryParams, expectedPostsParams, "Correct query params in posts model");
     },
 
-    afterModel: function (resolvedModel, transition, queryParams) {
+    afterModel: function (resolvedModel, queryParams, transition) {
       deepEqual(queryParams, expectedPostsParams, "Correct query params in posts afterModel");
     },
 
@@ -2657,7 +2734,7 @@ asyncTest("completed transitions can be saved and later retried", function() {
 
   handlers = {
     showPost: {
-      afterModel: function(model, transition) {
+      afterModel: function(model, queryParams, transition) {
         equal(model, post, "showPost's afterModel got the expected post model");
         savedTransition = transition;
       }
@@ -2975,7 +3052,7 @@ asyncTest("resolved models can be swapped out within afterModel", function() {
       model: function() {
         return modelPre;
       },
-      afterModel: function(resolvedModel, transition) {
+      afterModel: function(resolvedModel, queryParams, transition) {
         equal(resolvedModel, transition.resolvedModels.index, "passed-in resolved model equals model in transition's hash");
         equal(resolvedModel, modelPre, "passed-in resolved model equals model returned from `model`");
         transition.resolvedModels.index = modelPost;
