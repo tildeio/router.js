@@ -2607,6 +2607,25 @@ asyncTest("transitionTo with URL transition can be called at startup", function(
   });
 });
 
+asyncTest("transitions fire a didTransition event on the destination route", function() {
+
+  expect(1);
+
+  handlers = {
+    about: {
+      events: {
+        didTransition: function() {
+          ok(true, "index's didTransition was called");
+        }
+      }
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    router.transitionTo('about').then(start, shouldNotHappen);
+  }, shouldNotHappen);
+});
+
 asyncTest("transitions can aborted in the willTransition event", function() {
 
   expect(3);
