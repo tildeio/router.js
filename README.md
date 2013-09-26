@@ -254,30 +254,12 @@ myHandlers.showPost = {
     });
   }
 };
-
-myHandlers.loading = {
-  setup: function() {
-    $("#content").hide();
-    $("#loading").show();
-  },
-
-  exit: function() {
-    $("#loading").hide();
-    $("#content").show();
-  }
-};
 ```
 
 You can also use nesting to build nested UIs, setting up the
 outer view when entering the handler for the outer route,
 and setting up the inner view when entering the handler for
 the inner route.
-
-Routes at any nested level can deserialize parameters into a
-promise. The router will remain in the `loading` state until
-all promises are resolved. If a parent state models
-the parameters into a promise, that promise will be resolved
-before a child route is handled.
 
 ### Transition Callbacks
 
