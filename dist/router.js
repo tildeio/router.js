@@ -52,6 +52,11 @@
     providedModels: null,
     resolvedModels: null,
     params: null,
+    pivotHandler: null,
+    resolveIndex: 0,
+    handlerInfos: null,
+
+    isActive: true,
 
     /**
       The Transition's internal promise. Calling `.then` on this property
@@ -95,6 +100,7 @@
       if (this.isAborted) { return this; }
       log(this.router, this.sequence, this.targetName + ": transition was aborted");
       this.isAborted = true;
+      this.isActive = false;
       this.router.activeTransition = null;
       return this;
     },
@@ -135,6 +141,25 @@
       return this;
     },
 
+    /**
+      Fires an event on the current list of resolved/resolving
+      handlers within this transition. Useful for firing events
+      on route hierarchies that haven't fully been entered yet.
+
+      @param {Boolean} ignoreFailure the name of the event to fire
+      @param {String} name the name of the event to fire
+     */
+    trigger: function(ignoreFailure) {
+      var args = slice.call(arguments);
+      if (typeof ignoreFailure === 'boolean') {
+        args.shift();
+      } else {
+        // Throw errors on unhandled trigger events by default
+        ignoreFailure = false;
+      }
+      trigger(this.router, this.handlerInfos.slice(0, this.resolveIndex + 1), ignoreFailure, args);
+    },
+
     toString: function() {
       return "Transition (sequence " + this.sequence + ")";
     }
@@ -143,6 +168,9 @@
   function Router() {
     this.recognizer = new RouteRecognizer();
   }
+
+  // TODO: separate into module?
+  Router.Transition = Transition;
 
 
 
@@ -257,6 +285,10 @@
     */
     transitionTo: function(name) {
       return doTransition(this, arguments);
+    },
+
+    intermediateTransitionTo: function(name) {
+      doTransition(this, arguments, true);
     },
 
     /**
@@ -469,7 +501,10 @@
       throw new Error("More context objects were passed than there are dynamic segments for the route: " + handlers[handlers.length - 1].handler);
     }
 
-    return { matchPoint: matchPoint, providedModels: providedModels, params: params, handlerParams: handlerParams };
+    var pivotHandlerInfo = currentHandlerInfos[matchPoint - 1],
+        pivotHandler = pivotHandlerInfo && pivotHandlerInfo.handler;
+
+    return { matchPoint: matchPoint, providedModels: providedModels, params: params, handlerParams: handlerParams, pivotHandler: pivotHandler };
   }
 
   function getMatchPointObject(objects, handlerName, activeTransition, paramName, params) {
@@ -618,20 +653,20 @@
   /**
     @private
   */
-  function createQueryParamTransition(router, queryParams) {
+  function createQueryParamTransition(router, queryParams, isIntermediate) {
     var currentHandlers = router.currentHandlerInfos,
         currentHandler = currentHandlers[currentHandlers.length - 1],
         name = currentHandler.name;
 
     log(router, "Attempting query param transition");
 
-    return createNamedTransition(router, [name, queryParams]);
+    return createNamedTransition(router, [name, queryParams], isIntermediate);
   }
 
   /**
     @private
   */
-  function createNamedTransition(router, args) {
+  function createNamedTransition(router, args, isIntermediate) {
     var partitionedArgs     = extractQueryParams(args),
       pureArgs              = partitionedArgs[0],
       queryParams           = partitionedArgs[1],
@@ -641,28 +676,46 @@
 
     log(router, "Attempting transition to " + pureArgs[0]);
 
-    return performTransition(router, handlerInfos, slice.call(pureArgs, 1), router.currentParams, queryParams);
+    return performTransition(router,
+                             handlerInfos,
+                             slice.call(pureArgs, 1),
+                             router.currentParams,
+                             queryParams,
+                             null,
+                             isIntermediate);
   }
 
   /**
     @private
   */
-  function createURLTransition(router, url) {
+  function createURLTransition(router, url, isIntermediate) {
     var results = router.recognizer.recognize(url),
         currentHandlerInfos = router.currentHandlerInfos,
-        queryParams = {};
+        queryParams = {},
+        i, len;
 
     log(router, "Attempting URL transition to " + url);
+
+    if (results) {
+      // Make sure this route is actually accessible by URL.
+      for (i = 0, len = results.length; i < len; ++i) {
+
+        if (router.getHandler(results[i].handler).inaccessiblyByURL) {
+          results = null;
+          break;
+        }
+      }
+    }
 
     if (!results) {
       return errorTransition(router, new Router.UnrecognizedURLError(url));
     }
 
-    for(var i = 0; i < results.length; i++) {
+    for(i = 0, len = results.length; i < len; i++) {
       merge(queryParams, results[i].queryParams);
     }
 
-    return performTransition(router, results, [], {}, queryParams);
+    return performTransition(router, results, [], {}, queryParams, null, isIntermediate);
   }
 
 
@@ -753,7 +806,7 @@
     } catch(e) {
       if (!(e instanceof Router.TransitionAborted)) {
         // Trigger the `error` event starting from this failed handler.
-        trigger(transition.router, currentHandlerInfos.concat(handlerInfo), true, ['error', e, transition]);
+        transition.trigger(true, 'error', e, transition, handler);
       }
 
       // Propagate the error so that the transition promise will reject.
@@ -942,17 +995,37 @@
     }
   }
 
+  function performIntermediateTransition(router, recogHandlers, matchPointResults) {
+
+    var handlerInfos = generateHandlerInfos(router, recogHandlers);
+    for (var i = 0; i < handlerInfos.length; ++i) {
+      var handlerInfo = handlerInfos[i];
+      handlerInfo.context = matchPointResults.providedModels[handlerInfo.name];
+    }
+
+    var stubbedTransition = {
+      router: router,
+      isAborted: false
+    };
+
+    setupContexts(stubbedTransition, handlerInfos);
+  }
+
   /**
     @private
 
     Creates, begins, and returns a Transition.
    */
-  function performTransition(router, recogHandlers, providedModelsArray, params, queryParams, data) {
+  function performTransition(router, recogHandlers, providedModelsArray, params, queryParams, data, isIntermediate) {
 
     var matchPointResults = getMatchPoint(router, recogHandlers, providedModelsArray, params, queryParams),
         targetName = recogHandlers[recogHandlers.length - 1].handler,
         wasTransitioning = false,
         currentHandlerInfos = router.currentHandlerInfos;
+
+    if (isIntermediate) {
+      return performIntermediateTransition(router, recogHandlers, matchPointResults);
+    }
 
     // Check if there's already a transition underway.
     if (router.activeTransition) {
@@ -972,9 +1045,11 @@
     transition.params = matchPointResults.params;
     transition.data = data || {};
     transition.queryParams = queryParams;
+    transition.pivotHandler = matchPointResults.pivotHandler;
     router.activeTransition = transition;
 
     var handlerInfos = generateHandlerInfos(router, recogHandlers);
+    transition.handlerInfos = handlerInfos;
 
     // Fire 'willTransition' event on current handlers, but don't fire it
     // if a transition was already underway.
@@ -983,7 +1058,7 @@
     }
 
     log(router, transition.sequence, "Beginning validation for transition to " + transition.targetName);
-    validateEntry(transition, handlerInfos, 0, matchPointResults.matchPoint, matchPointResults.handlerParams)
+    validateEntry(transition, matchPointResults.matchPoint, matchPointResults.handlerParams)
                  .then(transitionSuccess, transitionFailure);
 
     return transition;
@@ -1011,6 +1086,7 @@
         log(router, transition.sequence, "TRANSITION COMPLETE.");
 
         // Resolve with the final handler.
+        transition.isActive = false;
         deferred.resolve(handlerInfos[handlerInfos.length - 1].handler);
       } catch(e) {
         deferred.reject(e);
@@ -1040,7 +1116,6 @@
     for (var i = 0, len = recogHandlers.length; i < len; ++i) {
       var handlerObj = recogHandlers[i],
           isDynamic = handlerObj.isDynamic || (handlerObj.names && handlerObj.names.length);
-
 
       var handlerInfo = {
         isDynamic: !!isDynamic,
@@ -1087,6 +1162,7 @@
     var router = transition.router,
         seq = transition.sequence,
         handlerName = handlerInfos[handlerInfos.length - 1].name,
+        urlMethod = transition.urlMethod,
         i;
 
     // Collect params for URL.
@@ -1096,6 +1172,10 @@
       if (handlerInfo.isDynamic) {
         var providedModel = providedModels.pop();
         objects.unshift(isParam(providedModel) ? providedModel.toString() : handlerInfo.context);
+      }
+
+      if (handlerInfo.handler.inaccessiblyByURL) {
+        urlMethod = null;
       }
     }
 
@@ -1110,8 +1190,6 @@
 
     router.currentParams = params;
 
-
-    var urlMethod = transition.urlMethod;
     if (urlMethod) {
       var url = router.recognizer.generate(handlerName, params);
 
@@ -1134,7 +1212,10 @@
     and `afterModel` in promises, and checks for redirects/aborts
     between each.
    */
-  function validateEntry(transition, handlerInfos, index, matchPoint, handlerParams) {
+  function validateEntry(transition, matchPoint, handlerParams) {
+
+    var handlerInfos = transition.handlerInfos,
+        index = transition.resolveIndex;
 
     if (index === handlerInfos.length) {
       // No more contexts to resolve.
@@ -1157,6 +1238,8 @@
         handlerInfo.handler.context;
       return proceed();
     }
+
+    transition.trigger(true, 'willResolveModel', transition, handler);
 
     return RSVP.resolve().then(handleAbort)
                          .then(beforeModel)
@@ -1191,7 +1274,7 @@
 
       // An error was thrown / promise rejected, so fire an
       // `error` event from this handler info up to root.
-      trigger(router, handlerInfos.slice(0, index + 1), true, ['error', reason, transition]);
+      transition.trigger(true, 'error', reason, transition, handlerInfo.handler);
 
       // Propagate the original error.
       return RSVP.reject(reason);
@@ -1245,7 +1328,8 @@
       log(router, seq, handlerName + ": validation succeeded, proceeding");
 
       handlerInfo.context = transition.resolvedModels[handlerInfo.name];
-      return validateEntry(transition, handlerInfos, index + 1, matchPoint, handlerParams);
+      transition.resolveIndex++;
+      return validateEntry(transition, matchPoint, handlerParams);
     }
   }
 
@@ -1315,16 +1399,16 @@
     @param {Array[Object]} args arguments passed to transitionTo,
       replaceWith, or handleURL
   */
-  function doTransition(router, args) {
+  function doTransition(router, args, isIntermediate) {
     // Normalize blank transitions to root URL transitions.
     var name = args[0] || '/';
 
     if(args.length === 1 && args[0].hasOwnProperty('queryParams')) {
-      return createQueryParamTransition(router, args[0]);
+      return createQueryParamTransition(router, args[0], isIntermediate);
     } else if (name.charAt(0) === '/') {
-      return createURLTransition(router, name);
+      return createURLTransition(router, name, isIntermediate);
     } else {
-      return createNamedTransition(router, slice.call(args));
+      return createNamedTransition(router, slice.call(args), isIntermediate);
     }
   }
 
