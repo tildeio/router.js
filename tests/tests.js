@@ -977,7 +977,7 @@ asyncTest("A delegate provided to router.js is passed along to route-recognizer"
   };
 
   router.handleURL("/posts").then(function() {
-    deepEqual(handlers, [ "application", "posts", "posts.index", "application", "posts", "posts.index" ]);
+    deepEqual(handlers, [ "application", "posts", "posts.index", "application", "posts", "posts.index", "application", "posts", "posts.index" ]);
     start();
   });
 });
@@ -1309,6 +1309,38 @@ asyncTest("Moving to a new top-level route triggers exit callbacks", function() 
     equal(routePath(router.currentHandlerInfos), currentPath);
     start();
   }, shouldNotHappen);
+});
+
+asyncTest("pivotHandler is exposed on Transition object", function() {
+  expect(3);
+
+  handlers = {
+    showAllPosts: {
+      beforeModel: function(transition) {
+        ok(!transition.pivotHandler, "First route transition has no pivot route");
+      }
+    },
+
+    showPopularPosts: {
+      beforeModel: function(transition) {
+        equal(transition.pivotHandler, handlers.postIndex, "showAllPosts -> showPopularPosts pivotHandler is postIndex");
+      }
+    },
+
+    postIndex: {},
+
+    about: {
+      beforeModel: function(transition) {
+        ok(!transition.pivotHandler, "top-level transition has no pivotHandler");
+      }
+    }
+  };
+
+  router.handleURL("/posts").then(function() {
+    return router.transitionTo('showPopularPosts');
+  }).then(function() {
+    return router.transitionTo('about');
+  }).then(start, shouldNotHappen);
 });
 
 asyncTest("Moving to the same route with a different parent dynamic segment re-runs model", function() {
@@ -3323,5 +3355,188 @@ asyncTest("A failed handler's setup shouldn't prevent future transitions", funct
   };
 
   router.handleURL('/parent/articles');
+});
+
+asyncTest("transitioning to a route ", function() {
+  expect(2);
+
+  map(function(match) {
+    match("/parent").to('parent', function(match) {
+      match("/articles").to('articles');
+      match("/login").to('login');
+    });
+  });
+
+  handlers = {
+    articles: {
+      setup: function() {
+        ok(true, "articles setup was entered");
+        throw new Error(("blorg"));
+      },
+      events: {
+        error: function() {
+          ok(true, "error handled in articles");
+          router.transitionTo('login');
+        }
+      }
+    },
+
+    login: {
+      setup: function() {
+        start();
+      }
+    }
+  };
+
+  router.handleURL('/parent/articles');
+});
+
+module("URL-less routes", {
+  setup: function() {
+    handlers = {};
+    expectedUrl = null;
+
+    map(function(match) {
+      match("/index").to("index");
+      match("/admin").to("admin", function(match) {
+        match("/posts").to("adminPosts");
+        match("/articles").to("adminArticles");
+      });
+    });
+  }
+});
+
+asyncTest("Transitioning into a route marked as inaccessiblyByURL doesn't update the URL", function() {
+  expect(1);
+
+  handlers = {
+    adminPosts: {
+      inaccessiblyByURL: true
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    url = '/index';
+    return router.transitionTo('adminPosts');
+  }).then(function() {
+    equal(url, '/index');
+  }).then(start, shouldNotHappen);
+});
+
+asyncTest("Transitioning into a route with a parent route marked as inaccessiblyByURL doesn't update the URL", function() {
+  expect(2);
+
+  handlers = {
+    admin: {
+      inaccessiblyByURL: true
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    url = '/index';
+    return router.transitionTo('adminPosts');
+  }).then(function() {
+    equal(url, '/index');
+    return router.transitionTo('adminArticles');
+  }).then(function() {
+    equal(url, '/index');
+  }).then(start, shouldNotHappen);
+});
+
+asyncTest("Handling a URL on a route marked as inaccessible behave like a failed url match", function() {
+
+  expect(1);
+
+  handlers = {
+    admin: {
+      inaccessiblyByURL: true
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    return router.handleURL('/admin/posts');
+  }).then(shouldNotHappen, function(e) {
+    ok(e instanceof Router.UnrecognizedURLError, "rejects with UnrecognizedURLError");
+  }).then(start);
+});
+
+module("Intermediate transitions", {
+  setup: function() {
+    handlers = {};
+    expectedUrl = null;
+
+    map(function(match) {
+      match("/").to("application", function(match) {
+        //match("/").to("index");
+        match("/foo").to("foo");
+        match("/loading").to("loading");
+      });
+    });
+  }
+});
+
+asyncTest("intermediateTransitionTo() forces an immediate intermediate transition that doesn't cancel currently active async transitions", function() {
+
+  expect(11);
+
+  var counter = 1,
+      willResolves,
+      appModel = {},
+      fooModel = {};
+
+  function counterAt(expectedValue, description) {
+    equal(counter, expectedValue, "Step " + expectedValue + ": " + description);
+    counter++;
+  }
+
+  handlers = {
+    application: {
+      model: function() {
+        return appModel;
+      },
+      setup: function(obj) {
+        counterAt(1, "application#setup");
+        equal(obj, appModel, "application#setup is passed the return value from model");
+      },
+      events: {
+        willResolveModel: function(transition, handler) {
+          equal(willResolves.shift(), handler, "willResolveModel event fired and passed expanded handler");
+        }
+      }
+    },
+    foo: {
+      model: function() {
+        router.intermediateTransitionTo('loading');
+        counterAt(3, "intermediate transition finished within foo#model");
+
+        return new RSVP.Promise(function(resolve) {
+          counterAt(4, "foo's model promise resolves");
+          resolve(fooModel);
+        });
+      },
+      setup: function(obj) {
+        counterAt(6, "foo#setup");
+        equal(obj, fooModel, "foo#setup is passed the resolve model promise");
+      }
+    },
+    loading: {
+      inaccessiblyByURL: true,
+      model: function() {
+        ok(false, "intermediate transitions don't call model hooks");
+      },
+      setup: function() {
+        counterAt(2, "loading#setup");
+      },
+      exit: function() {
+        counterAt(5, "loading state exited");
+      }
+    }
+  };
+
+  willResolves = [handlers.application, handlers.foo];
+
+  router.handleURL('/foo').then(function() {
+    counterAt(7, "original transition promise resolves");
+  }).then(start, shouldNotHappen);
 });
 
