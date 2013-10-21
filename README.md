@@ -11,6 +11,9 @@ to provide an API for handling routes.
 In keeping with the Unix philosophy, it is a modular library
 that does one thing and does it well.
 
+`router.js` is the routing microlib used by 
+[Ember.js](https://github.com/emberjs/ember.js).
+
 ## Downloads
 
 Passing builds of the 'master' branch will be automatically pubilshed to S3.
@@ -582,20 +585,10 @@ prefer routes with fewer dynamic segments, so
 `/posts/edit` will match in preference to `/posts/:id`
 if both match.
 
-## More to Come
+## Architecture
 
-`router.js` is functional today. I plan to add more features
-before a first official release:
-
-* ~~A `failure` handler if any of the promises are rejected~~
-* ~~An `exit` callback on a handler when the app navigates
-  to a page no longer represented by the handler~~
-* Improved hooks for external libraries that manage the
-  physical URL.
-* Testing support
-* ~~The ability to dispatch events to the current handler
-  or parent handlers.~~
-
-`router.js` will be the basis for the router in Ember.js.
+Please read [this gist](https://gist.github.com/machty/7698646)
+for an overview on `router.js`'s architecture, particularly if
+you are interested in contributing to this project.
 
 [builds-page]: http://routerjs.builds.emberjs.com.s3-website-us-east-1.amazonaws.com/index.html

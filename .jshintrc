@@ -1,8 +1,9 @@
 {
     "predef": [
         "console",
-        "Router",
+        "define",
         "require",
+        "requireModule",
         "equal",
         "test",
         "testBoth",
@@ -14,13 +15,15 @@
         "ok",
         "strictEqual",
         "module",
-        "expect",
+        "QUnit",
+        "expect"
     ],
 
-    "node" : false,
+    "node" : true,
     "browser" : true,
 
     "boss" : true,
+    "esnext" : true,
     "curly": false,
     "debug": false,
     "devel": false,
