@@ -79,6 +79,7 @@ Jshintrb::JshintTask.new :jshint do |t|
     "predef" => [
       "QUnit",
       "define",
+      "backburner",
       "console",
       "RSVP",
       "Router",

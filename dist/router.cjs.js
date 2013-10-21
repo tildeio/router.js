@@ -196,6 +196,7 @@ function errorTransition(router, reason) {
 
 
 Router.prototype = {
+
   /**
     The main entry point into the router. The API is essentially
     the same as the `map` method in `route-recognizer`.
@@ -793,27 +794,20 @@ function setupContexts(transition, handlerInfos) {
   that may happen in enter/setup.
 */
 function handlerEnteredOrUpdated(transition, currentHandlerInfos, handlerInfo, enter) {
+
+  if (transition.isAborted) { return; }
+
   var handler = handlerInfo.handler,
       context = handlerInfo.context;
 
-  try {
-    if (enter && handler.enter) { handler.enter(); }
-    checkAbort(transition);
+  if (enter && handler.enter) { handler.enter(); }
+  if (transition.isAborted) { return; }
 
-    setContext(handler, context);
-    setQueryParams(handler, handlerInfo.queryParams);
+  setContext(handler, context);
+  setQueryParams(handler, handlerInfo.queryParams);
 
-    if (handler.setup) { handler.setup(context, handlerInfo.queryParams); }
-    checkAbort(transition);
-  } catch(e) {
-    if (!(e instanceof Router.TransitionAborted)) {
-      // Trigger the `error` event starting from this failed handler.
-      transition.trigger(true, 'error', e, transition, handler);
-    }
-
-    // Propagate the error so that the transition promise will reject.
-    throw e;
-  }
+  if (handler.setup) { handler.setup(context, handlerInfo.queryParams); }
+  if (transition.isAborted) { return; }
 
   currentHandlerInfos.push(handlerInfo);
 }
@@ -1061,15 +1055,19 @@ function performTransition(router, recogHandlers, providedModelsArray, params, q
 
   log(router, transition.sequence, "Beginning validation for transition to " + transition.targetName);
   validateEntry(transition, matchPointResults.matchPoint, matchPointResults.handlerParams)
-               .then(transitionSuccess, transitionFailure);
+               .then(transitionSuccess).fail(transitionFailure);
 
   return transition;
 
   function transitionSuccess() {
-    checkAbort(transition);
 
-    try {
-      log(router, transition.sequence, "Validation succeeded, finalizing transition;");
+    // Escape RSVP try/catch so that `enter`/`exit`/`setup` hook
+    // exceptions aren't swallowed.
+    async(function() {
+      if (transition.isAborted) {
+        transitionFailure(logAbort(transition));
+        return;
+      }
 
       // Don't overwrite contexts / update URL if this was a noop transition.
       if (!currentHandlerInfos || !currentHandlerInfos.length ||
@@ -1078,32 +1076,39 @@ function performTransition(router, recogHandlers, providedModelsArray, params, q
         finalizeTransition(transition, handlerInfos);
       }
 
-      // currentHandlerInfos was updated in finalizeTransition
-      trigger(router, router.currentHandlerInfos, true, ['didTransition']);
-
-      if (router.didTransition) {
-        router.didTransition(handlerInfos);
+      // Check if an `enter` or `setup` handler aborted the transition,
+      // either explicitly or via a redirect.
+      if (transition.isAborted) {
+        transitionFailure(logAbort(transition));
+        return;
       }
 
-      log(router, transition.sequence, "TRANSITION COMPLETE.");
+      didTransition(router, transition);
 
       // Resolve with the final handler.
-      transition.isActive = false;
       deferred.resolve(handlerInfos[handlerInfos.length - 1].handler);
-    } catch(e) {
-      deferred.reject(e);
-    }
-
-    // Don't nullify if another transition is underway (meaning
-    // there was a transition initiated with enter/setup).
-    if (!transition.isAborted) {
-      router.activeTransition = null;
-    }
+    });
   }
 
   function transitionFailure(reason) {
     deferred.reject(reason);
   }
+}
+
+/**
+  @private
+ */
+function didTransition(router, transition) {
+  trigger(router, router.currentHandlerInfos, true, ['didTransition']);
+
+  if (router.didTransition) {
+    router.didTransition(router.currentHandlerInfos);
+  }
+
+  router.activeTransition.isActive = false;
+  router.activeTransition = null;
+
+  log(router, transition.sequence, "TRANSITION COMPLETE.");
 }
 
 /**
@@ -1161,6 +1166,8 @@ function transitionsIdentical(oldTransition, targetName, providedModelsArray, qu
  */
 function finalizeTransition(transition, handlerInfos) {
 
+  log(transition.router, transition.sequence, "Resolved all models on destination route; finalizing transition.");
+
   var router = transition.router,
       seq = transition.sequence,
       handlerName = handlerInfos[handlerInfos.length - 1].name,
@@ -1182,11 +1189,10 @@ function finalizeTransition(transition, handlerInfos) {
   }
 
   var newQueryParams = {};
-  for (i = handlerInfos.length - 1; i>=0; --i) {
+  for (i = handlerInfos.length - 1; i >= 0; --i) {
     merge(newQueryParams, handlerInfos[i].queryParams);
   }
   router.currentQueryParams = newQueryParams;
-
 
   var params = paramsForHandler(router, handlerName, objects, transition.queryParams);
 
@@ -1250,7 +1256,7 @@ function validateEntry(transition, matchPoint, handlerParams) {
                        .then(handleAbort)
                        .then(afterModel)
                        .then(handleAbort)
-                       .then(null, handleError)
+                       .fail(handleError)
                        .then(proceed);
 
   function handleAbort(result) {
@@ -1294,14 +1300,19 @@ function validateEntry(transition, matchPoint, handlerParams) {
       args = [transition];
     }
 
-    var p = handler.beforeModel && handler.beforeModel.apply(handler, args);
-    return (p instanceof Transition) ? null : p;
+    return async(function() {
+      var p = handler.beforeModel && handler.beforeModel.apply(handler, args);
+      return (p instanceof Transition) ? null : p;
+    });
   }
 
   function model() {
     log(router, seq, handlerName + ": resolving model");
-    var p = getModel(handlerInfo, transition, handlerParams[handlerName], index >= matchPoint);
-    return (p instanceof Transition) ? null : p;
+
+    return async(function() {
+      var p = getModel(handlerInfo, transition, handlerParams[handlerName], index >= matchPoint);
+      return (p instanceof Transition) ? null : p;
+    });
   }
 
   function afterModel(context) {
@@ -1322,8 +1333,10 @@ function validateEntry(transition, matchPoint, handlerParams) {
       args = [context, transition];
     }
 
-    var p = handler.afterModel && handler.afterModel.apply(handler, args);
-    return (p instanceof Transition) ? null : p;
+    return async(function() {
+      var p = handler.afterModel && handler.afterModel.apply(handler, args);
+      return (p instanceof Transition) ? null : p;
+    });
   }
 
   function proceed() {
@@ -1338,13 +1351,29 @@ function validateEntry(transition, matchPoint, handlerParams) {
 /**
   @private
 
-  Throws a TransitionAborted if the provided transition has been aborted.
+  The router calls the various handler hooks outside
+  of the context of RSVP's try/catch block so that
+  errors synchronously thrown from these hooks are
+  not caught by RSVP and treated as rejected promises.
+  This function reuses RSVP's configurable `async`
+  method to escape that try/catch block.
  */
-function checkAbort(transition) {
-  if (transition.isAborted) {
-    log(transition.router, transition.sequence, "detected abort.");
-    throw new Router.TransitionAborted();
-  }
+function async(callback) {
+  return new RSVP.Promise(function(resolve) {
+    RSVP.async(function() {
+      resolve(callback());
+    });
+  });
+}
+
+/**
+  @private
+
+  Logs and returns a TransitionAborted error.
+ */
+function logAbort(transition) {
+  log(transition.router, transition.sequence, "detected abort.");
+  return new Router.TransitionAborted();
 }
 
 /**
