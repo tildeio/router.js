@@ -6,5 +6,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/tildeio/router.js.git"
+  },
+  "devDependencies": {
+    "es6-module-transpiler": "~0.3.2"
   }
 }
