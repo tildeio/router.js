@@ -16,6 +16,7 @@ module("The router", {
       }).withQueryParams('parentParam');
       match("/posts", function(match) {
         match("/:id").to("showPost").withQueryParams('foo', 'bar');
+        match("/on/:date").to("showPostsForDate");
         match("/admin/:id").to("admin", function(match) {
           match("/posts").to("adminPosts");
           match("/posts/:post_id").to("adminPost");
@@ -1756,6 +1757,30 @@ test("paramsForHandler returns params", function() {
   deepEqual(router.paramsForHandler('showPost', post), { id: 12 }, "The correct parameters were retrieved with a context object");
   deepEqual(router.paramsForHandler('showPost', 12),   { id: 12 }, "The correct parameters were retrieved with a numeric id");
   deepEqual(router.paramsForHandler('showPost', "12"), { id: "12" }, "The correct parameters were retrieved with a string id");
+});
+
+test("paramsForHandler calls `serialize` for date params", function() {
+  var date = new Date(1815, 5, 18),
+      params = { date: 12 };
+
+  handlers = {
+    showPostsForDate: {
+      serialize: function(date) {
+        return { date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate() };
+      },
+
+      model: function(params) {
+        var parts;
+
+        equal(params.date, "1815-5-18", "The parameters are correct");
+
+        parts = params.date.split("-");
+        return new Date(parts[0], parts[1], parts[2]);
+      }
+    }
+  };
+
+  deepEqual(router.paramsForHandler('showPostsForDate', date), { date: "1815-5-18" }, "The correct parameters were retrieved with a date parameter");
 });
 
 test("paramsForHandler returns query params", function() {

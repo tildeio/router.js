@@ -1,6 +1,6 @@
-define("router",
-  ["route-recognizer","rsvp"],
-  function(RouteRecognizer, RSVP) {
+define("router", 
+  ["route-recognizer","rsvp","exports"],
+  function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     /**
       @private
@@ -20,6 +20,8 @@ define("router",
       * `{Object} context`: the active context for the handler
     */
 
+    var RouteRecognizer = __dependency1__['default'];
+    var RSVP = __dependency2__['default'];
 
     var slice = Array.prototype.slice;
 
@@ -174,6 +176,7 @@ define("router",
     // TODO: separate into module?
     Router.Transition = Transition;
 
+    __exports__['default'] = Router;
 
 
     /**
@@ -529,7 +532,7 @@ define("router",
     }
 
     function isParam(object) {
-      return (typeof object === "string" || object instanceof String || !isNaN(object));
+      return (typeof object === "string" || object instanceof String || typeof object === "number" || object instanceof Number);
     }
 
 
@@ -1450,7 +1453,4 @@ define("router",
       }
       return object;
     }
-
-
-    return Router;
   });
