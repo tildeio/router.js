@@ -28,7 +28,7 @@ def file_task(type)
     router = File.read("lib/router.js")
 
     open filename, "w" do |file|
-      converter = JsModuleTranspiler::Compiler.new(router, "router", into: "Router", imports: { "route-recognizer" => "RouteRecognizer", "rsvp" => "RSVP" })
+      converter = JsModuleTranspiler::Compiler.new(router, "router", imports: { "route-recognizer" => "RouteRecognizer", "rsvp" => "RSVP" })
       file.puts converter.send("to_#{type}")
     end
   end
@@ -39,7 +39,7 @@ def file_task(type)
     router = replace_debug("lib/router.js")
 
     open debug_filename, "w" do |file|
-      converter = JsModuleTranspiler::Compiler.new(router, "router", into: "Router", imports: { "route-recognizer" => "RouteRecognizer", "rsvp" => "RSVP" })
+      converter = JsModuleTranspiler::Compiler.new(router, "router", imports: { "route-recognizer" => "RouteRecognizer", "rsvp" => "RSVP" })
       file.puts converter.send("to_#{type}")
     end
   end

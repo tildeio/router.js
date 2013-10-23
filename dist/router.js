@@ -1,4 +1,4 @@
-(function(exports, RouteRecognizer, RSVP) {
+(function(__exports__, __dependency1__, __dependency2__) {
   "use strict";
   /**
     @private
@@ -18,6 +18,8 @@
     * `{Object} context`: the active context for the handler
   */
 
+  var RouteRecognizer = __dependency1__;
+  var RSVP = __dependency2__;
 
   var slice = Array.prototype.slice;
 
@@ -172,6 +174,7 @@
   // TODO: separate into module?
   Router.Transition = Transition;
 
+  __exports__.Router = Router;
 
 
   /**
@@ -527,7 +530,7 @@
   }
 
   function isParam(object) {
-    return (typeof object === "string" || object instanceof String || !isNaN(object));
+    return (typeof object === "string" || object instanceof String || typeof object === "number" || object instanceof Number);
   }
 
 
@@ -1448,7 +1451,4 @@
     }
     return object;
   }
-
-
-  exports.Router = Router;
 })(window, window.RouteRecognizer, window.RSVP);

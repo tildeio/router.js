@@ -1,6 +1,4 @@
 "use strict";
-var RouteRecognizer = require("route-recognizer");
-var RSVP = require("rsvp");
 /**
   @private
 
@@ -19,6 +17,8 @@ var RSVP = require("rsvp");
   * `{Object} context`: the active context for the handler
 */
 
+var RouteRecognizer = require("route-recognizer")['default'];
+var RSVP = require("rsvp")['default'];
 
 var slice = Array.prototype.slice;
 
@@ -173,6 +173,7 @@ function Router() {
 // TODO: separate into module?
 Router.Transition = Transition;
 
+exports['default'] = Router;
 
 
 /**
@@ -528,7 +529,7 @@ function getMatchPointObject(objects, handlerName, activeTransition, paramName, 
 }
 
 function isParam(object) {
-  return (typeof object === "string" || object instanceof String || !isNaN(object));
+  return (typeof object === "string" || object instanceof String || typeof object === "number" || object instanceof Number);
 }
 
 
@@ -1449,6 +1450,3 @@ function serialize(handler, model, names) {
   }
   return object;
 }
-
-
-module.exports = Router;
