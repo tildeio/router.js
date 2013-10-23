@@ -59,7 +59,7 @@ module JsModuleTranspiler
 
     def ensure_es6_transpiler_package_installed
       return if File.executable?(es6_transpiler_binary)
-      %x{npm install es6-module-transpiler}
+      %x{npm install}
     end
 
     def es6_transpiler_binary
