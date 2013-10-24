@@ -29,7 +29,9 @@ def file_task(type)
 
     open filename, "w" do |file|
       converter = JsModuleTranspiler::Compiler.new(router, "router", imports: { "route-recognizer" => "RouteRecognizer", "rsvp" => "RSVP" })
-      file.puts converter.send("to_#{type}")
+      converted = converter.send("to_#{type}")
+      converted = yield converted if block_given?
+      file.puts converted
     end
   end
 
@@ -40,7 +42,9 @@ def file_task(type)
 
     open debug_filename, "w" do |file|
       converter = JsModuleTranspiler::Compiler.new(router, "router", imports: { "route-recognizer" => "RouteRecognizer", "rsvp" => "RSVP" })
-      file.puts converter.send("to_#{type}")
+      converted = converter.send("to_#{type}")
+      converted = yield converted if block_given?
+      file.puts converted
     end
   end
 
@@ -56,7 +60,12 @@ def file_task(type)
 end
 
 file_task "globals"
-file_task "amd"
+file_task "amd" do |output|
+  # RSVP 2.x is built with 0.2.x style modules.  This post-processing can be
+  # remoed for RSVP 3.x
+  output[%r{var RSVP = __dependency.__(\['default'\])}, 1] = ''
+  output
+end
 file_task "cjs"
 
 task :debug => ["dist/router.debug.js", "dist/router.amd.debug.js", "dist/router.cjs.debug.js"]
