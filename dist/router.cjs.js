@@ -702,7 +702,7 @@ function createURLTransition(router, url, isIntermediate) {
     // Make sure this route is actually accessible by URL.
     for (i = 0, len = results.length; i < len; ++i) {
 
-      if (router.getHandler(results[i].handler).inaccessiblyByURL) {
+      if (router.getHandler(results[i].handler).inaccessibleByURL) {
         results = null;
         break;
       }
@@ -1176,7 +1176,7 @@ function finalizeTransition(transition, handlerInfos) {
       objects.unshift(isParam(providedModel) ? providedModel.toString() : handlerInfo.context);
     }
 
-    if (handlerInfo.handler.inaccessiblyByURL) {
+    if (handlerInfo.handler.inaccessibleByURL) {
       urlMethod = null;
     }
   }

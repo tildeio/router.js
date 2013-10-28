@@ -3431,12 +3431,12 @@ module("URL-less routes", {
   }
 });
 
-asyncTest("Transitioning into a route marked as inaccessiblyByURL doesn't update the URL", function() {
+asyncTest("Transitioning into a route marked as inaccessibleByURL doesn't update the URL", function() {
   expect(1);
 
   handlers = {
     adminPosts: {
-      inaccessiblyByURL: true
+      inaccessibleByURL: true
     }
   };
 
@@ -3448,12 +3448,12 @@ asyncTest("Transitioning into a route marked as inaccessiblyByURL doesn't update
   }).then(start, shouldNotHappen);
 });
 
-asyncTest("Transitioning into a route with a parent route marked as inaccessiblyByURL doesn't update the URL", function() {
+asyncTest("Transitioning into a route with a parent route marked as inaccessibleByURL doesn't update the URL", function() {
   expect(2);
 
   handlers = {
     admin: {
-      inaccessiblyByURL: true
+      inaccessibleByURL: true
     }
   };
 
@@ -3474,7 +3474,7 @@ asyncTest("Handling a URL on a route marked as inaccessible behave like a failed
 
   handlers = {
     admin: {
-      inaccessiblyByURL: true
+      inaccessibleByURL: true
     }
   };
 
@@ -3545,7 +3545,7 @@ asyncTest("intermediateTransitionTo() forces an immediate intermediate transitio
       }
     },
     loading: {
-      inaccessiblyByURL: true,
+      inaccessibleByURL: true,
       model: function() {
         ok(false, "intermediate transitions don't call model hooks");
       },
