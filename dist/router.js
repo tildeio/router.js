@@ -1070,14 +1070,7 @@
       checkAbort(transition);
 
       try {
-        log(router, transition.sequence, "Validation succeeded, finalizing transition;");
-
-        // Don't overwrite contexts / update URL if this was a noop transition.
-        if (!currentHandlerInfos || !currentHandlerInfos.length ||
-            !router.recognizer.hasRoute(currentHandlerInfos[currentHandlerInfos.length - 1].name) ||
-            currentHandlerInfos.length !== matchPointResults.matchPoint) {
-          finalizeTransition(transition, handlerInfos);
-        }
+        finalizeTransition(transition, handlerInfos);
 
         // currentHandlerInfos was updated in finalizeTransition
         trigger(router, router.currentHandlerInfos, true, ['didTransition']);
@@ -1161,6 +1154,8 @@
     to update the router's array of `currentHandlerInfos`.
    */
   function finalizeTransition(transition, handlerInfos) {
+
+    log(transition.router, transition.sequence, "Validation succeeded, finalizing transition;");
 
     var router = transition.router,
         seq = transition.sequence,
