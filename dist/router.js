@@ -1264,7 +1264,7 @@
     }
 
     function handleError(reason) {
-      if (reason instanceof Router.TransitionAborted) {
+      if (reason instanceof Router.TransitionAborted || transition.isAborted) {
         // if the transition was aborted and *no additional* error was thrown,
         // reject with the Router.TransitionAborted instance
         return RSVP.reject(reason);
