@@ -36,12 +36,135 @@ function HandlerInfo(props) {
   }
 }
 
+function bind(fn, context) {
+  var boundArgs = arguments;
+  return function(value) {
+    var args = slice.call(boundArgs, 2);
+    args.push(value);
+    return fn.apply(context, args);
+  };
+}
+
 HandlerInfo.prototype = {
   name: null,
   handler: null,
   params: null,
   context: null,
-  resolve: null
+
+  log: function(payload, message) {
+    if (payload.log) {
+      payload.log(message);
+    }
+  },
+
+  resolve: function(shouldContinue, payload) {
+    var checkForAbort = bind(this.checkForAbort, this, shouldContinue),
+        beforeModel = bind(this.runBeforeModelHook, this, payload),
+        model = bind(this.getModel, this, payload),
+        afterModel = bind(this.runAfterModelHook, this, payload),
+        becomeResolved = bind(this.becomeResolved, this);
+
+    return RSVP.resolve().then(checkForAbort)
+                         .then(beforeModel)
+                         .then(checkForAbort)
+                         .then(model)
+                         .then(checkForAbort)
+                         .then(afterModel)
+                         .then(checkForAbort)
+                         .then(becomeResolved);
+
+      //var p = handler.beforeModel && handler.beforeModel.apply(handler, args);
+      //return (p instanceof Transition) ? null : p;
+
+    /*
+    return RSVP.resolve().then(checkForAbort)
+                         .then(beforeModel)
+                         .then(checkForAbort)
+                         .then(model)
+                         .then(checkForAbort)
+                         .then(afterModel)
+                         .then(checkForAbort)
+                         .fail(handleError)
+                         .then(proceed);
+                         */
+
+  },
+
+  runBeforeModelHook: function(payload) {
+    var handler = this.handler;
+
+    this.log(payload, this.name + ": calling beforeModel hook");
+
+    var args;
+
+    // TODO: queryParams
+    if (this.queryParams) {
+      args = [this.queryParams, payload];
+    } else {
+      args = [payload];
+    }
+
+    return async(function() {
+      var p = handler.beforeModel && handler.beforeModel.apply(handler, args);
+      return (p instanceof Transition) ? null : p; // TODO: better place for this check?
+    });
+  },
+
+  getModel: function(payload) {
+    throw new Error("This should be overridden by a subclass of HandlerInfo");
+  },
+
+  runAfterModelHook: function(payload, context) {
+    this.log(payload, this.name + ": calling afterModel hook");
+
+    // Pass the context and resolved parent contexts to afterModel, but we don't
+    // want to use the value returned from `afterModel` in any way, but rather
+    // always resolve with the original `context` object.
+
+    // TODO: get rid of this?
+    //transition.resolvedModels[handlerName] = context;
+    //handlerInfo.context = transition.resolvedModels[handlerInfo.name];
+
+    var args;
+
+    if (this.queryParams) {
+      args = [context, this.queryParams, payload];
+    } else {
+      args = [context, payload];
+    }
+
+    var handler = this.handler;
+    return async(function() {
+      var p = handler.afterModel && handler.afterModel.apply(handler, args);
+      return (p instanceof Transition) ? null : p;
+    }).then(function() {
+      // We discard the value returned/fulfilled by afterModel.
+      // TODO: how to swap?
+      return context;
+    });
+  },
+
+  checkForAbort: function(shouldContinue, promiseValue) {
+    return RSVP.resolve(shouldContinue()).then(function() {
+      // We don't care about shouldContinue's resolve value;
+      // pass along the original value passed to this fn.
+      return promiseValue;
+    });
+  },
+
+  becomeResolved: function(resolvedContext) {
+    return new ResolvedHandlerInfo({
+      context: resolvedContext,
+      name: this.name,
+      handler: this.handler,
+      params: this.params || this.serialize(resolvedContext)
+    });
+  },
+
+  serialize: function(context) {
+    // TODO: this
+    return {};
+  }
 };
 
 
@@ -60,17 +183,17 @@ function UnresolvedHandlerInfoByParam(props) {
   this.params = this.params || {};
 }
 UnresolvedHandlerInfoByParam.prototype = oCreate(HandlerInfo.prototype);
-UnresolvedHandlerInfoByParam.prototype.resolve = function() {
-};
+//UnresolvedHandlerInfoByParam.prototype.resolve = function() {
+//};
 
 // These are generated only for named transitions
 // for dynamic route segments.
 function UnresolvedHandlerInfoByObject(props) {
   HandlerInfo.call(this, props);
 }
-UnresolvedHandlerInfoByParam.prototype = oCreate(HandlerInfo.prototype);
-UnresolvedHandlerInfoByParam.prototype.resolve = function() {
-};
+UnresolvedHandlerInfoByObject.prototype = oCreate(HandlerInfo.prototype);
+//UnresolvedHandlerInfoByObject.prototype.resolve = function() {
+//};
 
 
 
@@ -316,6 +439,10 @@ Transition.prototype = {
 
   toString: function() {
     return "Transition (sequence " + this.sequence + ")";
+  },
+
+  log: function(message) {
+    log(this.router, this.sequence, message);
   }
 };
 
@@ -331,6 +458,7 @@ Router.TransitionState = TransitionState;
 Router.UnresolvedHandlerInfoByParam = UnresolvedHandlerInfoByParam;
 Router.UnresolvedHandlerInfoByObject = UnresolvedHandlerInfoByObject;
 Router.ResolvedHandlerInfo = ResolvedHandlerInfo;
+Router.HandlerInfo = HandlerInfo;
 
 exports['default'] = Router;
 
