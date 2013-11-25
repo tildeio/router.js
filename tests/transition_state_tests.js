@@ -1,5 +1,8 @@
 var TransitionState = Router.TransitionState;
 
+var UnresolvedHandlerInfoByObject = Router.UnresolvedHandlerInfoByObject;
+var UnresolvedHandlerInfoByParam = Router.UnresolvedHandlerInfoByParam;
+
 var bb = new backburner.Backburner(['promises']);
 
 function customAsync(callback, promise) {
@@ -10,6 +13,8 @@ function flushBackburner() {
   bb.end();
   bb.begin();
 }
+
+function noop() {}
 
 module("TransitionState", {
 
@@ -22,38 +27,6 @@ module("TransitionState", {
     bb.end();
   }
 });
-
-// handlerInfo = {
-//  * `{Boolean} isDynamic`: whether a handler has any dynamic segments
-//  * `{String} name`: the name of a handler
-//  * `{Object} handler`: a handler object
-//  * `{Object} context`: the active context for the handler
-//  * `{Object} queryParams`: them shitz
-// }
-
-/* handlersFor(routeName) Format:
- * - This gets information about a route registered in route-recognizer
- * - This result then gets decorated with queryParams
- *
- * handler: "nestedChild"
- * names: Array[0] // e.g. ['ass_id']
- * queryParams: Array[1] // e.g. ['childParam']
- */
-
-/* Generate(): returns a recogHandlerInfo for a URL.
- * This gives us params for a URL.
- *
- *
-    handler: "index"
-    isDynamic: false (true if params not empty!)
-    params:
-      foo: 'asd'
-      butt: 'nork'
-    queryParams:
-      sort: "name"
- */
-
-
 
 test("it starts off with default state", function() {
   var state = new TransitionState();
@@ -71,7 +44,6 @@ test("new TransitionState clones state of passed in TransitionState", function()
   ok(first.handlerInfos !== second.handlerInfos,     "separate handlerInfos arrays...");
   deepEqual(first.handlerInfos, second.handlerInfos, "...with the same content");
 });
-
 
 test("#resolve delegates to handleInfo objects' resolve()", function() {
 
@@ -142,5 +114,47 @@ test("State resolution can be halted", function() {
 
   flushBackburner();
 });
+
+
+test("Integration w/ HandlerInfos", function() {
+
+  expect(5);
+
+  var state = new TransitionState();
+
+  var fooModel = {};
+  var barModel = {};
+  var transition = {};
+
+  state.handlerInfos = [
+    new UnresolvedHandlerInfoByParam({
+      name: 'foo',
+      params: { foo_id: '123' },
+      handler: {
+        model: function(params, payload) {
+          equal(payload, transition);
+          equal(params.foo_id, '123', "foo#model received expected params");
+          return RSVP.resolve(fooModel);
+        }
+      }
+    }),
+    new UnresolvedHandlerInfoByObject({
+      name: 'bar',
+      context: RSVP.resolve(barModel),
+      handler: {}
+    })
+  ];
+
+  state.resolve(noop, transition).then(function(result) {
+    var models = result.state.handlerInfos.map(function(handlerInfo) {
+      return handlerInfo.context;
+    });
+
+    ok(!result.error);
+    equal(models[0], fooModel);
+    equal(models[1], barModel);
+  });
+});
+
 
 

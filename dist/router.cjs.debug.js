@@ -225,7 +225,7 @@ function TransitionState(other) {
 }
 
 TransitionState.prototype = {
-  resolve: function(shouldContinue) {
+  resolve: function(shouldContinue, payload) {
 
     // Create a new state that we'll be appending handlerInfos to.
     var currentState = this;
@@ -261,18 +261,6 @@ TransitionState.prototype = {
       // the resolved handlerInfo
       newState.handlerInfos[index] = resolvedHandlerInfo;
 
-      // A Named Transition creates
-      // - ResolveByParamStates for all non-dynamic routes, with empty params
-      // - ResolveByObjectStates for all dynamic routes
-      //
-      // A URL Transition creates
-      // - ResolveByParamStates for ALL routes
-
-      // ResolveByParamState
-      // - name: 'foo', params: {}
-      // ResolveByObjectState
-      // - name: 'foo', context: {}
-
       ++index;
       return resolveOne();
     }
@@ -289,7 +277,7 @@ TransitionState.prototype = {
 
       var handlerInfo = currentState.handlerInfos[index];
 
-      return handlerInfo.resolve(innerShouldContinue)
+      return handlerInfo.resolve(innerShouldContinue, payload)
                         .fail(handleError)
                         .then(proceed);
     }
