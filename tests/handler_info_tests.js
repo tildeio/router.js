@@ -175,7 +175,45 @@ test("serialize gets called when resolving param-less HandlerInfos", function() 
   handlerInfo.resolve(noop, {});
 });
 
+test("UnresolvedHandlerInfoByParam gets its model hook called", function() {
+  expect(2);
 
+  var transition = {};
 
+  var handler = {
+    model: function(params, payload) {
+      equal(payload, transition);
+      deepEqual(params, { first_name: 'Alex', last_name: 'Matchnerd' });
+    }
+  };
+
+  var handlerInfo = new UnresolvedHandlerInfoByParam({
+    name: 'foo',
+    handler: handler,
+    params: { first_name: 'Alex', last_name: 'Matchnerd' }
+  });
+
+  handlerInfo.resolve(noop, transition);
+});
+
+test("UnresolvedHandlerInfoByObject does NOT get its model hook called", function() {
+  expect(1);
+
+  var handler = {
+    model: function() {
+      ok(false, "I shouldn't be called because I already have a context/model");
+    }
+  };
+
+  var handlerInfo = new UnresolvedHandlerInfoByObject({
+    name: 'foo',
+    handler: handler,
+    context: RSVP.resolve({ name: 'dorkletons' })
+  });
+
+  handlerInfo.resolve(noop, {}).then(function(resolvedHandlerInfo) {
+    equal(resolvedHandlerInfo.context.name, 'dorkletons');
+  });
+});
 
 

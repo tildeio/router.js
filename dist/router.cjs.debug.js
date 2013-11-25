@@ -28,8 +28,6 @@ var oCreate = Object.create || function(proto) {
   return new F();
 };
 
-
-
 function HandlerInfo(props) {
   if (props) {
     merge(this, props);
@@ -158,19 +156,36 @@ function UnresolvedHandlerInfoByParam(props) {
   this.params = this.params || {};
 }
 UnresolvedHandlerInfoByParam.prototype = oCreate(HandlerInfo.prototype);
-//UnresolvedHandlerInfoByParam.prototype.resolve = function() {
-//};
+UnresolvedHandlerInfoByParam.prototype.getModel = function(payload) {
+  var handler = this.handler;
+  var handlerParams = this.params;
+
+  var args;
+  if (this.queryParams) {
+    args = [handlerParams || {}, this.queryParams, payload];
+  } else {
+    args = [handlerParams || {}, payload];
+  }
+
+  this.log(payload, this.name + ": calling model hook");
+  return async(function() {
+    var p = handler.model && handler.model.apply(handler, args);
+    return (p instanceof Transition) ? null : p; // TODO: better place for this check?
+  });
+};
+
 
 // These are generated only for named transitions
 // for dynamic route segments.
 function UnresolvedHandlerInfoByObject(props) {
   HandlerInfo.call(this, props);
 }
+
 UnresolvedHandlerInfoByObject.prototype = oCreate(HandlerInfo.prototype);
-//UnresolvedHandlerInfoByObject.prototype.resolve = function() {
-//};
-
-
+UnresolvedHandlerInfoByObject.prototype.getModel = function(payload) {
+  this.log(payload, this.name + ": resolving provided model");
+  return RSVP.resolve(this.context);
+};
 
 function TransitionIntent() {
 }
@@ -188,6 +203,13 @@ TransitionIntent.prototype = {
     return new TransitionState();
   }
 };
+
+function URLTransitionIntent(url) {
+  this.url = url;
+}
+
+URLTransitionIntent.prototype = oCreate(TransitionIntent.prototype);
+
 
 
 function TransitionState(other) {
@@ -1578,7 +1600,6 @@ function getModelRunner(transition, handlerInfo, handlerParams, pastMatchPoint) 
       handlerName = handlerInfo.name;
 
   return function() {
-    log(transition.router, transition.sequence, handlerName + ": resolving model");
 
     return async(function() {
       var p = getModel(handlerInfo, transition, handlerParams[handlerName], pastMatchPoint);
