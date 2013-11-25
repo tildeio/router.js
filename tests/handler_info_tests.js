@@ -144,5 +144,38 @@ test("HandlerInfo#resolve runs afterModel hook on handler", function() {
   });
 });
 
+test("serialize gets called when resolving param-less HandlerInfos", function() {
+
+  expect(4);
+
+  var count = 0;
+
+  var model = {};
+
+  var handlerInfo = new HandlerInfo({
+    name: 'foo',
+    handler: {},
+    getModel: function() {
+      ok(true, 'model was called');
+      return RSVP.resolve(model);
+    },
+    params: { id: 123 },
+    serialize: function(resolvedContext) {
+      count++;
+      equal(count, 1, "serialize only gets called once");
+      equal(resolvedContext, model, "serialize gets passed the resolved model");
+    }
+  });
+
+  handlerInfo.resolve(noop, {});
+
+  flushBackburner();
+
+  delete handlerInfo.params;
+  handlerInfo.resolve(noop, {});
+});
+
+
+
 
 

@@ -61,11 +61,11 @@ define("router",
       },
 
       resolve: function(shouldContinue, payload) {
-        var checkForAbort = bind(this.checkForAbort, this, shouldContinue),
-            beforeModel = bind(this.runBeforeModelHook, this, payload),
-            model = bind(this.getModel, this, payload),
-            afterModel = bind(this.runAfterModelHook, this, payload),
-            becomeResolved = bind(this.becomeResolved, this);
+        var checkForAbort  = bind(this.checkForAbort,      this, shouldContinue),
+            beforeModel    = bind(this.runBeforeModelHook, this, payload),
+            model          = bind(this.getModel,           this, payload),
+            afterModel     = bind(this.runAfterModelHook,  this, payload),
+            becomeResolved = bind(this.becomeResolved,     this);
 
         return RSVP.resolve().then(checkForAbort)
                              .then(beforeModel)
@@ -75,22 +75,6 @@ define("router",
                              .then(afterModel)
                              .then(checkForAbort)
                              .then(becomeResolved);
-
-          //var p = handler.beforeModel && handler.beforeModel.apply(handler, args);
-          //return (p instanceof Transition) ? null : p;
-
-        /*
-        return RSVP.resolve().then(checkForAbort)
-                             .then(beforeModel)
-                             .then(checkForAbort)
-                             .then(model)
-                             .then(checkForAbort)
-                             .then(afterModel)
-                             .then(checkForAbort)
-                             .fail(handleError)
-                             .then(proceed);
-                             */
-
       },
 
       runBeforeModelHook: function(payload) {
@@ -120,16 +104,7 @@ define("router",
       runAfterModelHook: function(payload, context) {
         this.log(payload, this.name + ": calling afterModel hook");
 
-        // Pass the context and resolved parent contexts to afterModel, but we don't
-        // want to use the value returned from `afterModel` in any way, but rather
-        // always resolve with the original `context` object.
-
-        // TODO: get rid of this?
-        //transition.resolvedModels[handlerName] = context;
-        //handlerInfo.context = transition.resolvedModels[handlerInfo.name];
-
         var args;
-
         if (this.queryParams) {
           args = [context, this.queryParams, payload];
         } else {
