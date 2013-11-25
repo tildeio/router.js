@@ -3248,6 +3248,53 @@ test("A failed handler's setup shouldn't prevent future transitions", function()
   flush(error);
 });
 
+/*
+test("EF4 test TODO better test name", function() {
+  expect(1);
+
+  ok(true);
+  return;
+
+  map(function(match) {
+    match("/").to('index');
+    match("/people/:id").to('people', function(match) {
+      match("/").to('peopleIndex');
+      match("/home").to('peopleHome');
+    });
+  });
+
+  var peopleModels = [null, {}, {}];
+  var peopleBeforeModelCalled = false;
+
+  handlers = {
+    people: {
+      beforeModel: function() {
+        ok(!peopleBeforeModelCalled, "people#beforeModel should only be called once");
+        debugger;
+        peopleBeforeModelCalled = true;
+      },
+      model: function(params) {
+        ok(params.id, "people#model called");
+        return peopleModels[params.id];
+      }
+    },
+    peopleIndex: {
+      afterModel: function() {
+        router.transitionTo('peopleHome');
+      }
+    },
+    peopleHome: {
+      setup: function() {
+        ok(true, "I was entered");
+      }
+    }
+  };
+
+  transitionTo('/');
+  transitionTo('peopleIndex', '1');
+});
+*/
+
 module("URL-less routes", {
   setup: function() {
 
