@@ -138,8 +138,41 @@
     serialize: function(context) {
       // TODO: this
       return {};
+    },
+
+    shouldSupercede: function(other) {
+      // Prefer this newer handlerInfo over `other` if:
+      // 1) The other one doesn't exist
+      // 2) The names don't match
+      // 3) This handler has a context that doesn't match
+      //    the other one (or the other one doesn't have one).
+      // 4) The parameters do not match.
+      return !other ||
+             other.name !== this.name ||
+             (this.context && other.context !== this.context) ||
+             !paramsMatch(this.params, other.params);
     }
   };
+
+  function paramsMatch(a, b) {
+    if ((!a) ^ (!b)) {
+      // Only one is null.
+      return false;
+    }
+
+    if (!a) {
+      // Both must be null.
+      return true;
+    }
+
+    // Note: this assumes that the number of keys is the b/w params.
+    for (var k in a) {
+      if (a.hasOwnProperty(k) && a[k] !== b[k]) {
+        return false;
+      }
+    }
+    return true;
+  }
 
 
   function ResolvedHandlerInfo(props) {
@@ -188,7 +221,10 @@
     return RSVP.resolve(this.context);
   };
 
-  function TransitionIntent() {
+  function TransitionIntent(props) {
+    if (props) {
+      merge(this, props);
+    }
   }
 
   TransitionIntent.prototype = {
@@ -205,11 +241,68 @@
     }
   };
 
-  function URLTransitionIntent(url) {
-    this.url = url;
+  function URLTransitionIntent(props) {
+    TransitionIntent.call(this, props);
   }
 
   URLTransitionIntent.prototype = oCreate(TransitionIntent.prototype);
+  URLTransitionIntent.prototype.applyToState = function(oldState, recognizer, getHandler) {
+    var newState = new TransitionState(oldState);
+
+    var results = recognizer.recognize(this.url),
+        queryParams = {},
+        i, len;
+
+    // TODO: LOG. maybe move this elsewhere?
+    //log(router, "Attempting URL transition to " + url);
+
+    if (results) {
+      for (i = 0, len = results.length; i < len; ++i) {
+        var result = results[i];
+        var name = result.handler;
+        var handler = getHandler(name);
+
+        if (handler.inaccessibleByURL) {
+          return null;
+        }
+
+        var newHandlerInfo = new UnresolvedHandlerInfoByParam({
+          name: name,
+          handler: handler,
+          params: result.params
+        });
+
+        var oldHandlerInfo = oldState.handlerInfos[i];
+        if (newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
+          newState.handlerInfos[i] = newHandlerInfo;
+        } else {
+          newState.handlerInfos[i] = oldHandlerInfo;
+        }
+      }
+    } else {
+      return null;
+      //return errorTransition(router, new Router.UnrecognizedURLError(url));
+    }
+
+
+
+
+    // TODO: query params
+    //for(i = 0, len = results.length; i < len; i++) {
+      //merge(queryParams, results[i].queryParams);
+    //}
+
+    //return performTransition(router, results, [], {}, queryParams, null, isIntermediate);
+
+    return newState;
+  };
+
+
+  function NamedTransitionIntent(props) {
+    TransitionIntent.call(this, props);
+  }
+
+  NamedTransitionIntent.prototype = oCreate(TransitionIntent.prototype);
 
 
 
@@ -220,9 +313,6 @@
     } else {
       this.handlerInfos = [];
     }
-
-    this.params = {};
-    this.resolveIndex = 0;
   }
 
   TransitionState.prototype = {
@@ -445,6 +535,9 @@
   Router.UnresolvedHandlerInfoByObject = UnresolvedHandlerInfoByObject;
   Router.ResolvedHandlerInfo = ResolvedHandlerInfo;
   Router.HandlerInfo = HandlerInfo;
+
+  Router.NamedTransitionIntent = NamedTransitionIntent;
+  Router.URLTransitionIntent = URLTransitionIntent;
 
   __exports__.Router = Router;
 
@@ -948,7 +1041,6 @@
       queryParams           = partitionedArgs[1],
       handlers              = router.recognizer.handlersFor(pureArgs[0]),
       handlerInfos          = generateHandlerInfosWithQueryParams(router, handlers, queryParams);
-
 
     log(router, "Attempting transition to " + pureArgs[0]);
 

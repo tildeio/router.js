@@ -7,175 +7,152 @@ var HandlerInfo = Router.HandlerInfo;
 var UnresolvedHandlerInfoByObject = Router.UnresolvedHandlerInfoByObject;
 var UnresolvedHandlerInfoByParam = Router.UnresolvedHandlerInfoByParam;
 
+var URLTransitionIntent = Router.URLTransitionIntent;
+var NamedTransitionIntent = Router.NamedTransitionIntent;
 
-module("TransitionIntent", {
+var bb = new backburner.Backburner(['promises']);
 
+function customAsync(callback, promise) {
+  bb.defer('promises', promise, callback, promise);
+}
+
+function flushBackburner() {
+  bb.end();
+  bb.begin();
+}
+
+function noop() { }
+
+var handlers, recognizer;
+
+// TODO: remove repetition, DRY in to test_helpers.
+module("URLTransitionIntent", {
+  setup: function() {
+    handlers = {};
+
+    handlers.foo = {};
+    handlers.bar = {};
+
+    recognizer = {
+      recognize: function(url) {
+        if (url === '/foo/bar') {
+          return [
+            {
+              handler: "foo",
+              isDynamic: false,
+              params: {}
+            },
+            {
+              handler: "bar",
+              isDynamic: false,
+              params: {}
+            }
+          ];
+        }
+      }
+    };
+
+    RSVP.configure('async', customAsync);
+    bb.begin();
+  },
+
+  teardown: function() {
+    bb.end();
+  }
 });
 
-test("it exists", function() {
-  ok(new TransitionIntent());
+function getHandler(name) {
+  if (handlers[name]) {
+    return handlers[name];
+  } else {
+    return handlers[name] = {};
+  }
+}
+
+test("URLTransitionIntent can be applied to an empty state", function() {
+
+  var state = new TransitionState();
+  var intent = new URLTransitionIntent({ url: '/foo/bar' });
+  var newState = intent.applyToState(state, recognizer, getHandler);
+  var handlerInfos = newState.handlerInfos;
+
+  equal(handlerInfos.length, 2);
+  ok(handlerInfos[0] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 1");
+  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  equal(handlerInfos[0].handler, handlers.foo);
+  equal(handlerInfos[1].handler, handlers.bar);
 });
 
-test("it can be applied to an empty state", function() {
+test("URLTransitionIntent applied to single unresolved URL handlerInfo", function() {
 
   var state = new TransitionState();
 
-  var intent = new TransitionIntent();
+  var startingHandlerInfo = new UnresolvedHandlerInfoByParam({
+    name: 'foo',
+    handler: handlers.foo,
+    params: {}
+  });
 
-  var newState = intent.applyToState();
+  // This single unresolved handler info will be preserved
+  // in the new array of handlerInfos.
+  // Reason: if it were resolved, we wouldn't want to replace it.
+  // So we only want to replace if it's actually known to be
+  // different.
+  state.handlerInfos = [ startingHandlerInfo ];
 
-  ok(true, "made it through");
+  var intent = new URLTransitionIntent({ url: '/foo/bar', });
+  var newState = intent.applyToState(state, recognizer, getHandler);
+  var handlerInfos = newState.handlerInfos;
 
-  // assert that newState has N handlerStates, all
-  // unresolved.
-
+  equal(handlerInfos.length, 2);
+  equal(handlerInfos[0], startingHandlerInfo, "The starting foo handlerInfo wasn't overridden because the new one wasn't any different");
+  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  equal(handlerInfos[1].handler, handlers.bar);
 });
 
-test("it can be applied to a non-empty state", function() {
+test("URLTransitionIntent applied to an already-resolved handlerInfo", function() {
 
   var state = new TransitionState();
 
-  var intent = new TransitionIntent();
+  var startingHandlerInfo = new ResolvedHandlerInfo({
+    name: 'foo',
+    handler: handlers.foo,
+    context: {},
+    params: {}
+  });
 
-  var newState = intent.applyToState();
+  state.handlerInfos = [ startingHandlerInfo ];
 
-  ok(true, "made it through");
+  var intent = new URLTransitionIntent({ url: '/foo/bar', });
+  var newState = intent.applyToState(state, recognizer, getHandler);
+  var handlerInfos = newState.handlerInfos;
 
-  // assert that newState has N handlerStates, all
-  // unresolved.
+  equal(handlerInfos.length, 2);
+  equal(handlerInfos[0], startingHandlerInfo, "The starting foo resolved handlerInfo wasn't overridden because the new one wasn't any different");
+  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  equal(handlerInfos[1].handler, handlers.bar);
 });
 
-test("applying to a state is idempotent", function() {
+
+test("URLTransitionIntent applied to an already-resolved handlerInfo of different route", function() {
 
   var state = new TransitionState();
 
-  var intent = new TransitionIntent();
+  var startingHandlerInfo = new ResolvedHandlerInfo({
+    name: 'alex',
+    handler: handlers.foo,
+    context: {},
+    params: {}
+  });
 
-  var newState = intent.applyToState(state);
+  state.handlerInfos = [ startingHandlerInfo ];
 
-  var newNewState = intent.applyToState(newState);
+  var intent = new URLTransitionIntent({ url: '/foo/bar', });
+  var newState = intent.applyToState(state, recognizer, getHandler);
+  var handlerInfos = newState.handlerInfos;
 
-  ok(true, "made it through");
-
-  // assert newState and newNewState contain same
-  // shit (though different references)
+  equal(handlerInfos.length, 2);
+  ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo gets overridden because the new one has a different name");
+  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  equal(handlerInfos[1].handler, handlers.bar);
 });
-
-
-/* A TransitionState has an array of handlerInfos,
- * generated by applying a TransitionIntent to
- * a TransitionState.
- *
- * so, from blank to '/foo/bar':
- *
- * [
- *   {
- *     name: 'foo',
- *     params: {}
- *   },
- *   {
- *     name: 'bar',
- *     params: {}
- *   }
- * ]
- *
- *
- */
-
-
-
-// What's the interface?
-// You basically need it to generate handlerInfos, right?
-// What do you need to know in order to transition?
-// Specifically, what are the ugly bitchass parts of code?
-//
-// So, you need to figure out a match point.
-//
-// What about serialize? What are the assumptions of what
-// can be passed to serialize? Basically, the thing
-// must already be resolved, but you can't know that...
-// So, we can't check this until we have all params.
-//
-// We could support something like transitionTo('foo', promiseObj, 'stringparams')
-// where even if the last stringparams caused a slow promise in model,
-// we could update it right away because at that point, we have
-// all the bitches. A fascinating notion.
-//
-// And as for matchpoint shit, well, there are 2 match points
-// - pre-transition matchpoint
-//   - compare current TransitionState with (TransitionState+TransitionIntent)
-// - post-model-resolve matchpoint
-//   - just compare `TransitionState`s
-//
-// The first governs whether model hooks run. The latter governs whether
-// enter/exit/update are called.
-//
-// Pre-transition matchpoint:
-// - a route matches param is provided and matches exactly
-// - model is provided and matches exactly
-//
-//
-
-//test("", function() {
-  //ok(new TransitionIntent());
-//});
-//
-//
-// First thing I wanna test: empty TransitionState + TransitionIntent
-// This should produce:... matchPoint of -1
-// A Transition with empty state
-//
-// Use case: a Router starts off with an empty state.
-// Then you transition into somewhere, ideally with URL,
-// but we support named as well.
-//
-// So for that to fit into our algorithm, we need to
-//
-// 1) Look at current state
-// 2) Determine match point
-// 3) destinationState = currentState + intent // what does this return?
-//    - URLIntent: assume same models if params match
-//    - NamedIntent: assume same params if models match
-//
-//    Basically, applying an intent should just lop off the
-//    arrays where param or model doesn't match.
-//
-//    originState = ['foo', 'bar', 'baz']
-//    intent = ['foo', 'bar', 'shit']
-//    output => ['foo', 'bar']
-//
-//    REHASH:
-//
-//    originState = [ResolvedHandlerInfo, ResolvedHandlerInfo, //    ResolvedHandlerInfo]
-//    intent = URLIntent('/foo/bar/shit')
-//    output => [ResolvedHandlerInfo, ResolvedHandlerInfo, {
-//      resolve: function() {
-//        if (this.params) {
-//          // Try and resolve a model
-//        } else {
-//        }
-//      }
-//    })
-//
-//
-// handlerInfos = [HandlerInfo, HandlerInfo, HandlerInfo]
-//
-// HandlerInfo = {
-//   isResolved: true/false,
-//   params: {},
-//   context: object
-// }
-//
-// handlerInfo.resolve()
-// - This just returns RSVP.resolve() if already resolved
-// - else
-//
-// - currentHandlerInfos
-//
-// HandlerInfo
-//   - if isResolved, then params and context are present
-//   - else
-//     - params is present OR context is present, never neither.
-//
-// 4) getMatchPoint(currentState, destinationState)
-// 5)

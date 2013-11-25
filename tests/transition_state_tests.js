@@ -31,8 +31,6 @@ module("TransitionState", {
 test("it starts off with default state", function() {
   var state = new TransitionState();
   deepEqual(state.handlerInfos, [], "it has an array of handlerInfos");
-  deepEqual(state.params, {}, "it has a hash of params");
-  equal(state.resolveIndex, 0, "it has a resolveIndex of zero");
 });
 
 test("new TransitionState clones state of passed in TransitionState", function() {
