@@ -196,6 +196,12 @@ asyncTest("isActive respects query params", function() {
   }, shouldNotHappen);
 });
 
+test("isActive should not break on initial intermediate route", function() {
+  expect(1);
+  router.intermediateTransitionTo("/posts/admin/1/posts");
+  ok(!router.isActive('admin', '1'), 'should not be active yet');
+});
+
 asyncTest("when transitioning with the same context, setup should only be called once", function() {
   var parentSetupCount = 0,
       childSetupCount = 0;
