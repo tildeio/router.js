@@ -26,14 +26,30 @@ function noop() { }
 var handlers, recognizer;
 
 // TODO: remove repetition, DRY in to test_helpers.
-module("URLTransitionIntent", {
+module("TransitionIntent", {
   setup: function() {
     handlers = {};
 
     handlers.foo = {};
     handlers.bar = {};
+    handlers.articles = {};
+    handlers.comments = {};
 
     recognizer = {
+      handlersFor: function(name) {
+        if (name === 'comments') {
+          return [
+            {
+              handler: 'articles',
+              names: ['article_id']
+            },
+            {
+              handler: 'comments',
+              names: ['comment_id']
+            }
+          ];
+        }
+      },
       recognize: function(url) {
         if (url === '/foo/bar') {
           return [
@@ -46,6 +62,19 @@ module("URLTransitionIntent", {
               handler: "bar",
               isDynamic: false,
               params: {}
+            }
+          ];
+        } else if (url === '/articles/123/comments/456') {
+          return [
+            {
+              handler: "articles",
+              isDynamic: true,
+              params: { article_id: '123' }
+            },
+            {
+              handler: "comments",
+              isDynamic: true,
+              params: { comment_id: '456' }
             }
           ];
         }
@@ -133,6 +162,30 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo", function(
   equal(handlerInfos[1].handler, handlers.bar);
 });
 
+test("URLTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function() {
+
+  var state = new TransitionState();
+
+  var article = {};
+
+  var startingHandlerInfo = new ResolvedHandlerInfo({
+    name: 'articles',
+    handler: {},
+    context: article,
+    params: { article_id: 'some-other-id' }
+  });
+
+  state.handlerInfos = [ startingHandlerInfo ];
+
+  var intent = new URLTransitionIntent({ url: '/articles/123/comments/456', });
+  var newState = intent.applyToState(state, recognizer, getHandler);
+  var handlerInfos = newState.handlerInfos;
+
+  equal(handlerInfos.length, 2);
+  ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo was overridden because the new had different params");
+  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  equal(handlerInfos[1].handler, handlers.comments);
+});
 
 test("URLTransitionIntent applied to an already-resolved handlerInfo of different route", function() {
 
@@ -155,4 +208,35 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo of differen
   ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo gets overridden because the new one has a different name");
   ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
   equal(handlerInfos[1].handler, handlers.bar);
+});
+
+test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function() {
+
+  var state = new TransitionState();
+
+  var article = {};
+  var comment = {};
+
+  var startingHandlerInfo = new ResolvedHandlerInfo({
+    name: 'articles',
+    handler: {},
+    context: article,
+    params: { article_id: 'some-other-id' }
+  });
+
+  state.handlerInfos = [ startingHandlerInfo ];
+
+  var intent = new NamedTransitionIntent({
+    name: 'comments',
+    contexts: [ article, comment ]
+  });
+  var newState = intent.applyToState(state, recognizer, getHandler);
+  var handlerInfos = newState.handlerInfos;
+
+  equal(handlerInfos.length, 2);
+  equal(handlerInfos[0], startingHandlerInfo);
+  equal(handlerInfos[0].context, article);
+  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByObject, "generated state consists of UnresolvedHandlerInfoByObject, 2");
+  equal(handlerInfos[1].handler, handlers.comments);
+  equal(handlerInfos[1].context, comment);
 });
