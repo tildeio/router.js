@@ -280,6 +280,10 @@ NamedTransitionIntent.prototype.applyToState = function(oldState, recognizer, ge
     var name = result.handler;
     var handler = getHandler(name);
 
+    if (handler.inaccessibleByURL) {
+      this.inaccessibleByURL = true;
+    }
+
     var oldHandlerInfo = oldState.handlerInfos[i];
     var newHandlerInfo;
 
@@ -397,19 +401,24 @@ TransitionState.prototype = {
   be `retry()`d later.
  */
 
-function Transition(router, state) {
+function Transition(router, intent, oldState) {
 
-  this.state = state;
+  var transition = this;
+  this.intent = intent;
   this.router = router;
   this.data = {};
   this.sequence = ++Transition.currentSequence;
 
-  var transition = this;
+  try {
+    this.state = intent.applyToState(oldState, router.recognizer, router.getHandler);
+    this.promise = this.state.resolve(checkForAbort, this)
+                             .then(saveTransitionToRouter);
 
-  // Kick off transition.
-  if (state) {
-    this.promise = state.resolve(checkForAbort, this)
-                        .then(saveTransitionToRouter);
+    if (intent.inaccessibleByURL) {
+      this.urlMethod = null;
+    }
+  } catch(e) {
+    this.promise = RSVP.reject(e);
   }
 
   function checkForAbort() {
@@ -428,6 +437,7 @@ Transition.currentSequence = 0;
 Transition.prototype = {
   targetName: null,
   urlMethod: 'update',
+  intent: null,
   params: null,
   pivotHandler: null,
   resolveIndex: 0,
@@ -516,7 +526,9 @@ Transition.prototype = {
     @return {Transition} this transition
    */
   method: function(method) {
-    this.urlMethod = method;
+    if (!this.intent.inaccessibleByURL) {
+      this.urlMethod = method;
+    }
     return this;
   },
 
@@ -583,13 +595,6 @@ Router.TransitionAborted = function(message) {
   this.name = "TransitionAborted";
 };
 
-function errorTransition(router, reason) {
-  var t = new Transition(router, null);
-  t.promise = RSVP.reject(reason);
-  return t;
-}
-
-
 Router.prototype = {
 
   /**
@@ -627,6 +632,8 @@ Router.prototype = {
         handler.exit();
       }
     });
+
+    // TODO ALEX reset state?
     this.currentHandlerInfos = null;
     this.targetHandlerInfos = null;
   },
@@ -1411,9 +1418,7 @@ function doTransition(router, args, isIntermediate) {
     throw new Error("not implemented");
     //return createQueryParamTransition(router, args[0], isIntermediate);
   } else if (name.charAt(0) === '/') {
-    intent = new URLTransitionIntent({
-      url: name
-    });
+    intent = new URLTransitionIntent({ url: name });
   } else {
     intent = new NamedTransitionIntent({
       name: args[0],
@@ -1421,16 +1426,12 @@ function doTransition(router, args, isIntermediate) {
     });
   }
 
+  // Use the currently active transition state as a jumping point,
+  // if it exists, else just use the router's state.
   var oldState = router.activeTransition ?
                  router.activeTransition.state : router.state;
 
-  try {
-    var newState = intent.applyToState(oldState, router.recognizer, router.getHandler);
-
-    return new Transition(router, newState);
-  } catch(e) {
-    return errorTransition(router, e);
-  }
+  return new Transition(router, intent, oldState);
 }
 
 /**

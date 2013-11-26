@@ -3321,6 +3321,7 @@ module("URL-less routes", {
 test("Transitioning into a route marked as inaccessibleByURL doesn't update the URL", function() {
   expect(1);
 
+  debugger;
   handlers = {
     adminPosts: {
       inaccessibleByURL: true
@@ -3335,7 +3336,7 @@ test("Transitioning into a route marked as inaccessibleByURL doesn't update the 
   });
 });
 
-asyncTest("Transitioning into a route with a parent route marked as inaccessibleByURL doesn't update the URL", function() {
+test("Transitioning into a route with a parent route marked as inaccessibleByURL doesn't update the URL", function() {
   expect(2);
 
   handlers = {
@@ -3344,15 +3345,12 @@ asyncTest("Transitioning into a route with a parent route marked as inaccessible
     }
   };
 
-  router.handleURL('/index').then(function() {
-    url = '/index';
-    return router.transitionTo('adminPosts');
-  }).then(function() {
-    equal(url, '/index');
-    return router.transitionTo('adminArticles');
-  }).then(function() {
-    equal(url, '/index');
-  }).then(start, shouldNotHappen);
+  transitionTo('/index');
+  url = '/index';
+  transitionTo('adminPosts');
+  equal(url, '/index');
+  transitionTo('adminArticles');
+  equal(url, '/index');
 });
 
 asyncTest("Handling a URL on a route marked as inaccessible behave like a failed url match", function() {
@@ -3370,6 +3368,7 @@ asyncTest("Handling a URL on a route marked as inaccessible behave like a failed
   }).then(shouldNotHappen, function(e) {
     ok(e instanceof Router.UnrecognizedURLError, "rejects with UnrecognizedURLError");
   }).then(start);
+  flushBackburner();
 });
 
 module("Intermediate transitions", {

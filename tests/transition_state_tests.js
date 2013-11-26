@@ -33,16 +33,6 @@ test("it starts off with default state", function() {
   deepEqual(state.handlerInfos, [], "it has an array of handlerInfos");
 });
 
-test("new TransitionState clones state of passed in TransitionState", function() {
-  var first = new TransitionState();
-  first.handlerInfos = [ { foo: 123 }, { bar: 456 } ];
-
-  var second = new TransitionState(first);
-
-  ok(first.handlerInfos !== second.handlerInfos,     "separate handlerInfos arrays...");
-  deepEqual(first.handlerInfos, second.handlerInfos, "...with the same content");
-});
-
 test("#resolve delegates to handleInfo objects' resolve()", function() {
 
   expect(6);
@@ -124,6 +114,8 @@ test("Integration w/ HandlerInfos", function() {
   var barModel = {};
   var transition = {};
 
+  debugger;
+
   state.handlerInfos = [
     new UnresolvedHandlerInfoByParam({
       name: 'foo',
@@ -138,6 +130,7 @@ test("Integration w/ HandlerInfos", function() {
     }),
     new UnresolvedHandlerInfoByObject({
       name: 'bar',
+      names: ['bar_id'],
       context: RSVP.resolve(barModel),
       handler: {}
     })
