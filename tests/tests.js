@@ -139,6 +139,7 @@ test("Mapping adds named routes to the end", function() {
 });
 
 test("Handling an invalid URL returns a rejecting promise", function() {
+  debugger;
   router.handleURL("/unknown").then(shouldNotHappen, function(e) {
     ok(e instanceof Router.UnrecognizedURLError, "rejects with UnrecognizedURLError");
     ok(e.name, "UnrecognizedURLError", "error.name is UnrecognizedURLError");
@@ -1665,7 +1666,7 @@ test("events can be targeted at a parent handler", function() {
   router.trigger("expand");
 });
 
-asyncTest("events can bubble up to a parent handler via `return true`", function() {
+test("events can bubble up to a parent handler via `return true`", function() {
   expect(4);
 
   handlers = {
@@ -1677,7 +1678,6 @@ asyncTest("events can bubble up to a parent handler via `return true`", function
       events: {
         expand: function() {
           equal(this, handlers.postIndex, "The handler is the `this` in events");
-          start();
         }
       }
     },
@@ -1697,6 +1697,7 @@ asyncTest("events can bubble up to a parent handler via `return true`", function
   router.handleURL("/posts").then(function(result) {
     router.trigger("expand");
   });
+
 });
 
 test("handled-then-bubbled events don't throw an exception if uncaught by parent route", function() {
@@ -1987,7 +1988,7 @@ asyncTest("tests whether arguments to transitionTo are considered active", funct
   });
 });
 
-asyncTest("calling generate on a non-dynamic route does not blow away parent contexts", function() {
+test("calling generate on a non-dynamic route does not blow away parent contexts", function() {
   map(function(match) {
     match("/projects").to('projects', function(match) {
       match("/").to('projectsIndex');
@@ -2011,7 +2012,6 @@ asyncTest("calling generate on a non-dynamic route does not blow away parent con
     equal(handlers.projects.context, projects, 'projects handler has correct context');
     router.generate('projectIndex');
     equal(handlers.projects.context, projects, 'projects handler retains correct context');
-    start();
   });
 });
 
@@ -2180,7 +2180,7 @@ asyncTest("any of the model hooks can redirect with or without promise", functio
 });
 
 
-asyncTest("transitionTo with a promise pauses the transition until resolve, passes resolved context to setup", function() {
+test("transitionTo with a promise pauses the transition until resolve, passes resolved context to setup", function() {
   handlers = {
     index: {},
     showPost: {
@@ -2190,11 +2190,11 @@ asyncTest("transitionTo with a promise pauses the transition until resolve, pass
     }
   };
 
-  router.handleURL('/index').then(function() {
-    return router.transitionTo('showPost', new RSVP.Promise(function(resolve, reject) {
-      resolve({ id: 1 });
-    }));
-  }).then(start, shouldNotHappen);
+  transitionTo('/index');
+
+  transitionTo('showPost', new RSVP.Promise(function(resolve, reject) {
+    resolve({ id: 1 });
+  }));
 });
 
 asyncTest("error handler gets called for errors in validation hooks", function() {

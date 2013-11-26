@@ -52,7 +52,7 @@
 
     log: function(payload, message) {
       if (payload.log) {
-        payload.log(message);
+        payload.log(this.name + ': ' + message);
       }
     },
 
@@ -61,7 +61,7 @@
           beforeModel    = bind(this.runBeforeModelHook, this, payload),
           model          = bind(this.getModel,           this, payload),
           afterModel     = bind(this.runAfterModelHook,  this, payload),
-          becomeResolved = bind(this.becomeResolved,     this);
+          becomeResolved = bind(this.becomeResolved,     this, payload);
 
       return RSVP.resolve().then(checkForAbort)
                            .then(beforeModel)
@@ -74,48 +74,35 @@
     },
 
     runBeforeModelHook: function(payload) {
-      var handler = this.handler;
+      return this.runSharedModelHook(payload, 'beforeModel', []);
+    },
 
-      this.log(payload, this.name + ": calling beforeModel hook");
+    runAfterModelHook: function(payload, context) {
+      return this.runSharedModelHook(payload, 'afterModel', [context])
+                 .then(function() {
+                   // We ignore the value returned/fulfilled by afterModel.
+                   // TODO: how to swap?
+                   return context;
+                 });
+    },
 
-      var args;
+    runSharedModelHook: function(payload, hookName, args) {
+      this.log(payload, "calling " + hookName + " hook");
 
-      // TODO: queryParams
       if (this.queryParams) {
-        args = [this.queryParams, payload];
-      } else {
-        args = [payload];
+        args.push(this.queryParams);
       }
+      args.push(payload);
 
+      var handler = this.handler;
       return async(function() {
-        var p = handler.beforeModel && handler.beforeModel.apply(handler, args);
+        var p = handler[hookName] && handler[hookName].apply(handler, args);
         return (p instanceof Transition) ? null : p; // TODO: better place for this check?
       });
     },
 
     getModel: function(payload) {
       throw new Error("This should be overridden by a subclass of HandlerInfo");
-    },
-
-    runAfterModelHook: function(payload, context) {
-      this.log(payload, this.name + ": calling afterModel hook");
-
-      var args;
-      if (this.queryParams) {
-        args = [context, this.queryParams, payload];
-      } else {
-        args = [context, payload];
-      }
-
-      var handler = this.handler;
-      return async(function() {
-        var p = handler.afterModel && handler.afterModel.apply(handler, args);
-        return (p instanceof Transition) ? null : p;
-      }).then(function() {
-        // We discard the value returned/fulfilled by afterModel.
-        // TODO: how to swap?
-        return context;
-      });
     },
 
     checkForAbort: function(shouldContinue, promiseValue) {
@@ -126,18 +113,21 @@
       });
     },
 
-    becomeResolved: function(resolvedContext) {
+    becomeResolved: function(payload, resolvedContext) {
+      var params = this.params || serialize(this.handler, resolvedContext, this.names);
+
+      // Stash resolved params on the payload as we resolve.
+      if (payload) {
+        payload.params = payload.params || {};
+        payload.params[this.name] = params;
+      }
+
       return new ResolvedHandlerInfo({
         context: resolvedContext,
         name: this.name,
         handler: this.handler,
-        params: this.params || this.serialize(resolvedContext)
+        params: params
       });
-    },
-
-    serialize: function(context) {
-      // TODO: this
-      return {};
     },
 
     shouldSupercede: function(other) {
@@ -167,7 +157,9 @@
       return true;
     }
 
-    // Note: this assumes that the number of keys is the b/w params.
+    // Note: this assumes that both params have the same
+    // number of keys, but since we're comparing the
+    // same handlers, they should.
     for (var k in a) {
       if (a.hasOwnProperty(k) && a[k] !== b[k]) {
         return false;
@@ -182,6 +174,7 @@
   }
   ResolvedHandlerInfo.prototype = oCreate(HandlerInfo.prototype);
   ResolvedHandlerInfo.prototype.resolve = function() {
+    // A ResolvedHandlerInfo just resolved with itself.
     return RSVP.resolve(this);
   };
 
@@ -193,26 +186,12 @@
   }
   UnresolvedHandlerInfoByParam.prototype = oCreate(HandlerInfo.prototype);
   UnresolvedHandlerInfoByParam.prototype.getModel = function(payload) {
-    var handler = this.handler;
-    var handlerParams = this.params;
-
-    var args;
-    if (this.queryParams) {
-      args = [handlerParams || {}, this.queryParams, payload];
-    } else {
-      args = [handlerParams || {}, payload];
-    }
-
-    this.log(payload, this.name + ": calling model hook");
-    return async(function() {
-      var p = handler.model && handler.model.apply(handler, args);
-      return (p instanceof Transition) ? null : p; // TODO: better place for this check?
-    });
+    return this.runSharedModelHook(payload, 'model', [this.params]);
   };
 
 
   // These are generated only for named transitions
-  // for dynamic route segments.
+  // with dynamic route segments.
   function UnresolvedHandlerInfoByObject(props) {
     HandlerInfo.call(this, props);
   }
@@ -229,20 +208,6 @@
     }
   }
 
-  TransitionIntent.prototype = {
-    /**
-      @private
-
-      Apply this transition intent (URL or named) to a provided
-      state and return the resulting state, which may or may
-      not contain unresolved state elements that will need
-      to be resolved in order to complete a transition.
-     */
-    applyToState: function(state) {
-      return new TransitionState();
-    }
-  };
-
   function URLTransitionIntent(props) {
     TransitionIntent.call(this, props);
   }
@@ -258,43 +223,37 @@
     // TODO: LOG. maybe move this elsewhere?
     //log(router, "Attempting URL transition to " + url);
 
-    if (results) {
-      for (i = 0, len = results.length; i < len; ++i) {
-        var result = results[i];
-        var name = result.handler;
-        var handler = getHandler(name);
-
-        if (handler.inaccessibleByURL) {
-          return null;
-        }
-
-        var newHandlerInfo = new UnresolvedHandlerInfoByParam({
-          name: name,
-          handler: handler,
-          params: result.params
-        });
-
-        var oldHandlerInfo = oldState.handlerInfos[i];
-        if (newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
-          newState.handlerInfos[i] = newHandlerInfo;
-        } else {
-          newState.handlerInfos[i] = oldHandlerInfo;
-        }
-      }
-    } else {
-      return null;
-      //return errorTransition(router, new Router.UnrecognizedURLError(url));
+    if (!results) {
+      throw new Router.UnrecognizedURLError(this.url);
     }
 
+    for (i = 0, len = results.length; i < len; ++i) {
+      var result = results[i];
+      var name = result.handler;
+      var handler = getHandler(name);
 
+      if (handler.inaccessibleByURL) {
+        throw new Router.UnrecognizedURLError(this.url);
+      }
 
+      var newHandlerInfo = new UnresolvedHandlerInfoByParam({
+        name: name,
+        handler: handler,
+        params: result.params
+      });
+
+      var oldHandlerInfo = oldState.handlerInfos[i];
+      if (newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
+        newState.handlerInfos[i] = newHandlerInfo;
+      } else {
+        newState.handlerInfos[i] = oldHandlerInfo;
+      }
+    }
 
     // TODO: query params
     //for(i = 0, len = results.length; i < len; i++) {
       //merge(queryParams, results[i].queryParams);
     //}
-
-    //return performTransition(router, results, [], {}, queryParams, null, isIntermediate);
 
     return newState;
   };
@@ -341,13 +300,14 @@
         newHandlerInfo = new UnresolvedHandlerInfoByObject({
           name: name,
           handler: handler,
-          context: objectToUse
+          context: objectToUse,
+          names: result.names
         });
       } else {
         // This route has no dynamic segment.
         // Therefore treat as a param-based handlerInfo
         // with empty params. This will cause the `model`
-        // hook to be called, which is desirable.
+        // hook to be called with empty params, which is desirable.
         newHandlerInfo = new UnresolvedHandlerInfoByParam({
           name: name,
           handler: handler,
@@ -356,9 +316,9 @@
       }
 
       if (newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
-        newState.handlerInfos[i] = newHandlerInfo;
+        newState.handlerInfos.unshift(newHandlerInfo);
       } else {
-        newState.handlerInfos[i] = oldHandlerInfo;
+        newState.handlerInfos.unshift(oldHandlerInfo);
       }
     }
 
@@ -366,11 +326,7 @@
   };
 
   function TransitionState(other) {
-    if (other) {
-      this.handlerInfos = other.handlerInfos.slice();
-    } else {
-      this.handlerInfos = [];
-    }
+    this.handlerInfos = [];
   }
 
   TransitionState.prototype = {
@@ -408,9 +364,7 @@
       function proceed(resolvedHandlerInfo) {
         // Swap the previously unresolved handlerInfo with
         // the resolved handlerInfo
-        newState.handlerInfos[index] = resolvedHandlerInfo;
-
-        ++index;
+        newState.handlerInfos[index++] = resolvedHandlerInfo;
         return resolveOne();
       }
 
@@ -444,15 +398,30 @@
     be `retry()`d later.
    */
 
-  function Transition(router, promise) {
+  function Transition(router, state) {
+
+    this.state = state;
     this.router = router;
-    this.promise = promise;
     this.data = {};
-    this.resolvedModels = {};
-    this.providedModels = {};
-    this.providedModelsArray = [];
     this.sequence = ++Transition.currentSequence;
-    this.params = {};
+
+    var transition = this;
+
+    // Kick off transition.
+    if (state) {
+      this.promise = state.resolve(checkForAbort, this)
+                          .then(saveTransitionToRouter);
+    }
+
+    function checkForAbort() {
+      if (transition.isAborted) {
+        return RSVP.reject();
+      }
+    }
+
+    function saveTransitionToRouter(result) {
+      finalizeTransition(transition, result.state);
+    }
   }
 
   Transition.currentSequence = 0;
@@ -460,14 +429,14 @@
   Transition.prototype = {
     targetName: null,
     urlMethod: 'update',
-    providedModels: null,
-    resolvedModels: null,
     params: null,
     pivotHandler: null,
     resolveIndex: 0,
     handlerInfos: null,
 
     isActive: true,
+
+    state: null,
 
     /**
       The Transition's internal promise. Calling `.then` on this property
@@ -522,12 +491,12 @@
       represents the new attempt to transition.
      */
     retry: function() {
-      this.abort();
-      var recogHandlers = this.router.recognizer.handlersFor(this.targetName),
-          handlerInfos  = generateHandlerInfosWithQueryParams(this.router.currentQueryParams, recogHandlers, this.queryParams),
-          newTransition = performTransition(this.router, handlerInfos, this.providedModelsArray, this.params, this.queryParams, this.data);
+      //this.abort();
+      //var recogHandlers = this.router.recognizer.handlersFor(this.targetName),
+          //handlerInfos  = generateHandlerInfosWithQueryParams(this.router.currentQueryParams, recogHandlers, this.queryParams),
+          //newTransition = performTransition(this.router, handlerInfos, this.providedModelsArray, this.params, this.queryParams, this.data);
 
-      return newTransition;
+      //return newTransition;
     },
 
     /**
@@ -582,6 +551,7 @@
 
   function Router() {
     this.recognizer = new RouteRecognizer();
+    this.state = new TransitionState();
   }
 
   // TODO: separate into module?
@@ -615,7 +585,9 @@
   };
 
   function errorTransition(router, reason) {
-    return new Transition(router, RSVP.reject(reason));
+    var t = new Transition(router, null);
+    t.promise = RSVP.reject(reason);
+    return t;
   }
 
 
@@ -853,111 +825,9 @@
     log: null
   };
 
-  /**
-    @private
-
-    Used internally for both URL and named transition to determine
-    a shared pivot parent route and other data necessary to perform
-    a transition.
-   */
-  function getMatchPoint(router, handlers, objects, inputParams, queryParams) {
-
-    var matchPoint = handlers.length,
-        providedModels = {}, i,
-        currentHandlerInfos = router.currentHandlerInfos || [],
-        params = {},
-        oldParams = router.currentParams || {},
-        activeTransition = router.activeTransition,
-        handlerParams = {},
-        obj;
-
-    objects = slice.call(objects);
-    merge(params, inputParams);
-
-    for (i = handlers.length - 1; i >= 0; i--) {
-      var handlerObj = handlers[i],
-          handlerName = handlerObj.handler,
-          oldHandlerInfo = currentHandlerInfos[i],
-          hasChanged = false;
-
-      // Check if handler names have changed.
-      if (!oldHandlerInfo || oldHandlerInfo.name !== handlerObj.handler) { hasChanged = true; }
-
-      if (handlerObj.isDynamic) {
-        // URL transition.
-
-        if (obj = getMatchPointObject(objects, handlerName, activeTransition, true, params)) {
-          hasChanged = true;
-          providedModels[handlerName] = obj;
-        } else {
-          handlerParams[handlerName] = {};
-          for (var prop in handlerObj.params) {
-            if (!handlerObj.params.hasOwnProperty(prop)) { continue; }
-            var newParam = handlerObj.params[prop];
-            if (oldParams[prop] !== newParam) { hasChanged = true; }
-            handlerParams[handlerName][prop] = params[prop] = newParam;
-          }
-        }
-      } else if (handlerObj.hasOwnProperty('names')) {
-        // Named transition.
-
-        if (objects.length) { hasChanged = true; }
-
-        if (obj = getMatchPointObject(objects, handlerName, activeTransition, handlerObj.names[0], params)) {
-          providedModels[handlerName] = obj;
-        } else {
-          var names = handlerObj.names;
-          handlerParams[handlerName] = {};
-          for (var j = 0, len = names.length; j < len; ++j) {
-            var name = names[j];
-            handlerParams[handlerName][name] = params[name] = params[name] || oldParams[name];
-          }
-        }
-      }
-
-      // If there is an old handler, see if query params are the same. If there isn't an old handler,
-      // hasChanged will already be true here
-      if(oldHandlerInfo && !queryParamsEqual(oldHandlerInfo.queryParams, handlerObj.queryParams)) {
-          hasChanged = true;
-      }
-
-      if (hasChanged) { matchPoint = i; }
-    }
-
-    if (objects.length > 0) {
-      throw new Error("More context objects were passed than there are dynamic segments for the route: " + handlers[handlers.length - 1].handler);
-    }
-
-    var pivotHandlerInfo = currentHandlerInfos[matchPoint - 1],
-        pivotHandler = pivotHandlerInfo && pivotHandlerInfo.handler;
-
-    return { matchPoint: matchPoint, providedModels: providedModels, params: params, handlerParams: handlerParams, pivotHandler: pivotHandler };
-  }
-
-  function getMatchPointObject(objects, handlerName, activeTransition, paramName, params) {
-
-    if (objects.length && paramName) {
-
-      var object = objects.pop();
-
-      // If provided object is string or number, treat as param.
-      if (isParam(object)) {
-        params[paramName] = object.toString();
-      } else {
-        return object;
-      }
-    } else if (activeTransition) {
-      // Use model from previous transition attempt, preferably the resolved one.
-      return activeTransition.resolvedModels[handlerName] ||
-             (paramName && activeTransition.providedModels[handlerName]);
-    }
-  }
-
   function isParam(object) {
     return (typeof object === "string" || object instanceof String || typeof object === "number" || object instanceof Number);
   }
-
-
 
   /**
     @private
@@ -1092,61 +962,6 @@
 
   /**
     @private
-  */
-  function createNamedTransition(router, args, isIntermediate) {
-    var partitionedArgs     = extractQueryParams(args),
-      pureArgs              = partitionedArgs[0],
-      queryParams           = partitionedArgs[1],
-      handlers              = router.recognizer.handlersFor(pureArgs[0]),
-      handlerInfos          = generateHandlerInfosWithQueryParams(router.currentQueryParams, handlers, queryParams);
-
-    log(router, "Attempting transition to " + pureArgs[0]);
-
-    return performTransition(router,
-                             handlerInfos,
-                             slice.call(pureArgs, 1),
-                             router.currentParams,
-                             queryParams,
-                             null,
-                             isIntermediate);
-  }
-
-  /**
-    @private
-  */
-  function createURLTransition(router, url, isIntermediate) {
-    var results = router.recognizer.recognize(url),
-        currentHandlerInfos = router.currentHandlerInfos,
-        queryParams = {},
-        i, len;
-
-    log(router, "Attempting URL transition to " + url);
-
-    if (results) {
-      // Make sure this route is actually accessible by URL.
-      for (i = 0, len = results.length; i < len; ++i) {
-
-        if (router.getHandler(results[i].handler).inaccessibleByURL) {
-          results = null;
-          break;
-        }
-      }
-    }
-
-    if (!results) {
-      return errorTransition(router, new Router.UnrecognizedURLError(url));
-    }
-
-    for(i = 0, len = results.length; i < len; i++) {
-      merge(queryParams, results[i].queryParams);
-    }
-
-    return performTransition(router, results, [], {}, queryParams, null, isIntermediate);
-  }
-
-
-  /**
-    @private
 
     Takes an Array of `HandlerInfo`s, figures out which ones are
     exiting, entering, or changing contexts, and calls the
@@ -1186,9 +1001,10 @@
     @param {Transition} transition
     @param {Array[HandlerInfo]} handlerInfos
   */
-  function setupContexts(transition, handlerInfos) {
-    var router = transition.router,
-        partition = partitionHandlers(router.currentHandlerInfos || [], handlerInfos);
+  function setupContexts(transition, newState) {
+    var handlerInfos = newState.handlerInfos,
+        router = transition.router,
+        partition = partitionHandlers(router.state, newState);
 
     router.targetHandlerInfos = handlerInfos;
 
@@ -1315,7 +1131,10 @@
 
     @return {Partition}
   */
-  function partitionHandlers(oldHandlers, newHandlers) {
+  function partitionHandlers(oldState, newState) {
+    var oldHandlers = oldState.handlerInfos;
+    var newHandlers = newState.handlerInfos;
+
     var handlers = {
           updatedContext: [],
           exited: [],
@@ -1432,89 +1251,6 @@
 
   /**
     @private
-
-    Creates, begins, and returns a Transition.
-   */
-  function performTransition(router, recogHandlers, providedModelsArray, params, queryParams, data, isIntermediate) {
-
-    var matchPointResults = getMatchPoint(router, recogHandlers, providedModelsArray, params, queryParams),
-        targetName = recogHandlers[recogHandlers.length - 1].handler,
-        wasTransitioning = false,
-        currentHandlerInfos = router.currentHandlerInfos;
-
-    if (isIntermediate) {
-      return performIntermediateTransition(router, recogHandlers, matchPointResults);
-    }
-
-    // Check if there's already a transition underway.
-    if (router.activeTransition) {
-      if (transitionsIdentical(router.activeTransition, targetName, providedModelsArray, queryParams)) {
-        return router.activeTransition;
-      }
-      router.activeTransition.abort();
-      wasTransitioning = true;
-    }
-
-    var deferred = RSVP.defer(),
-        transition = new Transition(router, deferred.promise);
-
-    transition.targetName = targetName;
-    transition.providedModels = matchPointResults.providedModels;
-    transition.providedModelsArray = providedModelsArray;
-    transition.params = matchPointResults.params;
-    transition.data = data || {};
-    transition.queryParams = queryParams;
-    transition.pivotHandler = matchPointResults.pivotHandler;
-    router.activeTransition = transition;
-
-    var handlerInfos = generateHandlerInfos(router, recogHandlers);
-    transition.handlerInfos = handlerInfos;
-
-    // Fire 'willTransition' event on current handlers, but don't fire it
-    // if a transition was already underway.
-    if (!wasTransitioning) {
-      trigger(router, currentHandlerInfos, true, ['willTransition', transition]);
-    }
-
-    log(router, transition.sequence, "Beginning validation for transition to " + transition.targetName);
-    validateEntry(transition, matchPointResults.matchPoint, matchPointResults.handlerParams)
-                 .then(transitionSuccess).fail(transitionFailure);
-
-    return transition;
-
-    function transitionSuccess() {
-
-      // Escape RSVP try/catch so that `enter`/`exit`/`setup` hook
-      // exceptions aren't swallowed.
-      async(function() {
-        if (transition.isAborted) {
-          transitionFailure(logAbort(transition));
-          return;
-        }
-
-        finalizeTransition(transition, handlerInfos);
-
-        // Check if an `enter` or `setup` handler aborted the transition,
-        // either explicitly or via a redirect.
-        if (transition.isAborted) {
-          transitionFailure(logAbort(transition));
-          return;
-        }
-
-        didTransition(router, transition);
-
-        // Resolve with the final handler.
-        deferred.resolve(handlerInfos[handlerInfos.length - 1].handler);
-      });
-    }
-
-    function transitionFailure(reason) {
-      deferred.reject(reason);
-    }
-  }
-
-  /**
-    @private
    */
   function didTransition(router, transition) {
     trigger(router, router.currentHandlerInfos, true, ['didTransition']);
@@ -1557,69 +1293,37 @@
 
   /**
     @private
-   */
-  function transitionsIdentical(oldTransition, targetName, providedModelsArray, queryParams) {
-
-    if (oldTransition.targetName !== targetName) { return false; }
-
-    var oldModels = oldTransition.providedModelsArray;
-    if (oldModels.length !== providedModelsArray.length) { return false; }
-
-    for (var i = 0, len = oldModels.length; i < len; ++i) {
-      if (oldModels[i] !== providedModelsArray[i]) { return false; }
-    }
-
-    if(!queryParamsEqual(oldTransition.queryParams, queryParams)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-    @private
 
     Updates the URL (if necessary) and calls `setupContexts`
     to update the router's array of `currentHandlerInfos`.
    */
-  function finalizeTransition(transition, handlerInfos) {
+  function finalizeTransition(transition, newState) {
 
     log(transition.router, transition.sequence, "Resolved all models on destination route; finalizing transition.");
 
     var router = transition.router,
+        handlerInfos = newState.handlerInfos,
         seq = transition.sequence,
         handlerName = handlerInfos[handlerInfos.length - 1].name,
-        urlMethod = transition.urlMethod,
-        i;
-
-    // Collect params for URL.
-    var objects = [], providedModels = transition.providedModelsArray.slice();
-    for (i = handlerInfos.length - 1; i>=0; --i) {
-      var handlerInfo = handlerInfos[i];
-      if (handlerInfo.isDynamic) {
-        var providedModel = providedModels.pop();
-        objects.unshift(isParam(providedModel) ? providedModel.toString() : handlerInfo.context);
-      }
-
-      if (handlerInfo.handler.inaccessibleByURL) {
-        urlMethod = null;
-      }
-    }
+        params = {},
+        len, i;
 
     var newQueryParams = {};
     for (i = handlerInfos.length - 1; i >= 0; --i) {
-      merge(newQueryParams, handlerInfos[i].queryParams);
+      //merge(newQueryParams, handlerInfos[i].queryParams);
+
+      merge(params, handlerInfos[i].params);
     }
     router.currentQueryParams = newQueryParams;
 
-    var params = paramsForHandler(router, handlerName, objects, transition.queryParams);
-
+    // TODO: remove this? Risky as some folk might already
+    // be using it in their code.
     router.currentParams = params;
 
-    if (urlMethod) {
+    if (transition.urlMethod) {
       var url = router.recognizer.generate(handlerName, params);
 
-      if (urlMethod === 'replace') {
+      if (transition.urlMethod === 'replace') {
         router.replaceURL(url);
       } else {
         // Assume everything else is just a URL update for now.
@@ -1627,187 +1331,22 @@
       }
     }
 
-    setupContexts(transition, handlerInfos);
-  }
+    setupContexts(transition, newState);
 
-  /**
-    @private
+    trigger(router, router.currentHandlerInfos, true, ['didTransition']);
 
-    Internal function used to construct the chain of promises used
-    to validate a transition. Wraps calls to `beforeModel`, `model`,
-    and `afterModel` in promises, and checks for redirects/aborts
-    between each.
-   */
-  function validateEntry(transition, matchPoint, handlerParams) {
-
-    var handlerInfos = transition.handlerInfos,
-        index = transition.resolveIndex;
-
-    if (index === handlerInfos.length) {
-      // No more contexts to resolve.
-      return RSVP.resolve(transition.resolvedModels);
+    if (router.didTransition) {
+      router.didTransition(handlerInfos);
     }
 
-    var router = transition.router,
-        handlerInfo = handlerInfos[index],
-        handler = handlerInfo.handler,
-        handlerName = handlerInfo.name;
+    log(router, transition.sequence, "TRANSITION COMPLETE.");
 
-    if (index < matchPoint) {
-      log(router, transition.sequence, handlerName + ": using context from already-active handler");
+    // Resolve with the final handler.
+    transition.isActive = false;
 
-      // We're before the match point, so don't run any hooks,
-      // just use the already resolved context from the handler.
-      transition.resolvedModels[handlerInfo.name] =
-        transition.providedModels[handlerInfo.name] ||
-        handlerInfo.handler.context;
-      return proceed();
-    }
 
-    transition.trigger(true, 'willResolveModel', transition, handler);
-
-    var checkForAbort = getAbortHandler(transition),
-        beforeModel   = getBeforeModelRunner(transition, handlerInfo),
-        model         = getModelRunner(transition, handlerInfo, handlerParams, index >= matchPoint),
-        afterModel    = getAfterModelRunner(transition, handlerInfo),
-        handleError   = getErrorHandler(transition, handlerInfo);
-
-    return RSVP.resolve().then(checkForAbort)
-                         .then(beforeModel)
-                         .then(checkForAbort)
-                         .then(model)
-                         .then(checkForAbort)
-                         .then(afterModel)
-                         .then(checkForAbort)
-                         .fail(handleError)
-                         .then(proceed);
-
-    function proceed() {
-      log(router, transition.sequence, handlerName + ": validation succeeded, proceeding");
-
-      handlerInfo.context = transition.resolvedModels[handlerInfo.name];
-      transition.resolveIndex++;
-      return validateEntry(transition, matchPoint, handlerParams);
-    }
-  }
-
-  /**
-    @private
-   */
-  function getAbortHandler(transition) {
-    return function(result) {
-      if (transition.isAborted) {
-        log(transition.router, transition.sequence, "detected abort.");
-        return RSVP.reject(new Router.TransitionAborted());
-      }
-
-      return result;
-    };
-  }
-
-  /**
-    @private
-   */
-  function getBeforeModelRunner(transition, handlerInfo) {
-
-    var handler = handlerInfo.handler;
-
-    return function() {
-      log(transition.router, transition.sequence, handlerInfo.name + ": calling beforeModel hook");
-
-      var args;
-
-      if (handlerInfo.queryParams) {
-        args = [handlerInfo.queryParams, transition];
-      } else {
-        args = [transition];
-      }
-
-      return async(function() {
-        var p = handler.beforeModel && handler.beforeModel.apply(handler, args);
-        return (p instanceof Transition) ? null : p;
-      });
-    };
-  }
-
-  /**
-    @private
-   */
-  function getModelRunner(transition, handlerInfo, handlerParams, pastMatchPoint) {
-
-    var handler = handlerInfo.handler,
-        handlerName = handlerInfo.name;
-
-    return function() {
-
-      return async(function() {
-        var p = getModel(handlerInfo, transition, handlerParams[handlerName], pastMatchPoint);
-        return (p instanceof Transition) ? null : p;
-      });
-    };
-  }
-
-  /**
-    @private
-   */
-  function getAfterModelRunner(transition, handlerInfo) {
-
-    var handler = handlerInfo.handler,
-        handlerName = handlerInfo.name;
-
-    return function(context) {
-
-      log(transition.router, transition.sequence, handlerName + ": calling afterModel hook");
-
-      // Pass the context and resolved parent contexts to afterModel, but we don't
-      // want to use the value returned from `afterModel` in any way, but rather
-      // always resolve with the original `context` object.
-
-      transition.resolvedModels[handlerName] = context;
-      handlerInfo.context = transition.resolvedModels[handlerInfo.name];
-
-      var args;
-
-      if (handlerInfo.queryParams) {
-        args = [context, handlerInfo.queryParams, transition];
-      } else {
-        args = [context, transition];
-      }
-
-      return async(function() {
-        var p = handler.afterModel && handler.afterModel.apply(handler, args);
-        return (p instanceof Transition) ? null : p;
-      });
-    };
-  }
-
-  /**
-    @private
-   */
-  function getErrorHandler(transition, handlerInfo) {
-
-    var handler = handlerInfo.handler,
-        handlerName = handlerInfo.name;
-
-    return function(reason) {
-      if (reason instanceof Router.TransitionAborted || transition.isAborted) {
-        // if the transition was aborted and *no additional* error was thrown,
-        // reject with the Router.TransitionAborted instance
-        return RSVP.reject(reason);
-      }
-
-      // otherwise, we're here because of a different error
-      transition.abort();
-
-      log(transition.router, transition.sequence, handlerName + ": handling error: " + reason);
-
-      // An error was thrown / promise rejected, so fire an
-      // `error` event from this handler info up to root.
-      transition.trigger(true, 'error', reason, transition, handler);
-
-      // Propagate the original error.
-      return RSVP.reject(reason);
-    };
+    // TODO: de-promise-landify. What needs to happen here?
+    return handlerInfos[handlerInfos.length - 1].handler;
   }
 
   /**
@@ -1840,34 +1379,6 @@
 
   /**
     @private
-
-    Encapsulates the logic for whether to call `model` on a route,
-    or use one of the models provided to `transitionTo`.
-   */
-  function getModel(handlerInfo, transition, handlerParams, needsUpdate) {
-    var handler = handlerInfo.handler,
-        handlerName = handlerInfo.name, args;
-
-    if (!needsUpdate && handler.hasOwnProperty('context')) {
-      return handler.context;
-    }
-
-    if (transition.providedModels.hasOwnProperty(handlerName)) {
-      var providedModel = transition.providedModels[handlerName];
-      return typeof providedModel === 'function' ? providedModel() : providedModel;
-    }
-
-    if (handlerInfo.queryParams) {
-      args = [handlerParams || {}, handlerInfo.queryParams, transition];
-    } else {
-      args = [handlerParams || {}, transition, handlerInfo.queryParams];
-    }
-
-    return handler.model && handler.model.apply(handler, args);
-  }
-
-  /**
-    @private
    */
   function log(router, sequence, msg) {
 
@@ -1896,12 +1407,30 @@
     // Normalize blank transitions to root URL transitions.
     var name = args[0] || '/';
 
+    var intent;
     if(args.length === 1 && args[0].hasOwnProperty('queryParams')) {
-      return createQueryParamTransition(router, args[0], isIntermediate);
+      throw new Error("not implemented");
+      //return createQueryParamTransition(router, args[0], isIntermediate);
     } else if (name.charAt(0) === '/') {
-      return createURLTransition(router, name, isIntermediate);
+      intent = new URLTransitionIntent({
+        url: name
+      });
     } else {
-      return createNamedTransition(router, slice.call(args), isIntermediate);
+      intent = new NamedTransitionIntent({
+        name: args[0],
+        contexts: slice.call(args, 1)
+      });
+    }
+
+    var oldState = router.activeTransition ?
+                   router.activeTransition.state : router.state;
+
+    try {
+      var newState = intent.applyToState(oldState, router.recognizer, router.getHandler);
+
+      return new Transition(router, newState);
+    } catch(e) {
+      return errorTransition(router, e);
     }
   }
 
