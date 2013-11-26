@@ -116,16 +116,20 @@
     becomeResolved: function(payload, resolvedContext) {
       var params = this.params || serialize(this.handler, resolvedContext, this.names);
 
-      // Stash resolved params on the payload as we resolve.
+      // Stash resolved params/models on the payload as we resolve.
       if (payload) {
         payload.params = payload.params || {};
         payload.params[this.name] = params;
+
+        payload.resolvedModels = payload.resolvedModels || {};
+        payload.resolvedModels[this.name] = resolvedContext;
       }
 
       return new ResolvedHandlerInfo({
         context: resolvedContext,
         name: this.name,
         handler: this.handler,
+        isDynamic: this.names && this.names.length > 0,
         params: params
       });
     },
@@ -208,6 +212,11 @@
     }
   }
 
+  TransitionIntent.prototype.applyToState = function(oldState) {
+    // Default TransitionIntent is a no-op.
+    return oldState;
+  };
+
   function URLTransitionIntent(props) {
     TransitionIntent.call(this, props);
   }
@@ -227,6 +236,8 @@
       throw new Router.UnrecognizedURLError(this.url);
     }
 
+    var statesDiffer = false;
+
     for (i = 0, len = results.length; i < len; ++i) {
       var result = results[i];
       var name = result.handler;
@@ -244,6 +255,7 @@
 
       var oldHandlerInfo = oldState.handlerInfos[i];
       if (newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
+        statesDiffer = true;
         newState.handlerInfos[i] = newHandlerInfo;
       } else {
         newState.handlerInfos[i] = oldHandlerInfo;
@@ -255,7 +267,7 @@
       //merge(queryParams, results[i].queryParams);
     //}
 
-    return newState;
+    return statesDiffer ? newState : oldState;
   };
 
 
@@ -276,6 +288,8 @@
 
     var objects = this.contexts.slice(0);
 
+    var statesDiffer = false;
+
     for (var i = handlers.length - 1; i >= 0; --i) {
       var result = handlers[i];
       var name = result.handler;
@@ -286,13 +300,23 @@
       }
 
       var oldHandlerInfo = oldState.handlerInfos[i];
-      var newHandlerInfo;
+      var newHandlerInfo = null;
 
-      if (result.names.length > 0) {
+      var numNames = result.names.length;
+
+      if (numNames > 0) {
         // This route has a dynamic segment.
         var objectToUse;
-        if (objects.length) {
-          objectToUse = objects.pop();
+        if (objects.length > 0) {
+
+          // Use the objects provided for this transition.
+          objectToUse = objects[objects.length - 1];
+          if (isParam(objectToUse)) {
+            newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
+          } else {
+            objects.pop();
+          }
+
         } else if (oldHandlerInfo && oldHandlerInfo.name === name) {
           // Reuse the old handler info's context,
           // since its handler matches.
@@ -301,7 +325,7 @@
           throw new Error("More context objects were passed than there are dynamic segments for the route: " + handlers[handlers.length - 1].handler);
         }
 
-        newHandlerInfo = new UnresolvedHandlerInfoByObject({
+        newHandlerInfo = newHandlerInfo || new UnresolvedHandlerInfoByObject({
           name: name,
           handler: handler,
           context: objectToUse,
@@ -312,21 +336,51 @@
         // Therefore treat as a param-based handlerInfo
         // with empty params. This will cause the `model`
         // hook to be called with empty params, which is desirable.
-        newHandlerInfo = new UnresolvedHandlerInfoByParam({
-          name: name,
-          handler: handler,
-          params: {}
-        });
+        newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
       }
 
       if (newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
+        statesDiffer = true;
         newState.handlerInfos.unshift(newHandlerInfo);
       } else {
         newState.handlerInfos.unshift(oldHandlerInfo);
       }
     }
 
-    return newState;
+    return statesDiffer ? newState : oldState;
+  };
+
+  NamedTransitionIntent.prototype.createParamHandlerInfo = function(name, handler, names, objects, oldHandlerInfo) {
+    var params = {};
+
+    // Soak up all the provided string/numbers
+    var numNames = names.length;
+    while (numNames--) {
+
+      // Only use old params if the names match with the new handler
+      var oldParams = (oldHandlerInfo && name === oldHandlerInfo.name && oldHandlerInfo.params) || {};
+
+      var peek = objects[objects.length - 1];
+      var paramName = names[numNames];
+      if (isParam(peek)) {
+        params[paramName] = objects.pop();
+      } else {
+        // If we're here, this means only some of the params
+        // were string/number params, so try and use a param
+        // value from a previous handler.
+        if (oldParams.hasOwnProperty(paramName)) {
+          params[paramName] = oldParams[paramName];
+        } else {
+          throw new Error("You didn't provide enough string/numeric parameters to satisfy all of the dynamic segments for route " + name);
+        }
+      }
+    }
+
+    return new UnresolvedHandlerInfoByParam({
+      name: name,
+      handler: handler,
+      params: params
+    });
   };
 
   function TransitionState(other) {
@@ -338,7 +392,7 @@
 
       // Create a new state that we'll be appending handlerInfos to.
       var currentState = this;
-      var newState = new TransitionState(this);
+      //var newState = new TransitionState(this);
       var wasAborted = false;
       var index = 0;
 
@@ -361,14 +415,14 @@
         throw {
           error: error,
           wasAborted: wasAborted,
-          state: newState
+          state: currentState
         };
       }
 
       function proceed(resolvedHandlerInfo) {
         // Swap the previously unresolved handlerInfo with
         // the resolved handlerInfo
-        newState.handlerInfos[index++] = resolvedHandlerInfo;
+        currentState.handlerInfos[index++] = resolvedHandlerInfo;
         return resolveOne();
       }
 
@@ -378,7 +432,7 @@
           // fulfill value of TransitionState#resolve
           return {
             error: null,
-            state: newState
+            state: currentState
           };
         }
 
@@ -402,34 +456,33 @@
     be `retry()`d later.
    */
 
-  function Transition(router, intent, oldState) {
-
+  function Transition(router, intent, state, error) {
     var transition = this;
+    this.state = state;
     this.intent = intent;
     this.router = router;
     this.data = {};
+    this.resolvedModels = {};
+    this.params = {};
     this.sequence = ++Transition.currentSequence;
 
-    try {
-      this.state = intent.applyToState(oldState, router.recognizer, router.getHandler);
-      this.promise = this.state.resolve(checkForAbort, this)
-                               .then(saveTransitionToRouter);
-
-      if (intent.inaccessibleByURL) {
-        this.urlMethod = null;
-      }
-    } catch(e) {
-      this.promise = RSVP.reject(e);
+    if (intent && intent.inaccessibleByURL) {
+      this.urlMethod = null;
     }
+
+    if (error) {
+      this.promise = RSVP.reject(error);
+      return;
+    }
+
+      //var newTransition = new Transition(router, intent, newState);
+
+    this.promise = state.resolve(checkForAbort, this);
 
     function checkForAbort() {
       if (transition.isAborted) {
         return RSVP.reject();
       }
-    }
-
-    function saveTransitionToRouter(result) {
-      finalizeTransition(transition, result.state);
     }
   }
 
@@ -443,6 +496,7 @@
     pivotHandler: null,
     resolveIndex: 0,
     handlerInfos: null,
+    resolvedModels: null,
 
     isActive: true,
 
@@ -563,7 +617,7 @@
 
   function Router() {
     this.recognizer = new RouteRecognizer();
-    this.state = new TransitionState();
+    this.reset();
   }
 
   // TODO: separate into module?
@@ -633,6 +687,10 @@
           handler.exit();
         }
       });
+
+      // Starting complete transition is a no-op.
+      this.lastSuccessfulTransition =
+        new Transition(this, new TransitionIntent(), new TransitionState());
 
       // TODO ALEX reset state?
       this.currentHandlerInfos = null;
@@ -747,33 +805,48 @@
       @return {String} a URL
     */
     generate: function(handlerName) {
+
       var partitionedArgs = extractQueryParams(slice.call(arguments, 1)),
         suppliedParams = partitionedArgs[0],
         queryParams = partitionedArgs[1];
 
-      var params = paramsForHandler(this, handlerName, suppliedParams, queryParams),
-        validQueryParams = queryParamsForHandler(this, handlerName);
+      // Construct a TransitionIntent with the provided params
+      // and apply it to the present state of the router.
+      var intent = new NamedTransitionIntent({ name: handlerName, contexts: suppliedParams });
+      var state = intent.applyToState(this.lastSuccessfulTransition.state, this.recognizer, this.getHandler);
+      var params = {};
 
-      var missingParams = [];
-
-      for (var key in queryParams) {
-        if (queryParams.hasOwnProperty(key) && !~validQueryParams.indexOf(key)) {
-          missingParams.push(key);
-        }
-      }
-
-      if (missingParams.length > 0) {
-        var err = 'You supplied the params ';
-        err += missingParams.map(function(param) {
-          return '"' + param + "=" + queryParams[param] + '"';
-        }).join(' and ');
-
-        err += ' which are not valid for the "' + handlerName + '" handler or its parents';
-
-        throw new Error(err);
+      for (var i = 0, len = state.handlerInfos.length; i < len; ++i) {
+        var handlerInfo = state.handlerInfos[i];
+        var handlerParams = handlerInfo.params ||
+                            serialize(handlerInfo.handler, handlerInfo.context, handlerInfo.names);
+        merge(params, handlerParams);
       }
 
       return this.recognizer.generate(handlerName, params);
+
+      //var params = paramsForHandler(this, handlerName, suppliedParams, queryParams),
+        //validQueryParams = queryParamsForHandler(this, handlerName);
+
+      //var missingParams = [];
+
+      //for (var key in queryParams) {
+        //if (queryParams.hasOwnProperty(key) && !~validQueryParams.indexOf(key)) {
+          //missingParams.push(key);
+        //}
+      //}
+
+      //if (missingParams.length > 0) {
+        //var err = 'You supplied the params ';
+        //err += missingParams.map(function(param) {
+          //return '"' + param + "=" + queryParams[param] + '"';
+        //}).join(' and ');
+
+        //err += ' which are not valid for the "' + handlerName + '" handler or its parents';
+
+        //throw new Error(err);
+      //}
+
     },
 
     isActive: function(handlerName) {
@@ -1011,7 +1084,8 @@
   function setupContexts(transition, newState) {
     var handlerInfos = newState.handlerInfos,
         router = transition.router,
-        partition = partitionHandlers(router.state, newState);
+        oldState = router.lastSuccessfulTransition.state,
+        partition = partitionHandlers(oldState, newState);
 
     router.targetHandlerInfos = handlerInfos;
 
@@ -1023,6 +1097,7 @@
 
     var currentHandlerInfos = partition.unchanged.slice();
     router.currentHandlerInfos = currentHandlerInfos;
+    router.lastSuccessfulTransition = transition; // TODO: better place for this?
 
     eachHandler(partition.updatedContext, function(handlerInfo) {
       handlerEnteredOrUpdated(transition, currentHandlerInfos, handlerInfo, false);
@@ -1351,7 +1426,6 @@
     // Resolve with the final handler.
     transition.isActive = false;
 
-
     // TODO: de-promise-landify. What needs to happen here?
     return handlerInfos[handlerInfos.length - 1].handler;
   }
@@ -1427,12 +1501,35 @@
       });
     }
 
-    // Use the currently active transition state as a jumping point,
-    // if it exists, else just use the router's state.
-    var oldState = router.activeTransition ?
-                   router.activeTransition.state : router.state;
+    var oldTransition = router.activeTransition || router.lastSuccessfulTransition;
+    var oldState = oldTransition.state;
 
-    return new Transition(router, intent, oldState);
+    try {
+      var newState = intent.applyToState(oldState, router.recognizer, router.getHandler);
+
+      if (newState === oldState) {
+        // No-op. No need to create a new transition.
+        return oldTransition;
+      }
+
+      var newTransition = new Transition(router, intent, newState);
+
+      if (router.activeTransition) {
+        router.activeTransition.abort();
+      }
+      router.activeTransition = newTransition;
+
+      // Transition promises by default resolve with resolved state.
+      // For our purposes, swap out the promise to resolve
+      // after the transition has been finalized.
+      newTransition.promise = newTransition.promise.then(function(result) {
+        return finalizeTransition(newTransition, result.state);
+      });
+
+      return newTransition;
+    } catch(e) {
+      return new Transition(router, intent, null, e);
+    }
   }
 
   /**
