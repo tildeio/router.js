@@ -33,9 +33,11 @@ test("it starts off with default state", function() {
   deepEqual(state.handlerInfos, [], "it has an array of handlerInfos");
 });
 
+var async = Router.prototype.async;
+
 test("#resolve delegates to handleInfo objects' resolve()", function() {
 
-  expect(6);
+  expect(8);
 
   var state = new TransitionState();
 
@@ -45,7 +47,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
 
   state.handlerInfos = [
     {
-      resolve: function(shouldContinue) {
+      resolve: function(_, shouldContinue) {
         ++counter;
         equal(counter, 1);
         shouldContinue();
@@ -53,7 +55,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
       }
     },
     {
-      resolve: function(shouldContinue) {
+      resolve: function(_, shouldContinue) {
         ++counter;
         equal(counter, 2);
         shouldContinue();
@@ -66,7 +68,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
     ok(true, "continuation function was called");
   }
 
-  state.resolve(keepGoing).then(function(result) {
+  state.resolve(async, keepGoing).then(function(result) {
     ok(!result.error);
     deepEqual(result.state.handlerInfos, resolvedHandlerInfos);
   });
@@ -80,7 +82,7 @@ test("State resolution can be halted", function() {
 
   state.handlerInfos = [
     {
-      resolve: function(shouldContinue) {
+      resolve: function(_, shouldContinue) {
         return shouldContinue();
       }
     },
@@ -95,7 +97,7 @@ test("State resolution can be halted", function() {
     return RSVP.reject("NOPE");
   }
 
-  state.resolve(keepGoing).fail(function(reason) {
+  state.resolve(async, keepGoing).fail(function(reason) {
     equal(reason.error, "NOPE");
     ok(reason.wasAborted, "state resolution was correctly marked as aborted");
   });
@@ -113,8 +115,6 @@ test("Integration w/ HandlerInfos", function() {
   var fooModel = {};
   var barModel = {};
   var transition = {};
-
-  debugger;
 
   state.handlerInfos = [
     new UnresolvedHandlerInfoByParam({
@@ -136,7 +136,7 @@ test("Integration w/ HandlerInfos", function() {
     })
   ];
 
-  state.resolve(noop, transition).then(function(result) {
+  state.resolve(async, noop, transition).then(function(result) {
     var models = result.state.handlerInfos.map(function(handlerInfo) {
       return handlerInfo.context;
     });

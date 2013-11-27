@@ -43,6 +43,8 @@ test("UnresolvedHandlerInfoByParam defaults params to {}", function() {
   deepEqual(handlerInfo2.params, { foo: 5 });
 });
 
+var async = Router.prototype.async;
+
 test("HandlerInfo can be aborted mid-resolve", function() {
 
   expect(2);
@@ -57,7 +59,7 @@ test("HandlerInfo can be aborted mid-resolve", function() {
     return RSVP.reject("LOL");
   }
 
-  handlerInfo.resolve(abortResolve, {}).fail(function(error) {
+  handlerInfo.resolve(async, abortResolve, {}).fail(function(error) {
     equal(error, "LOL");
   });
 });
@@ -72,7 +74,7 @@ test("HandlerInfo#resolve resolves with a ResolvedHandlerInfo", function() {
     getModel: noop
   });
 
-  handlerInfo.resolve(noop, {}).then(function(resolvedHandlerInfo) {
+  handlerInfo.resolve(async, noop, {}).then(function(resolvedHandlerInfo) {
     return resolvedHandlerInfo.resolve().then(function(previouslyResolvedHandlerInfo) {
       equal(previouslyResolvedHandlerInfo, resolvedHandlerInfo);
     });
@@ -96,7 +98,7 @@ test("HandlerInfo#resolve runs beforeModel hook on handler", function() {
     handler: handler
   });
 
-  handlerInfo.resolve(noop, transition);
+  handlerInfo.resolve(async, noop, transition);
 });
 
 test("HandlerInfo#resolve runs getModel hook", function() {
@@ -108,12 +110,12 @@ test("HandlerInfo#resolve runs getModel hook", function() {
   var handlerInfo = new HandlerInfo({
     name: 'foo',
     handler: {},
-    getModel: function(payload) {
+    getModel: function(_, payload) {
       equal(payload, transition);
     }
   });
 
-  handlerInfo.resolve(noop, transition);
+  handlerInfo.resolve(async, noop, transition);
 });
 
 test("HandlerInfo#resolve runs afterModel hook on handler", function() {
@@ -140,7 +142,7 @@ test("HandlerInfo#resolve runs afterModel hook on handler", function() {
     }
   });
 
-  handlerInfo.resolve(noop, transition).then(function(resolvedHandlerInfo) {
+  handlerInfo.resolve(async, noop, transition).then(function(resolvedHandlerInfo) {
     equal(resolvedHandlerInfo.context, model, "HandlerInfo resolved with correct model");
   });
 });
@@ -163,7 +165,7 @@ test("UnresolvedHandlerInfoByParam gets its model hook called", function() {
     params: { first_name: 'Alex', last_name: 'Matchnerd' }
   });
 
-  handlerInfo.resolve(noop, transition);
+  handlerInfo.resolve(async, noop, transition);
 });
 
 test("UnresolvedHandlerInfoByObject does NOT get its model hook called", function() {
@@ -182,9 +184,8 @@ test("UnresolvedHandlerInfoByObject does NOT get its model hook called", functio
     context: RSVP.resolve({ name: 'dorkletons' })
   });
 
-  handlerInfo.resolve(noop, {}).then(function(resolvedHandlerInfo) {
+  handlerInfo.resolve(async, noop, {}).then(function(resolvedHandlerInfo) {
     equal(resolvedHandlerInfo.context.name, 'dorkletons');
   });
 });
-
 

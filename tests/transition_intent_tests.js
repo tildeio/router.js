@@ -230,6 +230,7 @@ test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empt
     name: 'comments',
     contexts: [ article, comment ]
   });
+
   var newState = intent.applyToState(state, recognizer, getHandler);
   var handlerInfos = newState.handlerInfos;
 

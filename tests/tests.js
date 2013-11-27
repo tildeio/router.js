@@ -3211,12 +3211,12 @@ module("Preservation of params between redirects", {
 
 test("Starting on '/' root index", function() {
   transitionTo('/');
-  expectedUrl = "/123/789";
 
   // Should call model for foo and bar
+  expectedUrl = "/123/789";
   transitionTo('barIndex', '123', '456');
 
-  equal(handlers.foo.modelCount, 1, "redirect in foo#afterModel should not re-run foo#model");
+  equal(handlers.foo.modelCount, 2, "redirect in foo#afterModel should run foo#model twice (since validation failed)");
 
   deepEqual(handlers.foo.context, { id: '123' });
   deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
@@ -3226,27 +3226,52 @@ test("Starting on '/' root index", function() {
   expectedUrl = "/200/789";
   transitionTo('fooIndex', '200');
 
-  equal(handlers.foo.modelCount, 2, "redirect in foo#afterModel should not re-run foo#model");
+  equal(handlers.foo.modelCount, 4, "redirect in foo#afterModel should re-run foo#model");
 
   deepEqual(handlers.foo.context, { id: '200' });
   deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
 });
 
-asyncTest("Starting on non root index", function() {
-  router.handleURL('/123/456').then(shouldNotHappen, followRedirect).then(function() {
-    deepEqual(handlers.foo.context, { id: '123' });
-    deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+test("Starting on '/' root index, using redirect", function() {
 
-    // Try setting foo's context to 200; this should redirect
-    // bar to '789' but preserve the new foo 200.
-    expectedUrl = "/200/789";
-    return router.transitionTo('fooIndex', '200');
-  }, shouldNotHappen).then(shouldNotHappen, followRedirect).then(function() {
+  handlers.foo.redirect = handlers.foo.afterModel;
+  delete handlers.foo.afterModel;
 
-    deepEqual(handlers.foo.context, { id: '200' });
-    deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
-    start();
-  });
+  transitionTo('/');
+
+  // Should call model for foo and bar
+  expectedUrl = "/123/789";
+  transitionTo('barIndex', '123', '456');
+
+  equal(handlers.foo.modelCount, 1, "redirect in foo#redirect should NOT run foo#model (since validation succeeded)");
+
+  deepEqual(handlers.foo.context, { id: '123' });
+  deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+
+  // Try setting foo's context to 200; this should redirect
+  // bar to '789' but preserve the new foo 200.
+  expectedUrl = "/200/789";
+  transitionTo('fooIndex', '200');
+
+  equal(handlers.foo.modelCount, 2, "redirect in foo#redirect should NOT foo#model");
+
+  deepEqual(handlers.foo.context, { id: '200' });
+  deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+});
+
+test("Starting on non root index", function() {
+  transitionTo('/123/456');
+  deepEqual(handlers.foo.context, { id: '123' });
+  deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
+
+  // Try setting foo's context to 200; this should redirect
+  // bar to '789' but preserve the new foo 200.
+  expectedUrl = "/200/789";
+
+  transitionTo('fooIndex', '200');
+
+  deepEqual(handlers.foo.context, { id: '200' });
+  deepEqual(handlers.bar.context, { id: '789' }, "bar should have redirected to bar 789");
 });
 
 test("A failed handler's setup shouldn't prevent future transitions", function() {
