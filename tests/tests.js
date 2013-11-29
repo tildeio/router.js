@@ -2258,12 +2258,12 @@ test("can redirect from setup/enter", function() {
   handlers = {
     index: {
       enter: function() {
-        ok(true, "enter called");
-        router.transitionTo('about').then(secondAttempt);
+        ok(true, "index#enter called");
+        router.transitionTo('about').then(secondAttempt, shouldNotHappen);
       },
       setup: function() {
-        ok(true, "setup called");
-        router.transitionTo('/about').then(thirdAttempt);
+        ok(true, "index#setup called");
+        router.transitionTo('/about').then(thirdAttempt, shouldNotHappen);
       },
       events: {
         error: function(e) {
@@ -2273,7 +2273,7 @@ test("can redirect from setup/enter", function() {
     },
     about: {
       setup: function() {
-        ok(true, "setup was entered");
+        ok(true, "about#setup was entered");
       }
     }
   };
@@ -2885,7 +2885,7 @@ test("resolved models can be swapped out within afterModel", function() {
 
 test("String/number args in transitionTo are treated as url params", function() {
 
-  expect(11);
+  expect(10);
 
   var adminParams = { id: "1" },
       adminModel = { id: "1" },
@@ -3194,12 +3194,10 @@ test("A failed handler's setup shouldn't prevent future transitions", function()
   flush(error);
 });
 
-/*
-test("EF4 test TODO better test name", function() {
-  expect(1);
+test("beforeModel shouldn't be refired with incorrect params during redirect", function() {
+  // Source: https://github.com/emberjs/ember.js/issues/3407
 
-  ok(true);
-  return;
+  expect(3);
 
   map(function(match) {
     match("/").to('index');
@@ -3216,7 +3214,6 @@ test("EF4 test TODO better test name", function() {
     people: {
       beforeModel: function() {
         ok(!peopleBeforeModelCalled, "people#beforeModel should only be called once");
-        debugger;
         peopleBeforeModelCalled = true;
       },
       model: function(params) {
@@ -3239,7 +3236,6 @@ test("EF4 test TODO better test name", function() {
   transitionTo('/');
   transitionTo('peopleIndex', '1');
 });
-*/
 
 module("URL-less routes", {
   setup: function() {
@@ -3266,8 +3262,6 @@ module("URL-less routes", {
 
 test("Transitioning into a route marked as inaccessibleByURL doesn't update the URL", function() {
   expect(1);
-
-  debugger;
 
   handlers = {
     adminPosts: {

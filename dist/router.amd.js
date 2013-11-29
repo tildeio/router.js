@@ -918,6 +918,12 @@ define("router",
 
         // NO: always use router.state
         // This will be set before entering routes (where rendering happens).
+        //
+        // But then there's the problem that we might be provided with
+        // a parent route name, which isn't a valid arg and will throw
+        // an error. So what we can do is loop through the handlerInfos
+        // and find the provided route name in there somewhere, and...
+        // then what?
 
         var partitionedArgs   = extractQueryParams(slice.call(arguments, 1)),
             contexts          = partitionedArgs[0],
@@ -949,7 +955,8 @@ define("router",
 
               if (isParam(object)) {
                 var name = recogHandler.names[0];
-                if ("" + object !== this.currentParams[name]) { return false; }
+                var params = handlerInfo.params || {};
+                if ("" + object !== params[name]) { return false; }
               } else if (handlerInfo.context !== object) {
                 return false;
               }
@@ -1125,7 +1132,7 @@ define("router",
       @param {Router} transition
       @param {TransitionState} newState
     */
-    function setupContexts(router, newState) {
+    function setupContexts(router, newState, shouldContinue) {
       var partition = partitionHandlers(router.state, newState);
 
       forEach(partition.exited, function(handlerInfo) {
@@ -1138,11 +1145,11 @@ define("router",
       var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice()
 
       forEach(partition.updatedContext, function(handlerInfo) {
-        handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, false);
+        return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, false, shouldContinue);
       });
 
       forEach(partition.entered, function(handlerInfo) {
-        handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, true);
+        return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, true, shouldContinue);
       });
     }
 
@@ -1152,25 +1159,27 @@ define("router",
       Helper method used by setupContexts. Handles errors or redirects
       that may happen in enter/setup.
     */
-    function handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, enter) {
+    function handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, enter, shouldContinue) {
 
       var handler = handlerInfo.handler,
           context = handlerInfo.context;
 
       if (enter && handler.enter) { handler.enter(); }
+      if (shouldContinue && !shouldContinue()) { return false; }
 
       setContext(handler, context);
       setQueryParams(handler, handlerInfo.queryParams);
 
       if (handler.setup) { handler.setup(context, handlerInfo.queryParams); }
+      if (shouldContinue && !shouldContinue()) { return false; }
 
       currentHandlerInfos.push(handlerInfo);
+
+      return true;
     }
 
     function forEach(array, callback) {
-      for (var i=0, l=array.length; i<l; i++) {
-        callback(array[i]);
-      }
+      for (var i=0, l=array.length; i<l && false !== callback(array[i]); i++) { }
     }
 
     /**
@@ -1371,7 +1380,16 @@ define("router",
         }
       }
 
-      setupContexts(router, newState);
+      setupContexts(router, newState, function() {
+        return !transition.isAborted;
+      });
+
+      // Check if a redirect occurred in enter/setup
+      if (transition.isAborted) {
+        // TODO: cleaner way? distinguish b/w targetHandlerInfos?
+        router.state.handlerInfos = router.currentHandlerInfos;
+        return RSVP.reject(logAbort(transition));
+      }
 
       trigger(router, router.currentHandlerInfos, true, ['didTransition']);
 
