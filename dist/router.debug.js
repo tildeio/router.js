@@ -92,7 +92,7 @@
                    // Ignore the fulfilled value returned from afterModel.
                    // Return the value stashed in resolvedModels, which
                    // might have been swapped out in afterModel.
-                   return payload.resolvedModels[name]
+                   return payload.resolvedModels[name];
                  });
     },
 
@@ -337,8 +337,7 @@
           context: handlerToUse.context,
           name: handlerToUse.name,
           handler: handlerToUse.handler,
-          //isDynamic: handlerToUse.names && handlerToUse.names.length > 0,
-          params: handlerToUse
+          params: handlerToUse.params
         });
       }
 
@@ -349,7 +348,9 @@
       throw new Error("More context objects were passed than there are dynamic segments for the route: " + targetRouteName);
     }
 
-    this.invalidateNonDynamicHandlers(newState.handlerInfos, nonDynamicIndexes, invalidateIndex);
+    if (!isIntermediate) {
+      this.invalidateNonDynamicHandlers(newState.handlerInfos, nonDynamicIndexes, invalidateIndex);
+    }
 
     return invalidateIndex < handlers.length ? newState : oldState;
   };
@@ -443,7 +444,7 @@
       var wasAborted = false;
 
       // The prelude RSVP.resolve() asyncs us into the promise land.
-      return RSVP.resolve().then(resolveOne);
+      return RSVP.resolve().then(resolveOne).fail(handleError);
 
       function innerShouldContinue() {
         return RSVP.resolve(shouldContinue()).fail(function(reason) {
@@ -460,6 +461,7 @@
         // reject value of TransitionState#resolve
         throw {
           error: error,
+          handlerWithError: currentState.handlerInfos[payload.resolveIndex].handler,
           wasAborted: wasAborted,
           state: currentState
         };
@@ -497,8 +499,7 @@
         var handlerInfo = currentState.handlerInfos[payload.resolveIndex];
 
         return handlerInfo.resolve(async, innerShouldContinue, payload)
-                          .then(proceed)
-                          .fail(handleError);
+                          .then(proceed);
       }
     }
   };
@@ -549,9 +550,9 @@
       this.sequence = Transition.currentSequence++;
       this.promise = state.resolve(router.async, checkForAbort, this).fail(function(result) {
         if (result.wasAborted) {
-          throw new logAbort(transition);
+          throw logAbort(transition);
         } else {
-          transition.trigger('error', result.error);
+          transition.trigger('error', result.error, transition, result.handlerWithError);
           transition.abort();
           throw result.error;
         }
@@ -658,7 +659,7 @@
       @return {Transition} this transition
      */
     method: function(method) {
-      if (!this.intent.inaccessibleByURL) {
+      if (!(this.intent && this.intent.inaccessibleByURL)) {
         this.urlMethod = method;
       }
       return this;
@@ -1079,6 +1080,7 @@
   /**
     @private
   */
+  /*
   function createQueryParamTransition(router, queryParams, isIntermediate) {
     var currentHandlers = router.currentHandlerInfos,
         currentHandler = currentHandlers[currentHandlers.length - 1],
@@ -1088,6 +1090,7 @@
 
     return createNamedTransition(router, [name, queryParams], isIntermediate);
   }
+  */
 
   /**
     @private
@@ -1140,7 +1143,7 @@
     });
 
     router.state = newState;
-    var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice()
+    var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice();
 
     forEach(partition.updatedContext, function(handlerInfo) {
       return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, false, shouldContinue);
@@ -1509,8 +1512,6 @@
     } catch(e) {
       return new Transition(router, intent, null, e);
     }
-
-
   }
 
   /**

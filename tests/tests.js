@@ -2292,7 +2292,7 @@ test("can redirect from setup/enter", function() {
 });
 
 
-asyncTest("redirecting to self from validation hooks should no-op (and not infinite loop)", function() {
+test("redirecting to self from validation hooks should no-op (and not infinite loop)", function() {
 
   expect(2);
 
@@ -2305,7 +2305,7 @@ asyncTest("redirecting to self from validation hooks should no-op (and not infin
           ok(false, 'infinite loop occurring');
         } else {
           ok(count <= 2, 'running index no more than twice');
-          var p = router.transitionTo('index');
+          router.transitionTo('index');
         }
       },
       setup: function() {
@@ -2315,10 +2315,30 @@ asyncTest("redirecting to self from validation hooks should no-op (and not infin
   };
 
   router.handleURL('/index');
+});
 
-  // TODO: use start in .then() handler instead of setTimeout, but CLI
-  // test runner doesn't seem to like this.
-  setTimeout(start, 500);
+test("Transition#method(null) prevents URLs from updating", function() {
+  expect(1);
+
+  handlers = {
+    about: {
+      setup: function() {
+        ok(true, "about#setup was called");
+      }
+    }
+  };
+
+  router.updateURL = function(newUrl) {
+    ok(false, "updateURL shouldn't have been called");
+  };
+
+  // Test multiple calls to method in a row.
+  router.handleURL('/index').method(null);
+  router.handleURL('/index').method(null);
+  flushBackburner();
+
+  router.transitionTo('about').method(null);
+  flushBackburner();
 });
 
 asyncTest("redirecting to self from enter hooks should no-op (and not infinite loop)", function() {
