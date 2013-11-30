@@ -1,7 +1,9 @@
 {
     "predef": [
         "console",
+        "define",
         "require",
+        "requireModule",
         "equal",
         "test",
         "testBoth",

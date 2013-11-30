@@ -19,7 +19,7 @@ module.exports = function(grunt) {
 
 
   // Build test files
-  this.registerTask('tests', 'Builds the test package', ['concat:deps', 'browserify:tests',
+  this.registerTask('tests', 'Builds the test package', ['concat:deps',
                     'transpile:testsAmd', 'transpile:testsCommonjs', 'buildTests:dist']);
 
   // Build a new version of the library
