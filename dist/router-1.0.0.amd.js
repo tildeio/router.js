@@ -2,6 +2,24 @@ define("router",
   ["route-recognizer","rsvp","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
+    /**
+      @private
+
+      This file references several internal structures:
+
+      ## `RecognizedHandler`
+
+      * `{String} handler`: A handler name
+      * `{Object} params`: A hash of recognized parameters
+
+      ## `HandlerInfo` // TODO UPDATE THIS
+
+      * `{Boolean} isDynamic`: whether a handler has any dynamic segments
+      * `{String} name`: the name of a handler
+      * `{Object} handler`: a handler object
+      * `{Object} context`: the active context for the handler
+    */
+
     var RouteRecognizer = __dependency1__['default'];
     var RSVP = __dependency2__['default'];
 
@@ -115,16 +133,15 @@ define("router",
       becomeResolved: function(payload, resolvedContext) {
         var params = this.params || serialize(this.handler, resolvedContext, this.names);
 
-        if (payload) {
-          this.stashResolvedModel(payload, resolvedContext);
-          payload.params = payload.params || {};
-          payload.params[this.name] = params;
-        }
+        this.stashResolvedModel(payload, resolvedContext);
+        payload.params = payload.params || {};
+        payload.params[this.name] = params;
 
         return new ResolvedHandlerInfo({
           context: resolvedContext,
           name: this.name,
           handler: this.handler,
+          //isDynamic: this.names && this.names.length > 0,
           params: params
         });
       },
@@ -271,6 +288,8 @@ define("router",
     NamedTransitionIntent.prototype = oCreate(TransitionIntent.prototype);
     NamedTransitionIntent.prototype.applyToState = function(oldState, recognizer, getHandler, isIntermediate) {
 
+      var newState = new TransitionState();
+
       var partitionedArgs     = extractQueryParams([this.name].concat(this.contexts)),
         pureArgs              = partitionedArgs[0],
         queryParams           = partitionedArgs[1],
@@ -278,13 +297,6 @@ define("router",
         //handlerInfos          = generateHandlerInfosWithQueryParams({}, handlers, queryParams);
 
       var targetRouteName = handlers[handlers.length-1].handler;
-
-      return this.forp(oldState, handlers, getHandler, targetRouteName, isIntermediate);
-    };
-
-    NamedTransitionIntent.prototype.forp = function(oldState, handlers, getHandler, targetRouteName, isIntermediate, checkingIfActive) {
-
-      var newState = new TransitionState();
       var objects = this.contexts.slice(0);
 
       var invalidateIndex = handlers.length;
@@ -315,27 +327,20 @@ define("router",
           nonDynamicIndexes.unshift(i);
         }
 
-        if (checkingIfActive) {
-          // If we're performing an isActive check, we want to
-          // serialize URL params with the provided context, but
-          // ignore mismatches between old and new context.
-          newHandlerInfo = newHandlerInfo.becomeResolved(null, newHandlerInfo.context);
-          var oldContext = oldHandlerInfo && oldHandlerInfo.context;
-          if (result.names.length > 0 && newHandlerInfo.context === oldContext) {
-            // If contexts match in isActive test, assume params also match.
-            newHandlerInfo.params = oldHandlerInfo && oldHandlerInfo.params;
-          }
-          newHandlerInfo.context = oldContext;
-        }
-
         var handlerToUse = oldHandlerInfo;
         if (newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
           invalidateIndex = i;
           handlerToUse = newHandlerInfo;
         }
 
-        if (isIntermediate && !checkingIfActive) {
-          handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context);
+        if (isIntermediate) {
+          // TODO: more elegant way of doing this?
+          handlerToUse = new ResolvedHandlerInfo({
+            context: handlerToUse.context,
+            name: handlerToUse.name,
+            handler: handlerToUse.handler,
+            params: handlerToUse.params
+          });
         }
 
         newState.handlerInfos.unshift(handlerToUse);
@@ -350,8 +355,6 @@ define("router",
       }
 
       return invalidateIndex < handlers.length ? newState : oldState;
-
-
     };
 
     NamedTransitionIntent.prototype.invalidateNonDynamicHandlers = function(handlerInfos, indexes, invalidateIndex) {
@@ -921,56 +924,49 @@ define("router",
         var targetHandlerInfos = this.state.handlerInfos,
             found = false, names, object, handlerInfo, handlerObj, i, len;
 
-        if (!targetHandlerInfos.length) { return false; }
+        if (!targetHandlerInfos) { return false; }
 
-        var targetHandler = targetHandlerInfos[targetHandlerInfos.length - 1].name;
+        var targetHandler = [targetHandlerInfos.length - 1].name;
         var recogHandlers = this.recognizer.handlersFor(targetHandler);
 
         var index = 0;
+
         for (len = recogHandlers.length; index < len; ++index) {
           handlerInfo = targetHandlerInfos[index];
           if (handlerInfo.name === handlerName) { break; }
         }
 
         if (index === recogHandlers.length) {
-          // The provided route name isn't even in the route hierarchy.
           return false;
         }
 
+        // Slice handlerinfos...
+        // Need to make a handlerInfos with all the shit
+        // we know so far... plus all the prexisting states...
+        //
         var state = new TransitionState();
         state.handlerInfos = targetHandlerInfos.slice(0, index + 1);
-        recogHandlers = recogHandlers.slice(0, index + 1);
 
         var intent = new NamedTransitionIntent({
           name: targetHandler,
           contexts: contexts
         });
 
-        var newState = intent.forp(state, recogHandlers, this.getHandler, targetHandler, true, true);
+        //var stubbedRecognizer = {
+          //handlersFor: function() {
+          //}
+        //};
 
-        // If the states are the same after applying this
-        // intent to a subslice of targetHandlerInfos,
-        // the provided route description must already be active.
-        if (newState === state) {
-          return true;
+        var newState = intent.applyToState(state, this.recognizer, this.getHandler, false);
+
+        for (i = 0; i <= index; ++i) {
+          handlerInfo = newState.handlerInfos[i];
+          if (!(handlerInfo instanceof ResolvedHandlerInfo)) {
+            return false;
+          }
         }
 
-        // There is still one last check to make, due to slightly
-        // different behaviors from how isActive and transitionTo parameters
-        // are meant to be interpreted:
-        //
-        // isActive should return true if the provided objects serialize
-        // to the same URL parameters as the currently active route hierarchy.
-        // Even if the provided object is different from what's currently loaded,
-        // if the URL params are the same, isActive returns true.
-        // transitionTo, on the other hand, will re-run the before/afterModel
-        // hooks if the provided object for a route is different, even if
-        // the URL params are the same.
-        //
-        // So we need to loop through the returned state and check
-        // parameters one last time.
-
-        return newState === state;
+        return true;
       },
 
       trigger: function(name) {
@@ -1054,6 +1050,33 @@ define("router",
           }
         }
       }
+    }
+
+    /**
+      @private
+    */
+
+    function generateHandlerInfosWithQueryParams(currentQueryParams, handlers, queryParams) {
+      var handlerInfos = [];
+
+      for (var i = 0; i < handlers.length; i++) {
+        var handler = handlers[i],
+          handlerInfo = { handler: handler.handler, names: handler.names, context: handler.context, isDynamic: handler.isDynamic },
+          activeQueryParams = {};
+
+        if (queryParams !== false) {
+          mergeSomeKeys(activeQueryParams, currentQueryParams, handler.queryParams);
+          mergeSomeKeys(activeQueryParams, queryParams, handler.queryParams);
+        }
+
+        if (handler.queryParams && handler.queryParams.length > 0) {
+          handlerInfo.queryParams = activeQueryParams;
+        }
+
+        handlerInfos.push(handlerInfo);
+      }
+
+      return handlerInfos;
     }
 
     /**
@@ -1506,6 +1529,7 @@ define("router",
         handler object returned from router.recognizer.handlersFor()
     */
     function serialize(handler, model, names) {
+
       var object = {};
       if (isParam(model)) {
         object[names[0]] = model;
