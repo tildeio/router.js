@@ -3067,6 +3067,92 @@ test("Multiple string/number params are soaked up", function() {
   transitionTo('bar', 'lol', 'no');
 });
 
+module("isActive", {
+  setup: function() {
+
+    RSVP.configure('async', customAsync);
+    bb.begin();
+
+    handlers = {
+      parent: {
+        serialize: function(obj) {
+          return {
+            one: obj.one,
+            two: obj.two,
+          };
+        }
+      },
+      child: {
+        serialize: function(obj) {
+          return {
+            three: obj.three,
+            four: obj.four,
+          };
+        }
+      }
+    };
+
+    map(function(match) {
+      match("/:one/:two").to("parent", function(match) {
+        match("/:three/:four").to("child");
+      });
+    });
+
+    expectedUrl = null;
+
+    transitionTo('child', 'a', 'b', 'c', 'd');
+  },
+  teardown: function() {
+    bb.end();
+  }
+});
+
+test("isActive supports multiple soaked up string/number params (via params)", function() {
+
+  ok(router.isActive('child'), "child");
+  ok(router.isActive('parent'), "parent");
+
+  debugger;
+  ok(router.isActive('child', 'd'), "child d");
+  ok(router.isActive('child', 'c', 'd'), "child c d");
+  ok(router.isActive('child', 'b', 'c', 'd'), "child b c d");
+  ok(router.isActive('child', 'a', 'b', 'c', 'd'), "child a b c d");
+
+  ok(!router.isActive('child', 'e'), "!child e");
+  ok(!router.isActive('child', 'c', 'e'), "!child c e");
+  ok(!router.isActive('child', 'e', 'd'), "!child e d");
+  ok(!router.isActive('child', 'x', 'x'), "!child x x");
+  ok(!router.isActive('child', 'b', 'c', 'e'), "!child b c e");
+  ok(!router.isActive('child', 'b', 'e', 'd'), "child b e d");
+  ok(!router.isActive('child', 'e', 'c', 'd'), "child e c d");
+  ok(!router.isActive('child', 'a', 'b', 'c', 'e'), "child a b c e");
+  ok(!router.isActive('child', 'a', 'b', 'e', 'd'), "child a b e d");
+  ok(!router.isActive('child', 'a', 'e', 'c', 'd'), "child a e c d");
+  ok(!router.isActive('child', 'e', 'b', 'c', 'd'), "child e b c d");
+
+  ok(router.isActive('parent', 'b'), "parent b");
+  ok(router.isActive('parent', 'a', 'b'), "parent a b");
+
+  ok(!router.isActive('parent', 'a', 'b', 'c'), "!parent a b c");
+  ok(!router.isActive('parent', 'a', 'b', 'c', 'd'), "!parent a b c d");
+  ok(!router.isActive('parent', 'c'), "!parent c");
+  ok(!router.isActive('parent', 'a', 'c'), "!parent a c");
+  ok(!router.isActive('parent', 'c', 'b'), "!parent c b");
+  ok(!router.isActive('parent', 'c', 't'), "!parent c t");
+});
+
+/*
+test("isActive supports multiple soaked up string/number params (via serialized objects)", function() {
+  transitionTo('child', 'a', 'b', 'c', 'd');
+
+  ok(router.isActive('child'),  "child");
+  ok(router.isActive('parent'), "parent");
+
+  ok(router.isActive('parent', { three: 'c', four: 'd' }), "parent(3:c, )");
+});
+*/
+
+
 module("Preservation of params between redirects", {
   setup: function() {
 
