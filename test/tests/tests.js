@@ -1,3 +1,6 @@
+import backburner from 'backburner';
+import RSVP from 'rsvp';
+
 QUnit.config.testTimeout = 1000;
 
 var bb = new backburner.Backburner(['promises']);
