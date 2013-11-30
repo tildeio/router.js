@@ -1,39 +1,39 @@
-(function(globals) {
-var define, requireModule;
+// (function(globals) {
+// var define, requireModule;
 
-(function() {
-  var registry = {}, seen = {};
+// (function() {
+  // var registry = {}, seen = {};
 
-  define = function(name, deps, callback) {
-    registry[name] = { deps: deps, callback: callback };
-  };
+  // define = function(name, deps, callback) {
+    // registry[name] = { deps: deps, callback: callback };
+  // };
 
-  requireModule = function(name) {
-    if (seen[name]) { return seen[name]; }
-    seen[name] = {};
+  // requireModule = function(name) {
+    // if (seen[name]) { return seen[name]; }
+    // seen[name] = {};
 
-    var mod = registry[name];
-    if (!mod) {
-      throw new Error("Module '" + name + "' not found.");
-    }
+    // var mod = registry[name];
+    // if (!mod) {
+      // throw new Error("Module '" + name + "' not found.");
+    // }
 
-    var deps = mod.deps,
-        callback = mod.callback,
-        reified = [],
-        exports;
+    // var deps = mod.deps,
+        // callback = mod.callback,
+        // reified = [],
+        // exports;
 
-    for (var i=0, l=deps.length; i<l; i++) {
-      if (deps[i] === 'exports') {
-        reified.push(exports = {});
-      } else {
-        reified.push(requireModule(deps[i]));
-      }
-    }
+    // for (var i=0, l=deps.length; i<l; i++) {
+      // if (deps[i] === 'exports') {
+        // reified.push(exports = {});
+      // } else {
+        // reified.push(requireModule(deps[i]));
+      // }
+    // }
 
-    var value = callback.apply(this, reified);
-    return seen[name] = exports || value;
-  };
-})();
+    // var value = callback.apply(this, reified);
+    // return seen[name] = exports || value;
+  // };
+// })();
 
 define("rsvp/all",
   ["rsvp/promise","exports"],
@@ -678,5 +678,5 @@ define("rsvp",
     __exports__.async = async;
     __exports__.asyncDefault = asyncDefault;
   });
-window.RSVP = requireModule("rsvp");
-})(window);
+// window.RSVP = requireModule("rsvp");
+// })(window);

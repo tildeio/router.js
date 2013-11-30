@@ -1,41 +1,41 @@
 (function(globals) {
-var define, requireModule;
+// var define, requireModule;
 
-(function() {
-  var registry = {}, seen = {};
+// (function() {
+  // var registry = {}, seen = {};
 
-  define = function(name, deps, callback) {
-    registry[name] = { deps: deps, callback: callback };
-  };
+  // define = function(name, deps, callback) {
+    // registry[name] = { deps: deps, callback: callback };
+  // };
 
-  define.registry = registry;
+  // define.registry = registry;
 
-  requireModule = function(name) {
-    if (seen[name]) { return seen[name]; }
-    seen[name] = {};
+  // requireModule = function(name) {
+    // if (seen[name]) { return seen[name]; }
+    // seen[name] = {};
 
-    if (!registry[name]) {
-      throw new Error("Could not find module " + name);
-    }
+    // if (!registry[name]) {
+      // throw new Error("Could not find module " + name);
+    // }
 
-    var mod = registry[name],
-        deps = mod.deps,
-        callback = mod.callback,
-        reified = [],
-        exports;
+    // var mod = registry[name],
+        // deps = mod.deps,
+        // callback = mod.callback,
+        // reified = [],
+        // exports;
 
-    for (var i=0, l=deps.length; i<l; i++) {
-      if (deps[i] === 'exports') {
-        reified.push(exports = {});
-      } else {
-        reified.push(requireModule(deps[i]));
-      }
-    }
+    // for (var i=0, l=deps.length; i<l; i++) {
+      // if (deps[i] === 'exports') {
+        // reified.push(exports = {});
+      // } else {
+        // reified.push(requireModule(deps[i]));
+      // }
+    // }
 
-    var value = callback.apply(this, reified);
-    return seen[name] = exports || value;
-  };
-})();
+    // var value = callback.apply(this, reified);
+    // return seen[name] = exports || value;
+  // };
+// })();
 
 define("backburner/queue",
   ["exports"],
@@ -638,5 +638,5 @@ define("backburner",
 
     __exports__.Backburner = Backburner;
   });
-window.backburner = requireModule("backburner");
+// window.backburner = requireModule("backburner");
 })(window);
