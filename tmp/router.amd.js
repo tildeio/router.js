@@ -20,8 +20,8 @@ define("router",
       * `{Object} context`: the active context for the handler
     */
 
-    var RouteRecognizer = __dependency1__['default'];
-    var RSVP = __dependency2__['default'];
+    var RouteRecognizer = __dependency1__["default"];
+    var RSVP = __dependency2__["default"];
 
     var slice = Array.prototype.slice;
 
@@ -714,7 +714,7 @@ define("router",
     Router.NamedTransitionIntent = NamedTransitionIntent;
     Router.URLTransitionIntent = URLTransitionIntent;
 
-    __exports__['default'] = Router;
+    __exports__["default"] = Router;
 
 
     /**
