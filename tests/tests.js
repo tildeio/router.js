@@ -1836,7 +1836,6 @@ test("tests whether arguments to transitionTo are considered active", function()
         3: { id: 3 }
       };
 
-      debugger;
   var adminHandler = {
     serialize: function(object) {
       return { id: 47 };

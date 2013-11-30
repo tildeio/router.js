@@ -277,10 +277,10 @@
 
     var targetRouteName = handlers[handlers.length-1].handler;
 
-    return this.forp(oldState, handlers, getHandler, targetRouteName, isIntermediate);
+    return this.applyToHandlers(oldState, handlers, getHandler, targetRouteName, isIntermediate);
   };
 
-  NamedTransitionIntent.prototype.forp = function(oldState, handlers, getHandler, targetRouteName, isIntermediate, checkingIfActive) {
+  NamedTransitionIntent.prototype.applyToHandlers = function(oldState, handlers, getHandler, targetRouteName, isIntermediate, checkingIfActive) {
 
     var newState = new TransitionState();
     var objects = this.contexts.slice(0);
@@ -321,6 +321,8 @@
         var oldContext = oldHandlerInfo && oldHandlerInfo.context;
         if (result.names.length > 0 && newHandlerInfo.context === oldContext) {
           // If contexts match in isActive test, assume params also match.
+          // This allows for flexibility in not requiring that every last
+          // handler provide a `serialize` method
           newHandlerInfo.params = oldHandlerInfo && oldHandlerInfo.params;
         }
         newHandlerInfo.context = oldContext;
@@ -348,8 +350,6 @@
     }
 
     return invalidateIndex < handlers.length ? newState : oldState;
-
-
   };
 
   NamedTransitionIntent.prototype.invalidateNonDynamicHandlers = function(handlerInfos, indexes, invalidateIndex) {
@@ -374,10 +374,8 @@
       // Use the objects provided for this transition.
       objectToUse = objects[objects.length - 1];
       if (isParam(objectToUse)) {
-        // TODO: how to share w isActive?
         return this.createParamHandlerInfo(name, handler, names, objects, oldHandlerInfo);
       } else {
-        // TODO: how to share w isActive?
         objects.pop();
       }
     } else if (oldHandlerInfo && oldHandlerInfo.name === name) {
@@ -944,29 +942,7 @@
         contexts: contexts
       });
 
-      var newState = intent.forp(state, recogHandlers, this.getHandler, targetHandler, true, true);
-
-      // If the states are the same after applying this
-      // intent to a subslice of targetHandlerInfos,
-      // the provided route description must already be active.
-      if (newState === state) {
-        return true;
-      }
-
-      // There is still one last check to make, due to slightly
-      // different behaviors from how isActive and transitionTo parameters
-      // are meant to be interpreted:
-      //
-      // isActive should return true if the provided objects serialize
-      // to the same URL parameters as the currently active route hierarchy.
-      // Even if the provided object is different from what's currently loaded,
-      // if the URL params are the same, isActive returns true.
-      // transitionTo, on the other hand, will re-run the before/afterModel
-      // hooks if the provided object for a route is different, even if
-      // the URL params are the same.
-      //
-      // So we need to loop through the returned state and check
-      // parameters one last time.
+      var newState = intent.applyToHandlers(state, recogHandlers, this.getHandler, targetHandler, true, true);
 
       return newState === state;
     },
@@ -1383,7 +1359,6 @@
     // Resolve with the final handler.
     transition.isActive = false;
 
-    // TODO: de-promise-landify. What needs to happen here?
     return handlerInfos[handlerInfos.length - 1].handler;
   }
 
