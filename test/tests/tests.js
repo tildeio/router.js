@@ -140,8 +140,7 @@ test("Mapping adds named routes to the end", function() {
 
 test("Handling an invalid URL returns a rejecting promise", function() {
   router.handleURL("/unknown").then(shouldNotHappen, function(e) {
-    ok(e instanceof Router.UnrecognizedURLError, "rejects with UnrecognizedURLError");
-    ok(e.name, "UnrecognizedURLError", "error.name is UnrecognizedURLError");
+    equal(e.name, "UnrecognizedURLError", "error.name is UnrecognizedURLError");
   }, shouldNotHappen);
 });
 
