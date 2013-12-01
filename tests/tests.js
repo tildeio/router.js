@@ -3026,6 +3026,32 @@ test("exceptions thrown from model hooks aren't swallowed", function() {
   ok(routeWasEntered, "route was finally entered");
 });
 
+test("Transition#followRedirects() returns a promise that fulfills when any redirecting transitions complete", function() {
+  expect(3);
+
+  handlers.about = {
+    redirect: function() {
+      router.transitionTo('faq');
+    }
+  };
+
+  router.transitionTo('/index').followRedirects().then(function(handler) {
+    equal(handler, handlers.index, "followRedirects works with non-redirecting transitions");
+
+    return router.transitionTo('about').followRedirects();
+  }).then(function(handler) {
+    equal(handler, handlers.faq, "followRedirects promise resolved with redirected faq handler");
+
+    handlers.about.beforeModel = function(transition) {
+      transition.abort();
+    };
+
+    // followRedirects should just reject for non-redirecting transitions.
+    return router.transitionTo('about').followRedirects().fail(assertAbort);
+  });
+});
+
+
 module("Multiple dynamic segments per route", {
   setup: function() {
 
@@ -3520,4 +3546,3 @@ test("intermediateTransitionTo() forces an immediate intermediate transition tha
 
   counterAt(7, "original transition promise resolves");
 });
-

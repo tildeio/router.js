@@ -295,12 +295,6 @@ define("router",
         var name = result.handler;
         var handler = getHandler(name);
 
-        // TODO: move this elsewhere... shouldn't be
-        // stashing state on intents. Maybe stash it on state?
-        if (handler.inaccessibleByURL) {
-          this.inaccessibleByURL = true;
-        }
-
         var oldHandlerInfo = oldState.handlerInfos[i];
         var newHandlerInfo = null;
 
@@ -438,7 +432,6 @@ define("router",
         payload = payload || {};
         payload.resolveIndex = 0;
 
-        // Create a new state that we'll be appending handlerInfos to.
         var currentState = this;
         var wasAborted = false;
 
@@ -523,10 +516,6 @@ define("router",
       this.resolvedModels = {};
       this.params = {};
 
-      if (intent && intent.inaccessibleByURL) {
-        this.urlMethod = null;
-      }
-
       if (error) {
         this.promise = RSVP.reject(error);
         return;
@@ -578,12 +567,12 @@ define("router",
       resolveIndex: 0,
       handlerInfos: null,
       resolvedModels: null,
-
       isActive: true,
-
       state: null,
 
       /**
+        @public
+
         The Transition's internal promise. Calling `.then` on this property
         is that same as calling `.then` on the Transition object itself, but
         this property is exposed for when you want to pass around a
@@ -594,6 +583,8 @@ define("router",
       promise: null,
 
       /**
+        @public
+
         Custom state can be stored on a Transition's `data` object.
         This can be useful for decorating a Transition within an earlier
         hook and shared with a later hook. Properties set on `data` will
@@ -603,6 +594,8 @@ define("router",
       data: null,
 
       /**
+        @public
+
         A standard promise hook that resolves if the transition
         succeeds and rejects if it fails/redirects/aborts.
 
@@ -618,6 +611,8 @@ define("router",
       },
 
       /**
+        @public
+
         Aborts the Transition. Note you can also implicitly abort a transition
         by initiating another transition while a previous one is underway.
        */
@@ -631,16 +626,21 @@ define("router",
       },
 
       /**
+        @public
+
         Retries a previously-aborted transition (making sure to abort the
         transition if it's still active). Returns a new transition that
         represents the new attempt to transition.
        */
       retry: function() {
+        // TODO: add tests for merged state retry()s
         this.abort();
         return transitionByIntent(this.router, this.intent, false);
       },
 
       /**
+        @public
+
         Sets the URL-changing method to be employed at the end of a
         successful transition. By default, a new Transition will just
         use `updateURL`, but passing 'replace' to this method will
@@ -658,13 +658,13 @@ define("router",
         @return {Transition} this transition
        */
       method: function(method) {
-        if (!(this.intent && this.intent.inaccessibleByURL)) {
-          this.urlMethod = method;
-        }
+        this.urlMethod = method;
         return this;
       },
 
       /**
+        @public
+
         Fires an event on the current list of resolved/resolving
         handlers within this transition. Useful for firing events
         on route hierarchies that haven't fully been entered yet.
@@ -683,10 +683,35 @@ define("router",
         trigger(this.router, this.state.handlerInfos.slice(0, this.resolveIndex + 1), ignoreFailure, args);
       },
 
+      /**
+        @public
+
+        Transitions are aborted and their promises rejected
+        when redirects occur; this method returns a promise
+        that will follow any redirects that occur and fulfill
+        with the value fulfilled by any redirecting transitions
+        that occur.
+
+        @return {Promise} a promise that fulfills with the same
+          value that the final redirecting transition fulfills with
+       */
+      followRedirects: function() {
+        var router = this.router;
+        return this.promise.fail(function(reason) {
+          if (router.activeTransition) {
+            return router.activeTransition.followRedirects();
+          }
+          throw reason;
+        });
+      },
+
       toString: function() {
         return "Transition (sequence " + this.sequence + ")";
       },
 
+      /**
+        @private
+       */
       log: function(message) {
         log(this.router, this.sequence, message);
       }
@@ -1321,21 +1346,26 @@ define("router",
           params = {},
           len, i;
 
-      //var newQueryParams = {};
+      var urlMethod = transition.urlMethod;
       for (i = handlerInfos.length - 1; i >= 0; --i) {
-        merge(params, handlerInfos[i].params);
+        var handlerInfo = handlerInfos[i];
+        merge(params, handlerInfo.params);
+        if (handlerInfo.handler.inaccessibleByURL) {
+          urlMethod = null;
+        }
       }
 
-      if (transition.urlMethod) {
+      if (urlMethod) {
         var url = router.recognizer.generate(handlerName, params);
 
-        if (transition.urlMethod === 'replace') {
+        if (urlMethod === 'replace') {
           router.replaceURL(url);
         } else {
           router.updateURL(url);
         }
       }
 
+      // Run all the necessary enter/setup/exit hooks
       setupContexts(router, newState, function() {
         return !transition.isAborted;
       });
@@ -1347,20 +1377,18 @@ define("router",
         return RSVP.reject(logAbort(transition));
       }
 
+      transition.isActive = false;
+      router.activeTransition = null;
+
       trigger(router, router.currentHandlerInfos, true, ['didTransition']);
 
       if (router.didTransition) {
         router.didTransition(router.currentHandlerInfos);
       }
 
-      router.activeTransition.isActive = false;
-      router.activeTransition = null;
-
       log(router, transition.sequence, "TRANSITION COMPLETE.");
 
       // Resolve with the final handler.
-      transition.isActive = false;
-
       return handlerInfos[handlerInfos.length - 1].handler;
     }
 
