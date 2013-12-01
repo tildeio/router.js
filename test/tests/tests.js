@@ -1736,7 +1736,7 @@ test("handled-then-bubbled events don't throw an exception if uncaught by parent
   router.trigger("expand");
 });
 
-asyncTest("events only fire on the closest handler", function() {
+test("events only fire on the closest handler", function() {
   expect(5);
 
   handlers = {
@@ -1762,7 +1762,6 @@ asyncTest("events only fire on the closest handler", function() {
           equal(context1, passedContext1, "A context is passed along");
           equal(context2, passedContext2, "A second context is passed along");
           equal(this, handlers.showAllPosts, "The handler is passed into events as `this`");
-          start();
         }
       }
     }
@@ -1859,7 +1858,7 @@ test("tests whether arguments to transitionTo are considered active", function()
 
   var showPostHandler = {
     serialize: function(object) {
-      return { id: object.id };
+      return object && { id: object.id } || null;
     },
 
     model: function(params) {
@@ -2904,7 +2903,6 @@ test("resolved models can be swapped out within afterModel", function() {
 
 
 test("String/number args in transitionTo are treated as url params", function() {
-
   expect(10);
 
   var adminParams = { id: "1" },
@@ -2933,7 +2931,6 @@ test("String/number args in transitionTo are treated as url params", function() 
     expectedUrl = "/posts/admin/1/posts/2";
     return router.transitionTo('adminPost', 1, "2");
   }).then(function() {
-
     ok(router.isActive('adminPost', 1, "2"), "adminPost is active via params");
     ok(router.isActive('adminPost', 1, adminPostModel), "adminPost is active via contexts");
 
@@ -3029,6 +3026,32 @@ test("exceptions thrown from model hooks aren't swallowed", function() {
   ok(routeWasEntered, "route was finally entered");
 });
 
+test("Transition#followRedirects() returns a promise that fulfills when any redirecting transitions complete", function() {
+  expect(3);
+
+  handlers.about = {
+    redirect: function() {
+      router.transitionTo('faq');
+    }
+  };
+
+  router.transitionTo('/index').followRedirects().then(function(handler) {
+    equal(handler, handlers.index, "followRedirects works with non-redirecting transitions");
+
+    return router.transitionTo('about').followRedirects();
+  }).then(function(handler) {
+    equal(handler, handlers.faq, "followRedirects promise resolved with redirected faq handler");
+
+    handlers.about.beforeModel = function(transition) {
+      transition.abort();
+    };
+
+    // followRedirects should just reject for non-redirecting transitions.
+    return router.transitionTo('about').followRedirects().fail(assertAbort);
+  });
+});
+
+
 module("Multiple dynamic segments per route", {
   setup: function() {
 
@@ -3065,6 +3088,111 @@ test("Multiple string/number params are soaked up", function() {
 
   expectedUrl = '/lol/no';
   transitionTo('bar', 'lol', 'no');
+});
+
+module("isActive", {
+  setup: function() {
+
+    RSVP.configure('async', customAsync);
+    bb.begin();
+
+    handlers = {
+      parent: {
+        serialize: function(obj) {
+          return {
+            one: obj.one,
+            two: obj.two,
+          };
+        }
+      },
+      child: {
+        serialize: function(obj) {
+          return {
+            three: obj.three,
+            four: obj.four,
+          };
+        }
+      }
+    };
+
+    map(function(match) {
+      match("/:one/:two").to("parent", function(match) {
+        match("/:three/:four").to("child");
+      });
+    });
+
+    expectedUrl = null;
+
+    transitionTo('child', 'a', 'b', 'c', 'd');
+  },
+  teardown: function() {
+    bb.end();
+  }
+});
+
+test("isActive supports multiple soaked up string/number params (via params)", function() {
+
+  ok(router.isActive('child'), "child");
+  ok(router.isActive('parent'), "parent");
+
+  ok(router.isActive('child', 'd'), "child d");
+  ok(router.isActive('child', 'c', 'd'), "child c d");
+  ok(router.isActive('child', 'b', 'c', 'd'), "child b c d");
+  ok(router.isActive('child', 'a', 'b', 'c', 'd'), "child a b c d");
+
+  ok(!router.isActive('child', 'e'), "!child e");
+  ok(!router.isActive('child', 'c', 'e'), "!child c e");
+  ok(!router.isActive('child', 'e', 'd'), "!child e d");
+  ok(!router.isActive('child', 'x', 'x'), "!child x x");
+  ok(!router.isActive('child', 'b', 'c', 'e'), "!child b c e");
+  ok(!router.isActive('child', 'b', 'e', 'd'), "child b e d");
+  ok(!router.isActive('child', 'e', 'c', 'd'), "child e c d");
+  ok(!router.isActive('child', 'a', 'b', 'c', 'e'), "child a b c e");
+  ok(!router.isActive('child', 'a', 'b', 'e', 'd'), "child a b e d");
+  ok(!router.isActive('child', 'a', 'e', 'c', 'd'), "child a e c d");
+  ok(!router.isActive('child', 'e', 'b', 'c', 'd'), "child e b c d");
+
+  ok(router.isActive('parent', 'b'), "parent b");
+  ok(router.isActive('parent', 'a', 'b'), "parent a b");
+
+  ok(!router.isActive('parent', 'c'), "!parent c");
+  ok(!router.isActive('parent', 'a', 'c'), "!parent a c");
+  ok(!router.isActive('parent', 'c', 'b'), "!parent c b");
+  ok(!router.isActive('parent', 'c', 't'), "!parent c t");
+});
+
+test("isActive supports multiple soaked up string/number params (via serialized objects)", function() {
+
+  ok(router.isActive('child',  { three: 'c', four: 'd' }), "child(3:c, 4:d)");
+  ok(!router.isActive('child', { three: 'e', four: 'd' }), "!child(3:e, 4:d)");
+  ok(!router.isActive('child', { three: 'c', four: 'e' }), "!child(3:c, 4:e)");
+  ok(!router.isActive('child', { three: 'c' }), "!child(3:c)");
+  ok(!router.isActive('child', { four: 'd' }), "!child(4:d)");
+  ok(!router.isActive('child', {}), "!child({})");
+
+  ok(router.isActive('parent',  { one: 'a', two: 'b' }), "parent(1:a, 2:b)");
+  ok(!router.isActive('parent', { one: 'e', two: 'b' }), "!parent(1:e, 2:b)");
+  ok(!router.isActive('parent', { one: 'a', two: 'e' }), "!parent(1:a, 2:e)");
+  ok(!router.isActive('parent', { one: 'a' }), "!parent(1:a)");
+  ok(!router.isActive('parent', { two: 'b' }), "!parent(2:b)");
+
+  ok(router.isActive('child', { one: 'a', two: 'b' }, { three: 'c', four: 'd' }), "child(1:a, 2:b, 3:c, 4:d)");
+  ok(!router.isActive('child', { one: 'e', two: 'b' }, { three: 'c', four: 'd' }), "!child(1:e, 2:b, 3:c, 4:d)");
+  ok(!router.isActive('child', { one: 'a', two: 'b' }, { three: 'c', four: 'e' }), "!child(1:a, 2:b, 3:c, 4:e)");
+});
+
+test("isActive supports multiple soaked up string/number params (mixed)", function() {
+  ok(router.isActive('child', 'a', 'b', { three: 'c', four: 'd' }));
+  ok(router.isActive('child', 'b', { three: 'c', four: 'd' }));
+  ok(!router.isActive('child', 'a', { three: 'c', four: 'd' }));
+  ok(router.isActive('child', { one: 'a', two: 'b' }, 'c', 'd'));
+  ok(router.isActive('child', { one: 'a', two: 'b' }, 'd'));
+  ok(!router.isActive('child', { one: 'a', two: 'b' }, 'c'));
+
+  ok(!router.isActive('child', 'a', 'b', { three: 'e', four: 'd' }));
+  ok(!router.isActive('child', 'b', { three: 'e', four: 'd' }));
+  ok(!router.isActive('child', { one: 'e', two: 'b' }, 'c', 'd'));
+  ok(!router.isActive('child', { one: 'e', two: 'b' }, 'd'));
 });
 
 module("Preservation of params between redirects", {
@@ -3418,4 +3546,3 @@ test("intermediateTransitionTo() forces an immediate intermediate transition tha
 
   counterAt(7, "original transition promise resolves");
 });
-
