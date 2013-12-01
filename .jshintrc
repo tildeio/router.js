@@ -15,6 +15,7 @@
         "ok",
         "strictEqual",
         "module",
+        "QUnit",
         "expect"
     ],
 
@@ -22,6 +23,7 @@
     "browser" : true,
 
     "boss" : true,
+    "esnext" : true,
     "curly": false,
     "debug": false,
     "devel": false,

@@ -1,6 +1,3 @@
-import backburner from 'backburner';
-import RSVP from 'rsvp';
-
 QUnit.config.testTimeout = 1000;
 
 var bb = new backburner.Backburner(['promises']);
@@ -631,8 +628,8 @@ test("Having query params defined on a route should affect the order of params p
     beforeModel: function (transition) {
       shouldBeTransition(transition);
     },
-
     model: function(params, transition) {
+
       deepEqual(params, {id: '1'});
       shouldBeTransition(transition);
       return context;
