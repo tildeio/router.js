@@ -6,9 +6,6 @@ function nameFor(path) {
     result = path;
   }
 
-  console.log("OMG");
-  console.log(path);
-
   return result;
 }
 
