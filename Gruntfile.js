@@ -11,7 +11,7 @@ module.exports = function(grunt) {
 
   // Run client-side tests on the command line.
   this.registerTask('test', 'Runs tests through the command line using PhantomJS', [
-    'build', 'tests', 'connect', 'qunit'
+    'build', 'tests', 'qunit'
   ]);
 
   // Run a server. This is ideal for running the QUnit tests in the browser.
@@ -26,15 +26,6 @@ module.exports = function(grunt) {
   this.registerTask('build', 'Builds a distributable version of <%= cfg.name %>',
                     ['clean', 'transpile:amd', 'transpile:commonjs', 'concat:amdNoVersion',
                       'concat:browser', 'browser:distNoVersion', 'jshint', 'uglify:browserNoVersion']);
-
-  // Custom phantomjs test task
-  this.registerTask('test:phantom', "Runs tests through the command line using PhantomJS", [
-                    'build', 'tests']);
-
-  // Custom Node test task
-  this.registerTask('test:node', ['build', 'tests']);
-
-  this.registerTask('test', ['build', 'tests']);
 
   config.env = process.env;
   config.pkg = grunt.file.readJSON('package.json');
