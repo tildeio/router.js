@@ -21,7 +21,7 @@ define("router",
     */
 
     var RouteRecognizer = __dependency1__["default"];
-    var RSVP = __dependency2__["default"];
+    var RSVP = __dependency2__;
 
     var slice = Array.prototype.slice;
 
