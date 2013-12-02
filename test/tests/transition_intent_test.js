@@ -1,23 +1,9 @@
+import { module } from "tests/test_helpers";
 import { TransitionIntent } from 'router/transition-intent';
 import { URLTransitionIntent } from 'router/transition-intent/url-transition-intent';
 import { NamedTransitionIntent } from 'router/transition-intent/named-transition-intent';
 import { TransitionState } from 'router/transition-state';
-import { Backburner } from "backburner";
 import { HandlerInfo, ResolvedHandlerInfo, UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
-import { configure } from "rsvp";
-
-var bb = new Backburner(['promises']);
-
-function customAsync(callback, promise) {
-  bb.defer('promises', promise, callback, promise);
-}
-
-function flushBackburner() {
-  bb.end();
-  bb.begin();
-}
-
-function noop() { }
 
 var handlers, recognizer;
 
@@ -76,13 +62,6 @@ module("TransitionIntent", {
         }
       }
     };
-
-    configure('async', customAsync);
-    bb.begin();
-  },
-
-  teardown: function() {
-    bb.end();
   }
 });
 

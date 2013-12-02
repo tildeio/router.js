@@ -1,33 +1,10 @@
+import { module, flushBackburner } from "tests/test_helpers";
 import { Router } from "router";
 import { TransitionState } from 'router/transition-state';
-import { Backburner } from "backburner";
 import { UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
 import { resolve, configure, reject } from "rsvp";
 
-var bb = new Backburner(['promises']);
-
-function customAsync(callback, promise) {
-  bb.defer('promises', promise, callback, promise);
-}
-
-function flushBackburner() {
-  bb.end();
-  bb.begin();
-}
-
-function noop() {}
-
-module("TransitionState", {
-
-  setup: function() {
-    configure('async', customAsync);
-    bb.begin();
-  },
-
-  teardown: function() {
-    bb.end();
-  }
-});
+module("TransitionState");
 
 test("it starts off with default state", function() {
   var state = new TransitionState();
@@ -136,6 +113,8 @@ test("Integration w/ HandlerInfos", function() {
       handler: {}
     })
   ];
+
+  function noop() {}
 
   state.resolve(async, noop, transition).then(function(result) {
     var models = result.state.handlerInfos.map(function(handlerInfo) {

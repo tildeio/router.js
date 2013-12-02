@@ -45,7 +45,7 @@ module.exports = {
     files: [{
       expand: true,
       cwd: 'test/',
-      src: ['**/*_test.js'],
+      src: ['**/test_helpers.js', '**/*_test.js'],
       dest: 'tmp/',
       ext: '.amd.js'
     }]

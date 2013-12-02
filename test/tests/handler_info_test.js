@@ -1,31 +1,12 @@
+import { module } from "tests/test_helpers";
 import { Router } from "router";
 import { HandlerInfo, ResolvedHandlerInfo, UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
 import { Backburner } from "backburner";
 import { resolve, configure, reject, Promise } from "rsvp";
 
-var bb = new Backburner(['promises']);
-
-function customAsync(callback, promise) {
-  bb.defer('promises', promise, callback, promise);
-}
-
-function flushBackburner() {
-  bb.end();
-  bb.begin();
-}
-
 function noop() {}
 
-module("HandlerInfo", {
-  setup: function() {
-    configure('async', customAsync);
-    bb.begin();
-  },
-
-  teardown: function() {
-    bb.end();
-  }
-});
+module("HandlerInfo");
 
 test("ResolvedHandlerInfos resolve to themselves", function() {
   var handlerInfo = new ResolvedHandlerInfo();

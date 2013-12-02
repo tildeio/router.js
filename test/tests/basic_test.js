@@ -1,44 +1,11 @@
+import { module, flushBackburner } from "tests/test_helpers";
 import { Router } from "router";
-import { Backburner } from "backburner";
 import { resolve, configure, reject, Promise } from "rsvp";
 
-QUnit.config.testTimeout = 1000;
-
-var bb = new Backburner(['promises']);
-
-function customAsync(callback, promise) {
-  bb.defer('promises', promise, callback, promise);
-}
-
-function flushBackburner() {
-  bb.end();
-  bb.begin();
-}
-
-// Helper method that performs a transition and flushes
-// the backburner queue. Helpful for when you want to write
-// tests that avoid .then callbacks.
-function transitionTo() {
-  router.transitionTo.apply(router, arguments);
-  flushBackburner();
-}
-
-function transitionToWithAbort() {
-  router.transitionTo.apply(router, arguments).then(shouldNotHappen, function(reason) {
-    equal(reason.name, "TransitionAborted", "transition was redirected/aborted");
-  });
-  flushBackburner();
-}
-
-var router, url, handlers, expectedUrl,
-    actions;
+var router, url, handlers, expectedUrl, actions;
 
 module("The router", {
   setup: function() {
-
-    configure('async', customAsync);
-    bb.begin();
-
     handlers = {};
     expectedUrl = null;
 
@@ -66,18 +33,23 @@ module("The router", {
         });
       });
     });
-  },
-  teardown: function() {
-    bb.end();
   }
 });
 
-test("backburnerized testing works as expected", function() {
-  expect(1);
-  resolve("hello").then(function(word) {
-    equal(word, "hello", "backburner flush in teardown resolved this promise");
+// Helper method that performs a transition and flushes
+// the backburner queue. Helpful for when you want to write
+// tests that avoid .then callbacks.
+function transitionTo() {
+  router.transitionTo.apply(router, arguments);
+  flushBackburner();
+}
+
+function transitionToWithAbort() {
+  router.transitionTo.apply(router, arguments).then(shouldNotHappen, function(reason) {
+    equal(reason.name, "TransitionAborted", "transition was redirected/aborted");
   });
-});
+  flushBackburner();
+}
 
 function map(fn) {
   router = new Router();
@@ -95,11 +67,6 @@ function map(fn) {
 
     url = newUrl;
   };
-}
-
-function followRedirect(reason) {
-  ok(reason.name === "TransitionAborted" && router.activeTransition, "Transition was redirected");
-  return router.activeTransition;
 }
 
 function shouldNotHappen(error) {
@@ -3078,16 +3045,7 @@ test("Returning a redirecting Transition from a model hook doesn't cause things 
   router.transitionTo('/index').then(null, assertAbort);
 });
 
-module("Multiple dynamic segments per route", {
-  setup: function() {
-    configure('async', customAsync);
-    bb.begin();
-  },
-
-  teardown: function() {
-    bb.end();
-  }
-});
+module("Multiple dynamic segments per route");
 
 test("Multiple string/number params are soaked up", function() {
   expect(3);
@@ -3116,10 +3074,6 @@ test("Multiple string/number params are soaked up", function() {
 
 module("isActive", {
   setup: function() {
-
-    configure('async', customAsync);
-    bb.begin();
-
     handlers = {
       parent: {
         serialize: function(obj) {
@@ -3148,9 +3102,6 @@ module("isActive", {
     expectedUrl = null;
 
     transitionTo('child', 'a', 'b', 'c', 'd');
-  },
-  teardown: function() {
-    bb.end();
   }
 });
 
@@ -3221,10 +3172,6 @@ test("isActive supports multiple soaked up string/number params (mixed)", functi
 
 module("Preservation of params between redirects", {
   setup: function() {
-
-    configure('async', customAsync);
-    bb.begin();
-
     expectedUrl = null;
 
     map(function(match) {
@@ -3255,10 +3202,6 @@ module("Preservation of params between redirects", {
         }
       }
     };
-  },
-
-  teardown: function() {
-    bb.end();
   }
 });
 
@@ -3411,10 +3354,6 @@ test("beforeModel shouldn't be refired with incorrect params during redirect", f
 
 module("URL-less routes", {
   setup: function() {
-
-    configure('async', customAsync);
-    bb.begin();
-
     handlers = {};
     expectedUrl = null;
 
@@ -3425,10 +3364,6 @@ module("URL-less routes", {
         match("/articles").to("adminArticles");
       });
     });
-  },
-
-  teardown: function() {
-    bb.end();
   }
 });
 
@@ -3485,10 +3420,6 @@ test("Handling a URL on a route marked as inaccessible behaves like a failed url
 
 module("Intermediate transitions", {
   setup: function() {
-
-    configure('async', customAsync);
-    bb.begin();
-
     handlers = {};
     expectedUrl = null;
 
@@ -3499,10 +3430,6 @@ module("Intermediate transitions", {
         match("/loading").to("loading");
       });
     });
-  },
-
-  teardown: function() {
-    bb.end();
   }
 });
 
