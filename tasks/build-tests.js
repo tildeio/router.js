@@ -1,6 +1,7 @@
 function nameFor(path) {
   var result,  match;
-  if (match = path.match(/^(?:lib|test|test\/tests)\/(.*?)(?:\.js)?$/)) {
+
+  if (match = path.match(/^(?:tmp)\/(.*?)(?:\.amd\.js)?$/)) {
     result = match[1];
   } else {
     result = path;
@@ -11,7 +12,7 @@ function nameFor(path) {
 
 module.exports = function(grunt) {
   grunt.registerMultiTask('buildTests', 'Execute the tests', function() {
-    var testFiles = grunt.file.expand('test/tests/**/*_test.js');
+    var testFiles = grunt.file.expand('tmp/tests/**/*_test.amd.js');
 
     this.files.forEach(function(f) {
       var output = ["(function(globals) {"];
@@ -20,6 +21,7 @@ module.exports = function(grunt) {
 
       testFiles.forEach(function(file) {
         var moduleName = nameFor(file);
+        output.push(grunt.file.read(file));
         output.push('requireModule("' + nameFor(file) + '");');
       });
 
