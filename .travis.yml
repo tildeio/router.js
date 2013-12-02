@@ -1,7 +1,11 @@
 ---
+language: node_js
+node_js:
+- '0.10'
+before_install:
+- npm install -g grunt-cli
 env:
   global:
-  - S3_BUCKET_NAME=routerjs.builds.emberjs.com
   - secure: ! 'TafdUQgYdnuj20fSRX9pv8hGsPG5PkNs8Nq+j5IYoZnD2FSNFdzq1o9mwEsS
 
       KxhHOGDn/ZVw+GzxfZksLr1CfdwqbXtUPDrpHIG1JHrZ3cbYQ9U6vY7uY5GJ
@@ -12,4 +16,4 @@ env:
       4yqfe/+pNQtUjC8P0ooOxeuE4QLQ8GoWNpPwvsYeXC+jIcT/YZWTTtAjS7ss
 
       tThLHIl+R69ejdQggC2WbaN8Co20CvsdtW5v7ZOBoaW4+DZLBAI='
-after_success: 'bundle exec rake publish'
+after_success: grunt build s3:dev
