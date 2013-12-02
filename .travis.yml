@@ -1,4 +1,3 @@
----
 language: node_js
 node_js:
 - '0.10'
@@ -6,14 +5,6 @@ before_install:
 - npm install -g grunt-cli
 env:
   global:
-  - secure: ! 'TafdUQgYdnuj20fSRX9pv8hGsPG5PkNs8Nq+j5IYoZnD2FSNFdzq1o9mwEsS
-
-      KxhHOGDn/ZVw+GzxfZksLr1CfdwqbXtUPDrpHIG1JHrZ3cbYQ9U6vY7uY5GJ
-
-      xypZPhqzHkN8D4RG+NY7mbKtxYsMsH/G15u6qsquixTyWe1VlIw='
-  - secure: ! 'YG1i+TUkEmTpFxwgNjkE4AYrzEdM+1QAX/cRSrno8xJoo3dSQMoFxtF46V6B
-
-      4yqfe/+pNQtUjC8P0ooOxeuE4QLQ8GoWNpPwvsYeXC+jIcT/YZWTTtAjS7ss
-
-      tThLHIl+R69ejdQggC2WbaN8Co20CvsdtW5v7ZOBoaW4+DZLBAI='
+  - secure: QZR44UCwwszJZ81cofiYtGFsLLmHOTAthS+XIgnxzztBRWjcivrfO+v55J39umwkYWqcBIxhTf4e3SALxB2QwLLb0KP17lRheEXd4fJP68UIYhQzOUHJYM+wm+WyWamJf61h5n3lp9Kf75EQrr50aTO0WYeReCLgpeq57p5F20Y=
+  - secure: SQaq0nDaew5Jwm1yB480Iln4/6Sg2n46q7zoanYect+vQNrKWJGcJGMp5Jq9mbDiDZLRpdazAGWyUQJRLaTLfosEx6V798dECDqkCue3hHY96AggYZQnXLh0QKnHeSVjN9Jr1x8wHkxMmvAG3zXkbhuPhD8hYOycJJLg4GLvXAo=
 after_success: grunt build s3:dev
