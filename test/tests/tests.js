@@ -182,7 +182,7 @@ test("Handling a URL triggers model on the handler and passes the result into th
 });
 
 test("Handling a URL passes in query params", function() {
-  return;
+  return expect(0);
   expect(2);
 
   var indexHandler = {
@@ -216,12 +216,12 @@ test("handleURL accepts slash-less URLs", function() {
 });
 
 test("Can get query params for a handler", function () {
-  return;
+  return expect(0);
   deepEqual(router.queryParamsForHandler('nestedChild'), ["parentParam", "childParam"], "Correct query params for child");
 });
 
 test("handleURL accepts query params", function() {
-  return;
+  return expect(0);
 
   handlers = {
     posts: {},
@@ -237,7 +237,7 @@ test("handleURL accepts query params", function() {
 });
 
 test("isActive respects query params", function() {
-  return;
+  return expect(0);
   expect(10);
 
   transitionTo('/index');
@@ -305,6 +305,7 @@ test("when transitioning with the same context, setup should only be called once
 });
 
 test("setup should be called when query params change", function() {
+  return expect(0);
   return;
   expect(64);
 
@@ -501,6 +502,7 @@ test("setup should be called when query params change", function() {
 
 
 test("when transitioning with the same query params, setup should only be called once", function() {
+  return expect(0);
   return;
   expect(15);
   var parentSetupCount = 0,
@@ -584,6 +586,7 @@ test("when transitioning with the same query params, setup should only be called
 
 
 test("Having query params defined on a route should affect the order of params passed in to the model hooks", function() {
+  return expect(0);
   return;
   expect(13);
 
@@ -650,6 +653,7 @@ test("Having query params defined on a route should affect the order of params p
 });
 
 test("Sticky query params should be shared among routes", function() {
+  return expect(0);
   return;
   expect(78);
   var context = { id: 1 }, expectedIndexParams, expectedPostsParams, currentURL;
@@ -796,6 +800,7 @@ test("Sticky query params should be shared among routes", function() {
 
 
 test("retrying should work with queryParams", function () {
+  return expect(0);
   return;
   expect(1);
   var context = { id: 1 };
@@ -849,6 +854,7 @@ test("retrying should work with queryParams", function () {
 });
 
 test("query params should be considered to decide if a transition is identical", function () {
+  return expect(0);
   return;
   expect(3);
   var context = { id: 1 };
@@ -899,6 +905,7 @@ test("query params should be considered to decide if a transition is identical",
 
 //RSVP reported unhandled errors. Please match sure to provide an error handler for every promise
 test("retrying should work with queryParams and a URL transition", function () {
+  return expect(0);
   return;
   expect(1);
   var context = { id: 1 };
@@ -1417,7 +1424,7 @@ test("Moving to the same route with a different parent dynamic segment re-runs m
   equal(handlers.adminPosts.context, adminPosts[2]);
 });
 
-asyncTest("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)", function() {
+test("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)", function() {
   expect(8);
 
   var allPosts = { posts: "all" };
@@ -1492,7 +1499,7 @@ asyncTest("Moving to a sibling route only triggers exit callbacks on the current
   router.handleURL("/posts").then(function() {
     expectedUrl = "/posts/filter/favorite";
     return router.transitionTo('showFilteredPosts', { id: 'favorite' });
-  }).then(start);
+  });
 });
 
 test("Moving to a sibling route only triggers exit callbacks on the current route (when transitioned via a URL change)", function() {
@@ -2245,7 +2252,7 @@ test("can redirect from error handler", function() {
 });
 
 function assertAbort(e) {
-  ok(e instanceof Router.TransitionAborted, "transition was aborted");
+  equal(e.name, "TransitionAborted", "transition was aborted");
 }
 
 test("can redirect from setup/enter", function() {
@@ -3050,6 +3057,23 @@ test("Transition#followRedirects() returns a promise that fulfills when any redi
   });
 });
 
+test("Returning a redirecting Transition from a model hook doesn't cause things to explode", function() {
+  expect(2);
+
+  handlers.index = {
+    beforeModel: function() {
+      return router.transitionTo('about');
+    }
+  };
+
+  handlers.about = {
+    setup: function() {
+      ok(true, "about#setup was called");
+    }
+  };
+
+  router.transitionTo('/index').then(null, assertAbort);
+});
 
 module("Multiple dynamic segments per route", {
   setup: function() {
@@ -3441,7 +3465,7 @@ test("Transitioning into a route with a parent route marked as inaccessibleByURL
   equal(url, '/index');
 });
 
-test("Handling a URL on a route marked as inaccessible behave like a failed url match", function() {
+test("Handling a URL on a route marked as inaccessible behaves like a failed url match", function() {
 
   expect(1);
 
@@ -3454,9 +3478,8 @@ test("Handling a URL on a route marked as inaccessible behave like a failed url 
   router.handleURL('/index').then(function() {
     return router.handleURL('/admin/posts');
   }).then(shouldNotHappen, function(e) {
-    ok(e instanceof Router.UnrecognizedURLError, "rejects with UnrecognizedURLError");
-  }).then(start);
-  flushBackburner();
+    equal(e.name, "UnrecognizedURLError", "error.name is UnrecognizedURLError");
+  });
 });
 
 module("Intermediate transitions", {
@@ -3545,3 +3568,4 @@ test("intermediateTransitionTo() forces an immediate intermediate transition tha
 
   counterAt(7, "original transition promise resolves");
 });
+
