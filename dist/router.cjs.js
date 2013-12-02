@@ -1,4 +1,27 @@
 "use strict";
+function __es6_transpiler_warn__(warning) {
+  if (typeof console === 'undefined') {
+  } else if (typeof console.warn === "function") {
+    console.warn(warning);
+  } else if (typeof console.log === "function") {
+    console.log(warning);
+  }
+}
+function __es6_transpiler_build_module_object__(name, imported) {
+  var moduleInstanceObject = Object.create ? Object.create(null) : {};
+  if (typeof imported === "function") {
+    __es6_transpiler_warn__("imported module '"+name+"' exported a function - this may not work as expected");
+  }
+  for (var key in imported) {
+    if (Object.prototype.hasOwnProperty.call(imported, key)) {
+      moduleInstanceObject[key] = imported[key];
+    }
+  }
+  if (Object.freeze) {
+    Object.freeze(moduleInstanceObject);
+  }
+  return moduleInstanceObject;
+}
 /**
   @private
 
@@ -17,8 +40,8 @@
   * `{Object} context`: the active context for the handler
 */
 
-var RouteRecognizer = require("route-recognizer")['default'];
-var RSVP = require("rsvp")['default'];
+var RouteRecognizer = require("route-recognizer")["default"];
+var RSVP = __es6_transpiler_build_module_object__("RSVP", require("RSVP"));
 
 var slice = Array.prototype.slice;
 
@@ -173,7 +196,7 @@ function Router() {
 // TODO: separate into module?
 Router.Transition = Transition;
 
-exports['default'] = Router;
+exports["default"] = Router;
 
 
 /**
@@ -403,7 +426,7 @@ Router.prototype = {
 
           if (isParam(object)) {
             var name = recogHandler.names[0];
-            if ("" + object !== this.currentParams[name]) { return false; }
+            if (!this.currentParams || "" + object !== this.currentParams[name]) { return false; }
           } else if (handlerInfo.context !== object) {
             return false;
           }
