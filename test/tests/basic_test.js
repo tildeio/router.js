@@ -1,6 +1,10 @@
+import { Router } from "router";
+import { Backburner } from "backburner";
+import { resolve, configure, reject, Promise } from "rsvp";
+
 QUnit.config.testTimeout = 1000;
 
-var bb = new backburner.Backburner(['promises']);
+var bb = new Backburner(['promises']);
 
 function customAsync(callback, promise) {
   bb.defer('promises', promise, callback, promise);
@@ -32,7 +36,7 @@ var router, url, handlers, expectedUrl,
 module("The router", {
   setup: function() {
 
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
 
     handlers = {};
@@ -70,7 +74,7 @@ module("The router", {
 
 test("backburnerized testing works as expected", function() {
   expect(1);
-  RSVP.resolve("hello").then(function(word) {
+  resolve("hello").then(function(word) {
     equal(word, "hello", "backburner flush in teardown resolved this promise");
   });
 });
@@ -110,7 +114,7 @@ function shouldBeTransition (object) {
 function enableErrorHandlingDeferredActionQueue() {
 
   actions = [];
-  RSVP.configure('async', function(callback, promise) {
+  configure('async', function(callback, promise) {
     actions.push({
       callback: callback,
       promise: promise
@@ -903,7 +907,6 @@ test("query params should be considered to decide if a transition is identical",
 });
 
 
-//RSVP reported unhandled errors. Please match sure to provide an error handler for every promise
 test("retrying should work with queryParams and a URL transition", function () {
   return expect(0);
   return;
@@ -1997,7 +2000,7 @@ test("any of the model hooks can redirect with or without promise", function() {
 
   function redirectToAbout() {
     if (returnPromise) {
-      return RSVP.reject().then(null, function() {
+      return reject().then(null, function() {
         router.transitionTo(redirectTo);
       });
     } else {
@@ -2087,7 +2090,7 @@ test("transitionTo with a promise pauses the transition until resolve, passes re
 
   transitionTo('/index');
 
-  transitionTo('showPost', new RSVP.Promise(function(resolve, reject) {
+  transitionTo('showPost', new Promise(function(resolve, reject) {
     resolve({ id: 1 });
   }));
 });
@@ -2098,7 +2101,7 @@ test("error handler gets called for errors in validation hooks", function() {
   var expectedReason = { reason: 'No funciona, mon frere.' };
 
   function throwAnError() {
-    return RSVP.reject(expectedReason);
+    return reject(expectedReason);
   }
 
   handlers = {
@@ -2163,9 +2166,9 @@ test("error handler gets called for errors in validation hooks", function() {
   }, shouldNotHappen);
 });
 
-asyncTest("Errors shouldn't be handled after proceeding to next child route", function() {
+test("Errors shouldn't be handled after proceeding to next child route", function() {
 
-  expect(2);
+  expect(3);
 
   map(function(match) {
     match("/parent").to('parent', function(match) {
@@ -2178,7 +2181,7 @@ asyncTest("Errors shouldn't be handled after proceeding to next child route", fu
     articles: {
       beforeModel: function() {
         ok(true, "articles beforeModel was entered");
-        return RSVP.reject("blorg");
+        return reject("blorg");
       },
       events: {
         error: function() {
@@ -2190,7 +2193,7 @@ asyncTest("Errors shouldn't be handled after proceeding to next child route", fu
 
     login: {
       setup: function() {
-        start();
+        ok(true, 'login#setup');
       }
     },
 
@@ -2217,7 +2220,7 @@ test("can redirect from error handler", function() {
 
     showPost: {
       model: function() {
-        return RSVP.reject('borf!');
+        return reject('borf!');
       },
       events: {
         error: function(e) {
@@ -2231,7 +2234,7 @@ test("can redirect from error handler", function() {
             if (errorCount === 1) {
               // transition back here to test transitionTo error handling.
 
-              return router.transitionTo('showPost', RSVP.reject('borf!')).then(shouldNotHappen, function(e) {
+              return router.transitionTo('showPost', reject('borf!')).then(shouldNotHappen, function(e) {
                 equal(e, 'borf!', "got thing");
               });
             }
@@ -2784,7 +2787,7 @@ asyncTest("transitionTo will soak up resolved parent models of active transition
       adminSetupShouldBeEntered = false;
 
   function adminPromise() {
-    return lastAdminPromise = new RSVP.Promise(function(res) {
+    return lastAdminPromise = new Promise(function(res) {
       res(admin);
     });
   }
@@ -3077,10 +3080,8 @@ test("Returning a redirecting Transition from a model hook doesn't cause things 
 
 module("Multiple dynamic segments per route", {
   setup: function() {
-
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
-
   },
 
   teardown: function() {
@@ -3116,7 +3117,7 @@ test("Multiple string/number params are soaked up", function() {
 module("isActive", {
   setup: function() {
 
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
 
     handlers = {
@@ -3221,7 +3222,7 @@ test("isActive supports multiple soaked up string/number params (mixed)", functi
 module("Preservation of params between redirects", {
   setup: function() {
 
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
 
     expectedUrl = null;
@@ -3411,7 +3412,7 @@ test("beforeModel shouldn't be refired with incorrect params during redirect", f
 module("URL-less routes", {
   setup: function() {
 
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
 
     handlers = {};
@@ -3485,7 +3486,7 @@ test("Handling a URL on a route marked as inaccessible behaves like a failed url
 module("Intermediate transitions", {
   setup: function() {
 
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
 
     handlers = {};
@@ -3539,7 +3540,7 @@ test("intermediateTransitionTo() forces an immediate intermediate transition tha
         router.intermediateTransitionTo('loading');
         counterAt(3, "intermediate transition finished within foo#model");
 
-        return new RSVP.Promise(function(resolve) {
+        return new Promise(function(resolve) {
           counterAt(4, "foo's model promise resolves");
           resolve(fooModel);
         });

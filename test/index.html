@@ -8,6 +8,7 @@
 <body>
   <div id="qunit"></div>
   <div id="qunit-fixture"></div>
+  <script src="vendor/qunit.js"></script>
   <script src="../vendor/loader.js"></script>
   <script src="../tmp/deps.amd.js"></script>
   <script>
@@ -15,14 +16,11 @@
     RSVP            = require('rsvp');
     RouteRecognizer = require('route-recognizer');
   </script>
+  <script src="../tmp/tests/basic_test.amd.js"></script>
+  <script src="../tmp/tests/handler_info_test.amd.js"></script>
+  <script src="../tmp/tests/transition_intent_test.amd.js"></script>
+  <script src="../tmp/tests/transition_state_test.amd.js"></script>
+  <script src="../tmp/tests.js"></script>
   <script src="../dist/router-1.0.0.amd.js"></script>
-  <script>
-    Router = require('router').Router;
-  </script>
-  <script src="vendor/qunit.js"></script>
-  <script src="tests/tests.js"></script>
-  <!--<script src="tests/transition_intent_tests.js"></script> -->
-  <!-- <script src="tests/transition_state_tests.js"></script> -->
-  <!-- <script src="tests/handler_info_tests.js"></script> -->
 </body>
 </html>

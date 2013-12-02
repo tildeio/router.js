@@ -6,7 +6,7 @@ function nameFor(path) {
     result = path;
   }
 
-  return path;
+  return result;
 }
 
 module.exports = function(grunt) {

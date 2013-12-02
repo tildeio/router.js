@@ -1,9 +1,10 @@
-var TransitionState = Router.TransitionState;
+import { Router } from "router";
+import { TransitionState } from 'router/transition-state';
+import { Backburner } from "backburner";
+import { UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+import { resolve, configure, reject } from "rsvp";
 
-var UnresolvedHandlerInfoByObject = Router.UnresolvedHandlerInfoByObject;
-var UnresolvedHandlerInfoByParam = Router.UnresolvedHandlerInfoByParam;
-
-var bb = new backburner.Backburner(['promises']);
+var bb = new Backburner(['promises']);
 
 function customAsync(callback, promise) {
   bb.defer('promises', promise, callback, promise);

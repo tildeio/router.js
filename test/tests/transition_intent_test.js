@@ -1,16 +1,12 @@
+import { TransitionIntent } from 'router/transition-intent';
+import { URLTransitionIntent } from 'router/transition-intent/url-transition-intent';
+import { NamedTransitionIntent } from 'router/transition-intent/named-transition-intent';
+import { TransitionState } from 'router/transition-state';
+import { Backburner } from "backburner";
+import { HandlerInfo, ResolvedHandlerInfo, UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+import { configure } from "rsvp";
 
-var TransitionIntent = Router.TransitionIntent;
-var TransitionState  = Router.TransitionState;
-
-var ResolvedHandlerInfo = Router.ResolvedHandlerInfo;
-var HandlerInfo = Router.HandlerInfo;
-var UnresolvedHandlerInfoByObject = Router.UnresolvedHandlerInfoByObject;
-var UnresolvedHandlerInfoByParam = Router.UnresolvedHandlerInfoByParam;
-
-var URLTransitionIntent = Router.URLTransitionIntent;
-var NamedTransitionIntent = Router.NamedTransitionIntent;
-
-var bb = new backburner.Backburner(['promises']);
+var bb = new Backburner(['promises']);
 
 function customAsync(callback, promise) {
   bb.defer('promises', promise, callback, promise);

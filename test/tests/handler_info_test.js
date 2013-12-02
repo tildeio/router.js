@@ -1,10 +1,9 @@
-//var TransitionState = Router.TransitionState;
-var ResolvedHandlerInfo = Router.ResolvedHandlerInfo;
-var HandlerInfo = Router.HandlerInfo;
-var UnresolvedHandlerInfoByObject = Router.UnresolvedHandlerInfoByObject;
-var UnresolvedHandlerInfoByParam = Router.UnresolvedHandlerInfoByParam;
+import { Router } from "router";
+import { HandlerInfo, ResolvedHandlerInfo, UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+import { Backburner } from "backburner";
+import { resolve, configure, reject, Promise } from "rsvp";
 
-var bb = new backburner.Backburner(['promises']);
+var bb = new Backburner(['promises']);
 
 function customAsync(callback, promise) {
   bb.defer('promises', promise, callback, promise);
@@ -19,7 +18,7 @@ function noop() {}
 
 module("HandlerInfo", {
   setup: function() {
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
   },
 
@@ -56,7 +55,7 @@ test("HandlerInfo can be aborted mid-resolve", function() {
 
   function abortResolve() {
     ok(true, "abort was called");
-    return RSVP.reject("LOL");
+    return reject("LOL");
   }
 
   handlerInfo.resolve(async, abortResolve, {}).fail(function(error) {
@@ -129,7 +128,7 @@ test("HandlerInfo#resolve runs afterModel hook on handler", function() {
     afterModel: function(resolvedModel, payload) {
       equal(resolvedModel, model, "afterModel receives the value resolved by model");
       equal(payload, transition);
-      return RSVP.resolve(123); // 123 should get ignored
+      return resolve(123); // 123 should get ignored
     }
   };
 
@@ -138,7 +137,7 @@ test("HandlerInfo#resolve runs afterModel hook on handler", function() {
     handler: handler,
     params: {},
     getModel: function() {
-      return RSVP.resolve(model);
+      return resolve(model);
     }
   });
 
@@ -181,7 +180,7 @@ test("UnresolvedHandlerInfoByObject does NOT get its model hook called", functio
     name: 'foo',
     handler: handler,
     names: ['wat'],
-    context: RSVP.resolve({ name: 'dorkletons' })
+    context: resolve({ name: 'dorkletons' })
   });
 
   handlerInfo.resolve(async, noop, {}).then(function(resolvedHandlerInfo) {

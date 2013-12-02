@@ -6,7 +6,10 @@ function nameFor(path) {
     result = path;
   }
 
-  return path;
+  console.log("OMG");
+  console.log(path);
+
+  return result;
 }
 
 module.exports = {
@@ -41,8 +44,14 @@ module.exports = {
   testsAmd: {
     moduleName: nameFor,
     type: 'amd',
-    src: ['test/test_helpers.js', 'test/tests.js', 'test/tests/**/*_test.js'],
-    dest: 'tmp/tests.amd.js'
+
+    files: [{
+      expand: true,
+      cwd: 'test/',
+      src: ['**/*_test.js'],
+      dest: 'tmp/',
+      ext: '.amd.js'
+    }]
   },
 
   testsCommonjs: {
