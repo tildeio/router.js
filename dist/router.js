@@ -404,7 +404,7 @@
 
             if (isParam(object)) {
               var name = recogHandler.names[0];
-              if ("" + object !== this.currentParams[name]) { return false; }
+              if (!this.currentParams || "" + object !== this.currentParams[name]) { return false; }
             } else if (handlerInfo.context !== object) {
               return false;
             }

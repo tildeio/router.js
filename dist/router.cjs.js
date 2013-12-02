@@ -17,8 +17,8 @@
   * `{Object} context`: the active context for the handler
 */
 
-var RouteRecognizer = require("route-recognizer")['default'];
-var RSVP = require("rsvp")['default'];
+var RouteRecognizer = require("route-recognizer")["default"];
+var RSVP = require("rsvp")["default"];
 
 var slice = Array.prototype.slice;
 
@@ -173,7 +173,7 @@ function Router() {
 // TODO: separate into module?
 Router.Transition = Transition;
 
-exports['default'] = Router;
+exports["default"] = Router;
 
 
 /**
@@ -403,7 +403,7 @@ Router.prototype = {
 
           if (isParam(object)) {
             var name = recogHandler.names[0];
-            if ("" + object !== this.currentParams[name]) { return false; }
+            if (!this.currentParams || "" + object !== this.currentParams[name]) { return false; }
           } else if (handlerInfo.context !== object) {
             return false;
           }
