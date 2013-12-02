@@ -8,7 +8,6 @@ var define, requireModule, require, requirejs;
   };
 
   requirejs = require = requireModule = function(name) {
-  requirejs._eak_seen = registry;
 
     if (seen[name]) { return seen[name]; }
     seen[name] = {};
