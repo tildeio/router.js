@@ -20,7 +20,7 @@ function noop() {}
 module("TransitionState", {
 
   setup: function() {
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
   },
 
@@ -52,7 +52,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
         ++counter;
         equal(counter, 1);
         shouldContinue();
-        return RSVP.resolve(resolvedHandlerInfos[0]);
+        return resolve(resolvedHandlerInfos[0]);
       }
     },
     {
@@ -60,7 +60,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
         ++counter;
         equal(counter, 2);
         shouldContinue();
-        return RSVP.resolve(resolvedHandlerInfos[1]);
+        return resolve(resolvedHandlerInfos[1]);
       }
     },
   ];
@@ -95,7 +95,7 @@ test("State resolution can be halted", function() {
   ];
 
   function keepGoing() {
-    return RSVP.reject("NOPE");
+    return reject("NOPE");
   }
 
   state.resolve(async, keepGoing).fail(function(reason) {
@@ -125,14 +125,14 @@ test("Integration w/ HandlerInfos", function() {
         model: function(params, payload) {
           equal(payload, transition);
           equal(params.foo_id, '123', "foo#model received expected params");
-          return RSVP.resolve(fooModel);
+          return resolve(fooModel);
         }
       }
     }),
     new UnresolvedHandlerInfoByObject({
       name: 'bar',
       names: ['bar_id'],
-      context: RSVP.resolve(barModel),
+      context: resolve(barModel),
       handler: {}
     })
   ];

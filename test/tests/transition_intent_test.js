@@ -77,7 +77,7 @@ module("TransitionIntent", {
       }
     };
 
-    RSVP.configure('async', customAsync);
+    configure('async', customAsync);
     bb.begin();
   },
 
