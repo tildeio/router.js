@@ -341,3 +341,23 @@ test("can retry a query-params refresh", function() {
   expectedUrl = '/index?foo=def';
 });
 
+test("tests whether query params to transitionTo are considered active", function() {
+  expect(5);
+
+  handlers.index = {
+    events: {
+      finalizeQueryParamChange: function(params, finalParams) {
+        finalParams.push({ key: 'foo', value: params.foo });
+        finalParams.push({ key: 'bar', value: params.bar });
+      }
+    }
+  };
+
+  transitionTo(router, '/index?foo=8&bar=9');
+  deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
+  ok(router.isActive('index', { queryParams: {foo: '8', bar: '9' }}), "The index handler is active");
+  ok(!router.isActive('index', { queryParams: {foo: '8'}}), "Only supply one changed query param");
+  ok(!router.isActive('index', { queryParams: {foo: '8', bar: '10', baz: '11' }}), "A new query param was added");
+  ok(!router.isActive('index', { queryParams: {foo: '8', bar: '11', }}), "A query param changed");
+});
+
