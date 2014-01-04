@@ -255,13 +255,7 @@ test("model hook receives queryParams", function() {
 
   handlers.index = {
     model: function(params, t) {
-      debugger;
       deepEqual(params, { queryParams: { foo: '5' } });
-    },
-    events: {
-      finalizeQueryParamChange: function(params, finalParams) {
-        finalParams.foo = params.foo;
-      }
     }
   };
 
@@ -276,7 +270,6 @@ test("can cause full transition by calling refresh within queryParamsDidChange",
   handlers.index = {
     model: function(params, t) {
       ++modelCount;
-      //debugger;
       if (modelCount === 1) {
         deepEqual(params, { queryParams: { foo: '5' } });
       } else if (modelCount === 2) {
@@ -286,9 +279,6 @@ test("can cause full transition by calling refresh within queryParamsDidChange",
     events: {
       queryParamsDidChange: function() {
         router.refresh(this);
-      },
-      finalizeQueryParamChange: function(params, finalParams) {
-        finalParams.foo = params.foo;
       }
     }
   };
@@ -298,5 +288,58 @@ test("can cause full transition by calling refresh within queryParamsDidChange",
   equal(modelCount, 1);
   transitionTo(router, '/index?foo=6');
   equal(modelCount, 2);
+});
+
+test("can retry a query-params refresh", function() {
+
+  map(function(match) {
+    match("/index").to("index");
+    match("/login").to("login");
+  });
+
+  expect(8);
+
+  var redirect = false;
+  var indexTransition;
+  handlers.index = {
+    model: function(params, transition) {
+      if (redirect) {
+        indexTransition = transition;
+        router.transitionTo('login');
+      }
+    },
+    setup: function() {
+      ok(true, "index#setup");
+    },
+    events: {
+      queryParamsDidChange: function() {
+        ok(true, "index#queryParamsDidChange");
+        redirect = true;
+        router.refresh(this);
+      },
+      finalizeQueryParamChange: function(params, finalParams) {
+        finalParams.foo = params.foo;
+        finalParams.push({ key: 'foo', value: params.foo });
+      }
+    }
+  };
+
+  handlers.login = {
+    setup: function() {
+      ok(true, "login#setup");
+    }
+  };
+
+  router.log = console.log.bind(console);
+
+  expectedUrl = '/index?foo=abc';
+  transitionTo(router, '/index?foo=abc');
+  expectedUrl = '/login';
+  transitionTo(router, '/index?foo=def');
+  flushBackburner();
+  redirect = false;
+  ok(indexTransition, "index transition was saved");
+  indexTransition.retry();
+  expectedUrl = '/index?foo=def';
 });
 
