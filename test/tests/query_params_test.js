@@ -330,8 +330,6 @@ test("can retry a query-params refresh", function() {
     }
   };
 
-  router.log = console.log.bind(console);
-
   expectedUrl = '/index?foo=abc';
   transitionTo(router, '/index?foo=abc');
   expectedUrl = '/login';
