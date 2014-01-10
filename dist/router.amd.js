@@ -135,8 +135,11 @@ define("router/handler-info",
     }
 
     ResolvedHandlerInfo.prototype = oCreate(HandlerInfo.prototype);
-    ResolvedHandlerInfo.prototype.resolve = function() {
+    ResolvedHandlerInfo.prototype.resolve = function(async, shouldContinue, payload) {
       // A ResolvedHandlerInfo just resolved with itself.
+      if (payload && payload.resolvedModels) {
+        payload.resolvedModels[this.name] = this.context;
+      }
       return resolve(this);
     };
 
@@ -497,8 +500,7 @@ define("router/router",
         var partitionedArgs   = extractQueryParams(slice.call(arguments, 1)),
             contexts          = partitionedArgs[0],
             queryParams       = partitionedArgs[1],
-            activeQueryParams  = {},
-            effectiveQueryParams = {};
+            activeQueryParams  = this.state.queryParams;
 
         var targetHandlerInfos = this.state.handlerInfos,
             found = false, names, object, handlerInfo, handlerObj, i, len;
@@ -530,7 +532,8 @@ define("router/router",
 
         var newState = intent.applyToHandlers(state, recogHandlers, this.getHandler, targetHandler, true, true);
 
-        return handlerInfosEqual(newState.handlerInfos, state.handlerInfos);
+        return handlerInfosEqual(newState.handlerInfos, state.handlerInfos) && 
+               !getChangelist(activeQueryParams, queryParams);
       },
 
       trigger: function(name) {
@@ -1300,19 +1303,6 @@ define("router/transition-state",
           return handlerInfo.resolve(async, innerShouldContinue, payload)
                             .then(proceed);
         }
-      },
-
-      getResolvedHandlerInfos: function() {
-        var resolvedHandlerInfos = [];
-        var handlerInfos = this.handlerInfos;
-        for (var i = 0, len = handlerInfos.length; i < len; ++i) {
-          var handlerInfo = handlerInfos[i];
-          if (!(handlerInfo instanceof ResolvedHandlerInfo)) {
-            break;
-          }
-          resolvedHandlerInfos.push(handlerInfo);
-        }
-        return resolvedHandlerInfos;
       }
     };
 

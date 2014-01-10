@@ -132,8 +132,11 @@ function ResolvedHandlerInfo(props) {
 }
 
 ResolvedHandlerInfo.prototype = oCreate(HandlerInfo.prototype);
-ResolvedHandlerInfo.prototype.resolve = function() {
+ResolvedHandlerInfo.prototype.resolve = function(async, shouldContinue, payload) {
   // A ResolvedHandlerInfo just resolved with itself.
+  if (payload && payload.resolvedModels) {
+    payload.resolvedModels[this.name] = this.context;
+  }
   return resolve(this);
 };
 

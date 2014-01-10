@@ -671,6 +671,68 @@ test("pivotHandler is exposed on Transition object", function() {
   }).then(start, shouldNotHappen);
 });
 
+asyncTest("transition.resolvedModels after redirects b/w routes", function() {
+  map(function(match) {
+    match("/").to('application', function(match) {
+      match("/peter").to('peter');
+      match("/wagenet").to('wagenet');
+    });
+  });
+
+  var app = { app: true },
+      redirect = true;
+
+  handlers = {
+    application: {
+      model: function(params) {
+        ok(true, "application#model");
+        return app;
+      }
+    },
+
+    peter: {
+      model: function(params, transition) {
+        deepEqual(transition.resolvedModels.application, app, "peter: resolvedModel correctly stored in resolvedModels for parent route");
+        router.transitionTo("wagenet");
+      }
+    },
+    wagenet: {
+      model: function(params, transition) {
+        deepEqual(transition.resolvedModels.application, app, "wagenet: resolvedModel correctly stored in resolvedModels for parent route");
+        start();
+      }
+    }
+  };
+
+  transitionTo(router, "/peter");
+});
+
+test("transition.resolvedModels after redirects within the same route", function() {
+  var admin = { admin: true },
+      redirect = true;
+
+  handlers = {
+    admin: {
+      model: function(params) {
+        ok(true, "admin#model");
+        return admin;
+      }
+    },
+
+    adminPosts: {
+      model: function(params, transition) {
+        deepEqual(transition.resolvedModels.admin, admin, "resolvedModel correctly stored in resolvedModels for parent route");
+        if (redirect) {
+          redirect = false;
+          router.transitionTo("adminPosts");
+        }
+      }
+    }
+  };
+
+  transitionTo(router, "/posts/admin/1/posts");
+});
+
 test("Moving to the same route with a different parent dynamic segment re-runs model", function() {
   var admins = { 1: { id: 1 }, 2: { id: 2 } },
       adminPosts = { 1: { id: 1 }, 2: { id: 2 } },
