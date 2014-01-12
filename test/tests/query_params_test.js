@@ -342,7 +342,7 @@ test("can retry a query-params refresh", function() {
 });
 
 test("tests whether query params to transitionTo are considered active", function() {
-  expect(5);
+  expect(6);
 
   handlers.index = {
     events: {
@@ -356,8 +356,29 @@ test("tests whether query params to transitionTo are considered active", functio
   transitionTo(router, '/index?foo=8&bar=9');
   deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
   ok(router.isActive('index', { queryParams: {foo: '8', bar: '9' }}), "The index handler is active");
+  ok(router.isActive('index', { queryParams: {foo: 8, bar: 9 }}), "Works when property is number");
   ok(!router.isActive('index', { queryParams: {foo: '8'}}), "Only supply one changed query param");
   ok(!router.isActive('index', { queryParams: {foo: '8', bar: '10', baz: '11' }}), "A new query param was added");
   ok(!router.isActive('index', { queryParams: {foo: '8', bar: '11', }}), "A query param changed");
 });
 
+test("tests whether array query params to transitionTo are considered active", function() {
+  expect(7);
+
+  handlers.index = {
+    events: {
+      finalizeQueryParamChange: function(params, finalParams) {
+        finalParams.push({ key: 'foo', value: params.foo });
+      }
+    }
+  };
+
+  transitionTo(router, '/index?foo[]=1&foo[]=2');
+  deepEqual(router.state.queryParams, { foo: ['1', '2']});
+  ok(router.isActive('index', { queryParams: {foo: ['1', '2'] }}), "The index handler is active");
+  ok(router.isActive('index', { queryParams: {foo: [1, 2] }}), "Works when array has numeric elements");
+  ok(!router.isActive('index', { queryParams: {foo: ['2', '1']}}), "Change order");
+  ok(!router.isActive('index', { queryParams: {foo: ['1', '2', '3']}}), "Change Length");
+  ok(!router.isActive('index', { queryParams: {foo: ['3', '4']}}), "Change Content");
+  ok(!router.isActive('index', { queryParams: {foo: []}}), "Empty Array");
+});

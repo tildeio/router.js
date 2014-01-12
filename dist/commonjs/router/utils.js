@@ -1,6 +1,10 @@
 "use strict";
 var slice = Array.prototype.slice;
 
+function isArray(test) {
+  return Object.prototype.toString.call(test) === "[object Array]";
+}
+
 function merge(hash, other) {
   for (var prop in other) {
     if (other.hasOwnProperty(prop)) { hash[prop] = other[prop]; }
@@ -30,6 +34,22 @@ function extractQueryParams(array) {
   }
 }
 
+/**
+  @private
+
+  Coerces query param properties and array elements into strings.
+**/
+function coerceQueryParamsToString(queryParams) {
+  for (var key in queryParams) {
+    if (typeof queryParams[key] === 'number') {
+      queryParams[key] = '' + queryParams[key];
+    } else if (isArray(queryParams[key])) {
+      for (var i = 0, l = queryParams[key].length; i < l; i++) {
+        queryParams[key][i] = '' + queryParams[key][i];
+      }
+    }
+  }
+}
 /**
   @private
  */
@@ -131,7 +151,6 @@ function trigger(router, handlerInfos, ignoreFailure, args) {
   }
 }
 
-
 function getChangelist(oldObject, newObject) {
   var key;
   var results = {
@@ -143,6 +162,8 @@ function getChangelist(oldObject, newObject) {
   merge(results.all, newObject);
 
   var didChange = false;
+  coerceQueryParamsToString(oldObject);
+  coerceQueryParamsToString(newObject);
 
   // Calculate removals
   for (key in oldObject) {
@@ -157,9 +178,24 @@ function getChangelist(oldObject, newObject) {
   // Calculate changes
   for (key in newObject) {
     if (newObject.hasOwnProperty(key)) {
-      if (oldObject[key] !== newObject[key]) {
-        results.changed[key] = newObject[key];
-        didChange = true;
+      if (isArray(oldObject[key]) && isArray(newObject[key])) {
+        if (oldObject[key].length !== newObject[key].length) {
+          results.changed[key] = newObject[key];
+          didChange = true;
+        } else {
+          for (var i = 0, l = oldObject[key].length; i < l; i++) {
+            if (oldObject[key][i] !== newObject[key][i]) {
+              results.changed[key] = newObject[key];
+              didChange = true;
+            }
+          }
+        }
+      }
+      else {
+        if (oldObject[key] !== newObject[key]) {
+          results.changed[key] = newObject[key];
+          didChange = true;
+        }
       }
     }
   }
@@ -178,3 +214,4 @@ exports.forEach = forEach;
 exports.slice = slice;
 exports.serialize = serialize;
 exports.getChangelist = getChangelist;
+exports.coerceQueryParamsToString = coerceQueryParamsToString;
