@@ -585,10 +585,12 @@ prefer routes with fewer dynamic segments, so
 `/posts/edit` will match in preference to `/posts/:id`
 if both match.
 
-## Architecture
+## Architecture / Contributing
 
-Please read [this gist](https://gist.github.com/machty/7698646)
-for an overview on `router.js`'s architecture, particularly if
-you are interested in contributing to this project.
+An architectural overview of router.js and its related libraries can be
+found in [ARCHITECTURE.md](ARCHITECTURE.md). Please read this document
+if you are interested in better understanding / contributing to
+router.js.
 
 [builds-page]: http://routerjs.builds.emberjs.com.s3-website-us-east-1.amazonaws.com/index.html
+
