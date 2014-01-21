@@ -5,6 +5,7 @@ var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 var trigger = require("./utils").trigger;
 var slice = require("./utils").slice;
 var log = require("./utils").log;
+var promiseLabel = require("./utils").promiseLabel;
 
 /**
   @private
@@ -55,7 +56,7 @@ function Transition(router, intent, state, error) {
         transition.abort();
         throw result.error;
       }
-    });
+    }, promiseLabel('Handle Abort'));
   } else {
     this.promise = resolve(this.state);
     this.params = {};
@@ -63,7 +64,7 @@ function Transition(router, intent, state, error) {
 
   function checkForAbort() {
     if (transition.isAborted) {
-      return reject();
+      return reject(undefined, promiseLabel("Transition aborted - reject"));
     }
   }
 }

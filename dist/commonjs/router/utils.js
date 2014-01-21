@@ -203,6 +203,10 @@ function getChangelist(oldObject, newObject) {
   return didChange && results;
 }
 
+function promiseLabel(label) {
+  return 'Router: ' + label;
+}
+
 exports.trigger = trigger;
 exports.log = log;
 exports.oCreate = oCreate;
@@ -215,3 +219,4 @@ exports.slice = slice;
 exports.serialize = serialize;
 exports.getChangelist = getChangelist;
 exports.coerceQueryParamsToString = coerceQueryParamsToString;
+exports.promiseLabel = promiseLabel;

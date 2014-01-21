@@ -12,6 +12,7 @@ var merge = require("./utils").merge;
 var serialize = require("./utils").serialize;
 var extractQueryParams = require("./utils").extractQueryParams;
 var getChangelist = require("./utils").getChangelist;
+var promiseLabel = require("./utils").promiseLabel;
 var TransitionState = require("./transition-state").TransitionState;
 var logAbort = require("./transition").logAbort;
 var Transition = require("./transition").Transition;
@@ -40,10 +41,12 @@ Router.prototype = {
   map: function(callback) {
     this.recognizer.delegate = this.delegate;
 
-    this.recognizer.map(callback, function(recognizer, route) {
-      var lastHandler = route[route.length - 1].handler;
-      var args = [route, { as: lastHandler }];
-      recognizer.add.apply(recognizer, args);
+    this.recognizer.map(callback, function(recognizer, routes) {
+      for (var i = routes.length - 1, proceed = true; i >= 0 && proceed; --i) {
+        var route = routes[i];
+        recognizer.add(routes, { as: route.handler });
+        proceed = route.path === '/' || route.path === '' || route.handler.slice(-6) === '.index';
+      }
     });
   },
 
@@ -98,7 +101,7 @@ Router.prototype = {
                 router.didTransition(router.currentHandlerInfos);
               }
               return result;
-            });
+            }, null, promiseLabel("Transition complete"));
             return newTransition;
           }
         }
@@ -127,8 +130,8 @@ Router.prototype = {
       newTransition.promise = newTransition.promise.then(function(result) {
         return router.async(function() {
           return finalizeTransition(newTransition, result.state);
-        });
-      });
+        }, "Finalize transition");
+      }, null, promiseLabel("Settle transition promise when transition is finalized"));
 
       if (!wasTransitioning) {
         trigger(this, this.state.handlerInfos, true, ['willTransition', newTransition]);
@@ -322,7 +325,7 @@ Router.prototype = {
 
     var newState = intent.applyToHandlers(state, recogHandlers, this.getHandler, targetHandler, true, true);
 
-    return handlerInfosEqual(newState.handlerInfos, state.handlerInfos) && 
+    return handlerInfosEqual(newState.handlerInfos, state.handlerInfos) &&
            !getChangelist(activeQueryParams, queryParams);
   },
 
@@ -343,10 +346,10 @@ Router.prototype = {
     @return {Promise} a promise that fulfills with the
                       value returned from the callback
    */
-  async: function(callback) {
+  async: function(callback, label) {
     return new Promise(function(resolve) {
       resolve(callback());
-    });
+    }, label);
   },
 
   /**

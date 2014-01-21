@@ -1,6 +1,7 @@
 "use strict";
 var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 var forEach = require("./utils").forEach;
+var promiseLabel = require("./utils").promiseLabel;
 var resolve = require("rsvp").resolve;
 
 function TransitionState(other) {
@@ -14,8 +15,19 @@ TransitionState.prototype = {
   queryParams: null,
   params: null,
 
-  resolve: function(async, shouldContinue, payload) {
+  promiseLabel: function(label) {
+    var targetName = '';
+    forEach(this.handlerInfos, function(handlerInfo) {
+      if (targetName !== '') {
+        targetName += '.';
+      }
+      targetName += handlerInfo.name;
+    });
+    return promiseLabel("'" + targetName + "': " + label);
+  },
 
+  resolve: function(async, shouldContinue, payload) {
+    var self = this;
     // First, calculate params for this state. This is useful
     // information to provide to the various route hooks.
     var params = this.params;
@@ -30,16 +42,17 @@ TransitionState.prototype = {
     var wasAborted = false;
 
     // The prelude RSVP.resolve() asyncs us into the promise land.
-    return resolve().then(resolveOneHandlerInfo)['catch'](handleError);
+    return resolve(null, this.promiseLabel("Start transition"))
+    .then(resolveOneHandlerInfo, null, this.promiseLabel('Resolve handler'))['catch'](handleError, this.promiseLabel('Handle error'));
 
     function innerShouldContinue() {
-      return resolve(shouldContinue())['catch'](function(reason) {
+      return resolve(shouldContinue(), promiseLabel("Check if should continue"))['catch'](function(reason) {
         // We distinguish between errors that occurred
         // during resolution (e.g. beforeModel/model/afterModel),
         // and aborts due to a rejecting promise from shouldContinue().
         wasAborted = true;
         throw reason;
-      });
+      }, promiseLabel("Handle abort"));
     }
 
     function handleError(error) {
@@ -69,7 +82,7 @@ TransitionState.prototype = {
 
       // Proceed after ensuring that the redirect hook
       // didn't abort this transition by transitioning elsewhere.
-      return innerShouldContinue().then(resolveOneHandlerInfo);
+      return innerShouldContinue().then(resolveOneHandlerInfo, null, promiseLabel('Resolve handler'));
     }
 
     function resolveOneHandlerInfo() {
@@ -85,7 +98,7 @@ TransitionState.prototype = {
       var handlerInfo = currentState.handlerInfos[payload.resolveIndex];
 
       return handlerInfo.resolve(async, innerShouldContinue, payload)
-                        .then(proceed);
+                        .then(proceed, null, promiseLabel('Proceed'));
     }
   }
 };
