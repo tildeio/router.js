@@ -2424,7 +2424,7 @@ test("Transition#followRedirects() returns a promise that fulfills when any redi
 
   handlers.about = {
     redirect: function() {
-      router.transitionTo('faq');
+      router.transitionTo('faq').then(null, shouldNotHappen);
     }
   };
 
@@ -2440,7 +2440,7 @@ test("Transition#followRedirects() returns a promise that fulfills when any redi
     };
 
     // followRedirects should just reject for non-redirecting transitions.
-    return router.transitionTo('about').followRedirects().catch(assertAbort);
+    return router.transitionTo('about').followRedirects().then(shouldNotHappen, assertAbort);
   });
 });
 
