@@ -50,11 +50,11 @@ function Transition(router, intent, state, error) {
     this.sequence = Transition.currentSequence++;
     this.promise = state.resolve(router.async, checkForAbort, this)['catch'](function(result) {
       if (result.wasAborted) {
-        throw logAbort(transition);
+        return reject(logAbort(transition));
       } else {
         transition.trigger('error', result.error, transition, result.handlerWithError);
         transition.abort();
-        throw result.error;
+        return reject(result.error);
       }
     }, promiseLabel('Handle Abort'));
   } else {
@@ -184,7 +184,7 @@ Transition.prototype = {
 
     Note: This method is also aliased as `send`
 
-    @param {Boolean} ignoreFailure the name of the event to fire
+    @param {Boolean} [ignoreFailure=false] a boolean specifying whether unhandled events throw an error
     @param {String} name the name of the event to fire
    */
   trigger: function (ignoreFailure) {
@@ -216,7 +216,7 @@ Transition.prototype = {
       if (router.activeTransition) {
         return router.activeTransition.followRedirects();
       }
-      throw reason;
+      return reject(reason);
     });
   },
 

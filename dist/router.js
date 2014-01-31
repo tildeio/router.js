@@ -1282,6 +1282,7 @@ define("router/transition-state",
     var forEach = __dependency2__.forEach;
     var promiseLabel = __dependency2__.promiseLabel;
     var resolve = __dependency3__.resolve;
+    var reject = __dependency3__.reject;
 
     function TransitionState(other) {
       this.handlerInfos = [];
@@ -1330,7 +1331,7 @@ define("router/transition-state",
             // during resolution (e.g. beforeModel/model/afterModel),
             // and aborts due to a rejecting promise from shouldContinue().
             wasAborted = true;
-            throw reason;
+            return reject(reason);
           }, promiseLabel("Handle abort"));
         }
 
@@ -1340,12 +1341,12 @@ define("router/transition-state",
           var handlerInfos = currentState.handlerInfos;
           var errorHandlerIndex = payload.resolveIndex >= handlerInfos.length ?
                                   handlerInfos.length - 1 : payload.resolveIndex;
-          throw {
+          return reject({
             error: error,
             handlerWithError: currentState.handlerInfos[errorHandlerIndex].handler,
             wasAborted: wasAborted,
             state: currentState
-          };
+          });
         }
 
         function proceed(resolvedHandlerInfo) {
@@ -1442,11 +1443,11 @@ define("router/transition",
         this.sequence = Transition.currentSequence++;
         this.promise = state.resolve(router.async, checkForAbort, this)['catch'](function(result) {
           if (result.wasAborted) {
-            throw logAbort(transition);
+            return reject(logAbort(transition));
           } else {
             transition.trigger('error', result.error, transition, result.handlerWithError);
             transition.abort();
-            throw result.error;
+            return reject(result.error);
           }
         }, promiseLabel('Handle Abort'));
       } else {
@@ -1576,7 +1577,7 @@ define("router/transition",
 
         Note: This method is also aliased as `send`
 
-        @param {Boolean} ignoreFailure the name of the event to fire
+        @param {Boolean} [ignoreFailure=false] a boolean specifying whether unhandled events throw an error
         @param {String} name the name of the event to fire
        */
       trigger: function (ignoreFailure) {
@@ -1608,7 +1609,7 @@ define("router/transition",
           if (router.activeTransition) {
             return router.activeTransition.followRedirects();
           }
-          throw reason;
+          return reject(reason);
         });
       },
 

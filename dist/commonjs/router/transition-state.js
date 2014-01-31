@@ -3,6 +3,7 @@ var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 var forEach = require("./utils").forEach;
 var promiseLabel = require("./utils").promiseLabel;
 var resolve = require("rsvp").resolve;
+var reject = require("rsvp").reject;
 
 function TransitionState(other) {
   this.handlerInfos = [];
@@ -51,7 +52,7 @@ TransitionState.prototype = {
         // during resolution (e.g. beforeModel/model/afterModel),
         // and aborts due to a rejecting promise from shouldContinue().
         wasAborted = true;
-        throw reason;
+        return reject(reason);
       }, promiseLabel("Handle abort"));
     }
 
@@ -61,12 +62,12 @@ TransitionState.prototype = {
       var handlerInfos = currentState.handlerInfos;
       var errorHandlerIndex = payload.resolveIndex >= handlerInfos.length ?
                               handlerInfos.length - 1 : payload.resolveIndex;
-      throw {
+      return reject({
         error: error,
         handlerWithError: currentState.handlerInfos[errorHandlerIndex].handler,
         wasAborted: wasAborted,
         state: currentState
-      };
+      });
     }
 
     function proceed(resolvedHandlerInfo) {
