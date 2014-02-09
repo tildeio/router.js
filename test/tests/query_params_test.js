@@ -357,7 +357,7 @@ test("tests whether query params to transitionTo are considered active", functio
   deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
   ok(router.isActive('index', { queryParams: {foo: '8', bar: '9' }}), "The index handler is active");
   ok(router.isActive('index', { queryParams: {foo: 8, bar: 9 }}), "Works when property is number");
-  ok(!router.isActive('index', { queryParams: {foo: '8'}}), "Only supply one changed query param");
+  ok(!router.isActive('index', { queryParams: {foo: '9'}}), "Only supply one changed query param");
   ok(!router.isActive('index', { queryParams: {foo: '8', bar: '10', baz: '11' }}), "A new query param was added");
   ok(!router.isActive('index', { queryParams: {foo: '8', bar: '11', }}), "A query param changed");
 });
