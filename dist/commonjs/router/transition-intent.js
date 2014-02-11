@@ -13,4 +13,4 @@ TransitionIntent.prototype.applyToState = function(oldState) {
   return oldState;
 };
 
-exports.TransitionIntent = TransitionIntent;
+exports["default"] = TransitionIntent;

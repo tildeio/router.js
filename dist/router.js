@@ -283,12 +283,12 @@ define("router/router",
     var extractQueryParams = __dependency3__.extractQueryParams;
     var getChangelist = __dependency3__.getChangelist;
     var promiseLabel = __dependency3__.promiseLabel;
-    var TransitionState = __dependency4__.TransitionState;
+    var TransitionState = __dependency4__["default"];
     var logAbort = __dependency5__.logAbort;
     var Transition = __dependency5__.Transition;
     var TransitionAborted = __dependency5__.TransitionAborted;
-    var NamedTransitionIntent = __dependency6__.NamedTransitionIntent;
-    var URLTransitionIntent = __dependency7__.URLTransitionIntent;
+    var NamedTransitionIntent = __dependency6__["default"];
+    var URLTransitionIntent = __dependency7__["default"];
 
     var pop = Array.prototype.pop;
 
@@ -994,7 +994,7 @@ define("router/router",
       return finalQueryParams;
     }
 
-    __exports__.Router = Router;
+    __exports__["default"] = Router;
   });
 define("router/transition-intent", 
   ["./utils","exports"],
@@ -1014,14 +1014,14 @@ define("router/transition-intent",
       return oldState;
     };
 
-    __exports__.TransitionIntent = TransitionIntent;
+    __exports__["default"] = TransitionIntent;
   });
 define("router/transition-intent/named-transition-intent", 
   ["../transition-intent","../transition-state","../handler-info","../utils","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __exports__) {
     "use strict";
-    var TransitionIntent = __dependency1__.TransitionIntent;
-    var TransitionState = __dependency2__.TransitionState;
+    var TransitionIntent = __dependency1__["default"];
+    var TransitionState = __dependency2__["default"];
     var UnresolvedHandlerInfoByParam = __dependency3__.UnresolvedHandlerInfoByParam;
     var UnresolvedHandlerInfoByObject = __dependency3__.UnresolvedHandlerInfoByObject;
     var isParam = __dependency4__.isParam;
@@ -1214,14 +1214,14 @@ define("router/transition-intent/named-transition-intent",
       });
     };
 
-    __exports__.NamedTransitionIntent = NamedTransitionIntent;
+    __exports__["default"] = NamedTransitionIntent;
   });
 define("router/transition-intent/url-transition-intent", 
   ["../transition-intent","../transition-state","../handler-info","../utils","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __exports__) {
     "use strict";
-    var TransitionIntent = __dependency1__.TransitionIntent;
-    var TransitionState = __dependency2__.TransitionState;
+    var TransitionIntent = __dependency1__["default"];
+    var TransitionState = __dependency2__["default"];
     var UnresolvedHandlerInfoByParam = __dependency3__.UnresolvedHandlerInfoByParam;
     var oCreate = __dependency4__.oCreate;
     var merge = __dependency4__.merge;
@@ -1282,7 +1282,7 @@ define("router/transition-intent/url-transition-intent",
       this.name = "UnrecognizedURLError";
     }
 
-    __exports__.URLTransitionIntent = URLTransitionIntent;
+    __exports__["default"] = URLTransitionIntent;
   });
 define("router/transition-state", 
   ["./handler-info","./utils","rsvp","exports"],
@@ -1396,7 +1396,7 @@ define("router/transition-state",
       }
     };
 
-    __exports__.TransitionState = TransitionState;
+    __exports__["default"] = TransitionState;
   });
 define("router/transition", 
   ["rsvp","./handler-info","./utils","exports"],
@@ -1667,7 +1667,7 @@ define("router/utils",
       return Object.prototype.toString.call(test) === "[object Array]";
     }
 
-    function merge(hash, other) {
+    __exports__.isArray = isArray;function merge(hash, other) {
       for (var prop in other) {
         if (other.hasOwnProperty(prop)) { hash[prop] = other[prop]; }
       }
@@ -1678,7 +1678,7 @@ define("router/utils",
       F.prototype = proto;
       return new F();
     };
-
+    __exports__.oCreate = oCreate;
     /**
       @private
 
@@ -1696,7 +1696,7 @@ define("router/utils",
       }
     }
 
-    /**
+    __exports__.extractQueryParams = extractQueryParams;/**
       @private
 
       Coerces query param properties and array elements into strings.
@@ -1726,7 +1726,7 @@ define("router/utils",
       }
     }
 
-    function bind(fn, context) {
+    __exports__.log = log;function bind(fn, context) {
       var boundArgs = arguments;
       return function(value) {
         var args = slice.call(boundArgs, 2);
@@ -1735,7 +1735,7 @@ define("router/utils",
       };
     }
 
-    function isParam(object) {
+    __exports__.bind = bind;function isParam(object) {
       return (typeof object === "string" || object instanceof String || typeof object === "number" || object instanceof Number);
     }
 
@@ -1744,7 +1744,7 @@ define("router/utils",
       for (var i=0, l=array.length; i<l && false !== callback(array[i]); i++) { }
     }
 
-    /**
+    __exports__.forEach = forEach;/**
       @private
 
       Serializes a handler using its custom `serialize` method or
@@ -1780,7 +1780,7 @@ define("router/utils",
       return object;
     }
 
-    function trigger(router, handlerInfos, ignoreFailure, args) {
+    __exports__.serialize = serialize;function trigger(router, handlerInfos, ignoreFailure, args) {
       if (router.triggerEvent) {
         router.triggerEvent(handlerInfos, ignoreFailure, args);
         return;
@@ -1813,7 +1813,7 @@ define("router/utils",
       }
     }
 
-    function getChangelist(oldObject, newObject) {
+    __exports__.trigger = trigger;function getChangelist(oldObject, newObject) {
       var key;
       var results = {
         all: {},
@@ -1865,31 +1865,22 @@ define("router/utils",
       return didChange && results;
     }
 
-    function promiseLabel(label) {
+    __exports__.getChangelist = getChangelist;function promiseLabel(label) {
       return 'Router: ' + label;
     }
 
-    __exports__.trigger = trigger;
-    __exports__.log = log;
-    __exports__.oCreate = oCreate;
-    __exports__.merge = merge;
-    __exports__.extractQueryParams = extractQueryParams;
-    __exports__.bind = bind;
-    __exports__.isParam = isParam;
-    __exports__.forEach = forEach;
+    __exports__.promiseLabel = promiseLabel;__exports__.merge = merge;
     __exports__.slice = slice;
-    __exports__.serialize = serialize;
-    __exports__.getChangelist = getChangelist;
+    __exports__.isParam = isParam;
     __exports__.coerceQueryParamsToString = coerceQueryParamsToString;
-    __exports__.promiseLabel = promiseLabel;
   });
 define("router", 
   ["./router/router","exports"],
   function(__dependency1__, __exports__) {
     "use strict";
-    var Router = __dependency1__.Router;
+    var Router = __dependency1__["default"];
 
-    __exports__.Router = Router;
+    __exports__["default"] = Router;
   });
 define("route-recognizer", [], function() { return RouteRecognizer; });
 define("rsvp", [], function() { return RSVP;});
