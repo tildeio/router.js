@@ -1,11 +1,19 @@
 "use strict";
 var slice = Array.prototype.slice;
 
-function isArray(test) {
-  return Object.prototype.toString.call(test) === "[object Array]";
+
+var _isArray;
+if (!Array.isArray) {
+  _isArray = function (x) {
+    return Object.prototype.toString.call(x) === "[object Array]";
+  };
+} else {
+  _isArray = Array.isArray;
 }
 
-exports.isArray = isArray;function merge(hash, other) {
+var isArray = _isArray;
+exports.isArray = isArray;
+function merge(hash, other) {
   for (var prop in other) {
     if (other.hasOwnProperty(prop)) { hash[prop] = other[prop]; }
   }
