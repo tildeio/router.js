@@ -1,9 +1,6 @@
 "use strict";
 var RouteRecognizer = require("route-recognizer")["default"];
-var resolve = require("rsvp").resolve;
-var reject = require("rsvp").reject;
-var async = require("rsvp").async;
-var Promise = require("rsvp").Promise;
+var Promise = require("rsvp/promise")["default"];
 var trigger = require("./utils").trigger;
 var log = require("./utils").log;
 var slice = require("./utils").slice;
@@ -609,7 +606,7 @@ function finalizeTransition(transition, newState) {
     if (transition.isAborted) {
       // TODO: cleaner way? distinguish b/w targetHandlerInfos?
       router.state.handlerInfos = router.currentHandlerInfos;
-      return reject(logAbort(transition));
+      return Promise.reject(logAbort(transition));
     }
 
     updateURL(transition, newState, transition.intent.url);
