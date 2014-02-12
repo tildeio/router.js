@@ -107,4 +107,4 @@ TransitionState.prototype = {
   }
 };
 
-exports.TransitionState = TransitionState;
+exports["default"] = TransitionState;

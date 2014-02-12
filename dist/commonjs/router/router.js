@@ -13,12 +13,12 @@ var serialize = require("./utils").serialize;
 var extractQueryParams = require("./utils").extractQueryParams;
 var getChangelist = require("./utils").getChangelist;
 var promiseLabel = require("./utils").promiseLabel;
-var TransitionState = require("./transition-state").TransitionState;
+var TransitionState = require("./transition-state")["default"];
 var logAbort = require("./transition").logAbort;
 var Transition = require("./transition").Transition;
 var TransitionAborted = require("./transition").TransitionAborted;
-var NamedTransitionIntent = require("./transition-intent/named-transition-intent").NamedTransitionIntent;
-var URLTransitionIntent = require("./transition-intent/url-transition-intent").URLTransitionIntent;
+var NamedTransitionIntent = require("./transition-intent/named-transition-intent")["default"];
+var URLTransitionIntent = require("./transition-intent/url-transition-intent")["default"];
 
 var pop = Array.prototype.pop;
 
@@ -724,4 +724,4 @@ function finalizeQueryParamChange(router, resolvedHandlers, newQueryParams) {
   return finalQueryParams;
 }
 
-exports.Router = Router;
+exports["default"] = Router;

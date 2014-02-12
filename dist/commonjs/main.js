@@ -1,4 +1,4 @@
 "use strict";
-var Router = require("./router/router").Router;
+var Router = require("./router/router")["default"];
 
-exports.Router = Router;
+exports["default"] = Router;

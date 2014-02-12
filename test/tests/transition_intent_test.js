@@ -1,8 +1,8 @@
 import { module } from "tests/test_helpers";
-import { TransitionIntent } from 'router/transition-intent';
-import { URLTransitionIntent } from 'router/transition-intent/url-transition-intent';
-import { NamedTransitionIntent } from 'router/transition-intent/named-transition-intent';
-import { TransitionState } from 'router/transition-state';
+import TransitionIntent from 'router/transition-intent';
+import URLTransitionIntent from 'router/transition-intent/url-transition-intent';
+import NamedTransitionIntent from 'router/transition-intent/named-transition-intent';
+import TransitionState from 'router/transition-state';
 import { HandlerInfo, ResolvedHandlerInfo, UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
 
 var handlers, recognizer;
