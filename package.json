@@ -1,5 +1,5 @@
 {
-  "name": "router",
+  "name": "router.js",
   "namespace": "Router",
   "version": "1.0.0",
   "description": "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
