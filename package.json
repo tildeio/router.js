@@ -9,6 +9,11 @@
     "type": "git",
     "url": "https://github.com/tildeio/router.js.git"
   },
+  "main": "dist/commonjs/main.js",
+  "dependencies": {
+    "rsvp": "~3.0.4",
+    "route-recognizer": "0.1.0"
+  },
   "devDependencies": {
     "brfs": "0.0.8",
     "grunt": "~0.4.2",
