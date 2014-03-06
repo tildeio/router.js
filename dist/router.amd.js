@@ -290,6 +290,11 @@ define("router/router",
               // changed query params given that no activeTransition
               // is guaranteed to have occurred.
               this._changedQueryParams = queryParamChangelist.changed;
+              for (var k in queryParamChangelist.removed) {
+                if (queryParamChangelist.removed.hasOwnProperty(k)) {
+                  this._changedQueryParams[k] = null;
+                }
+              }
               trigger(this, newState.handlerInfos, true, ['queryParamsDidChange', queryParamChangelist.changed, queryParamChangelist.all, queryParamChangelist.removed]);
               this._changedQueryParams = null;
 
@@ -300,14 +305,15 @@ define("router/router",
               } else {
                 // Running queryParamsDidChange didn't change anything.
                 // Just update query params and be on our way.
-                oldState.queryParams = finalizeQueryParamChange(this, newState.handlerInfos, newState.queryParams);
 
                 // We have to return a noop transition that will
                 // perform a URL update at the end. This gives
                 // the user the ability to set the url update
                 // method (default is replaceState).
                 newTransition = new Transition(this);
-                newTransition.urlMethod = 'replace';
+
+                oldState.queryParams = finalizeQueryParamChange(this, newState.handlerInfos, newState.queryParams, newTransition);
+
                 newTransition.promise = newTransition.promise.then(function(result) {
                   updateURL(newTransition, oldState, true);
                   if (router.didTransition) {
@@ -395,7 +401,7 @@ define("router/router",
         var args = slice.call(arguments);
         if (url.charAt(0) !== '/') { args[0] = '/' + url; }
 
-        return doTransition(this, args).method('replaceQuery');
+        return doTransition(this, args).method(null);
       },
 
       /**
@@ -651,7 +657,7 @@ define("router/router",
         throw e;
       }
 
-      router.state.queryParams = finalizeQueryParamChange(router, currentHandlerInfos, newState.queryParams);
+      router.state.queryParams = finalizeQueryParamChange(router, currentHandlerInfos, newState.queryParams, transition);
     }
 
 
@@ -785,14 +791,10 @@ define("router/router",
       }
 
       if (urlMethod) {
-        params.queryParams = state.queryParams;
+        params.queryParams = transition._visibleQueryParams || state.queryParams;
         var url = router.recognizer.generate(handlerName, params);
 
-        if (urlMethod === 'replaceQuery') {
-          if (url !== inputUrl) {
-            router.replaceURL(url);
-          }
-        } else if (urlMethod === 'replace') {
+        if (urlMethod === 'replace') {
           router.replaceURL(url);
         } else {
           router.updateURL(url);
@@ -918,7 +920,7 @@ define("router/router",
       return true;
     }
 
-    function finalizeQueryParamChange(router, resolvedHandlers, newQueryParams) {
+    function finalizeQueryParamChange(router, resolvedHandlers, newQueryParams, transition) {
       // We fire a finalizeQueryParamChange event which
       // gives the new route hierarchy a chance to tell
       // us which query params it's consuming and what
@@ -926,13 +928,28 @@ define("router/router",
       // no longer consumed in the final route hierarchy,
       // its serialized segment will be removed
       // from the URL.
+
+      for (var k in newQueryParams) {
+        if (newQueryParams.hasOwnProperty(k) &&
+            newQueryParams[k] === null) {
+          delete newQueryParams[k];
+        }
+      }
+
       var finalQueryParamsArray = [];
-      trigger(router, resolvedHandlers, true, ['finalizeQueryParamChange', newQueryParams, finalQueryParamsArray]);
+      trigger(router, resolvedHandlers, true, ['finalizeQueryParamChange', newQueryParams, finalQueryParamsArray, transition]);
+
+      if (transition) {
+        transition._visibleQueryParams = {};
+      }
 
       var finalQueryParams = {};
       for (var i = 0, len = finalQueryParamsArray.length; i < len; ++i) {
         var qp = finalQueryParamsArray[i];
         finalQueryParams[qp.key] = qp.value;
+        if (transition && qp.visible !== false) {
+          transition._visibleQueryParams[qp.key] = qp.value;
+        }
       }
       return finalQueryParams;
     }
@@ -1603,7 +1620,6 @@ define("router/utils",
   function(__exports__) {
     "use strict";
     var slice = Array.prototype.slice;
-
 
     var _isArray;
     if (!Array.isArray) {

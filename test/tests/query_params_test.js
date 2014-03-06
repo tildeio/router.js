@@ -65,7 +65,7 @@ test("a change in query params fires a queryParamsDidChange event", function() {
             ok(false, "shouldn't fire on first trans");
             break;
           case 1:
-            deepEqual(changed, { foo: '5' });
+            deepEqual(changed, { foo: '5', bar: null });
             deepEqual(all,     { foo: '5' });
             break;
           case 2:
@@ -201,6 +201,23 @@ test("consuming QPs in finalize event tells the router those params are active",
   deepEqual(router.state.queryParams, { foo: '8' });
 });
 
+test("can hide query params from URL if they're marked as visible=false in finalizeQueryParamChange", function() {
+  expect(2);
+
+  handlers.index = {
+    events: {
+      finalizeQueryParamChange: function(params, finalParams) {
+        finalParams.push({ key: 'foo', value: params.foo, visible: false });
+        finalParams.push({ key: 'bar', value: params.bar });
+      }
+    }
+  };
+
+  expectedUrl = '/index?bar=9';
+  transitionTo(router, '/index?foo=8&bar=9');
+  deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
+});
+
 test("transitionTo() works with single query param arg", function() {
   expect(2);
 
@@ -213,30 +230,11 @@ test("transitionTo() works with single query param arg", function() {
     }
   };
 
-  transitionTo(router, '/index?foo=8&bar=9');
+  transitionTo(router, '/index?bar=9&foo=8');
   deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
 
-  expectedUrl = '/index?foo=123&bar=9';
+  expectedUrl = '/index?bar=9&foo=123';
   transitionTo(router, { queryParams: { foo: '123' }});
-});
-
-test("handleURL will follow up with a replace URL if query params out of sync", function() {
-  expect(2);
-
-  router.replaceURL = function(url) {
-    equal(url, "/index?foo=8", "?foo=8 was appended to the url");
-  };
-
-  handlers.index = {
-    events: {
-      finalizeQueryParamChange: function(params, finalParams) {
-        deepEqual(params, {}, "finalizeQueryParamChange was called even for handleURL");
-        finalParams.push({ key: 'foo', value: '8' });
-      }
-    }
-  };
-
-  router.handleURL('/index');
 });
 
 test("handleURL will NOT follow up with a replace URL if query params are already in sync", function() {
