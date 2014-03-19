@@ -1,7 +1,6 @@
 "use strict";
 var slice = Array.prototype.slice;
 
-
 var _isArray;
 if (!Array.isArray) {
   _isArray = function (x) {

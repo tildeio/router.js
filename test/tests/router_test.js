@@ -139,7 +139,7 @@ test("Handling a URL passes in query params", function() {
 
   var indexHandler = {
     model: function(params, transition) {
-      deepEqual(transition.queryParams, { sort: 'date', filter: true });
+      deepEqual(transition.queryParams, { sort: 'date', filter: 'true' });
     },
     events: {
       finalizeQueryParamChange: function(params, finalParams) {
@@ -158,7 +158,7 @@ test("Handling a URL passes in query params", function() {
 
   router.handleURL("/index?sort=date&filter");
   flushBackburner();
-  deepEqual(router.state.queryParams, { sort: 'date', filter: true });
+  deepEqual(router.state.queryParams, { sort: 'date', filter: 'true' });
 });
 
 test("handleURL accepts slash-less URLs", function() {
@@ -2465,7 +2465,7 @@ test("Returning a redirecting Transition from a model hook doesn't cause things 
 test("Generate works w queryparams", function() {
   equal(router.generate('index'), '/index', "just index");
   equal(router.generate('index', { queryParams: { foo: '123' } }), '/index?foo=123', "just index");
-  equal(router.generate('index', { queryParams: { foo: '123', bar: '456' } }), '/index?foo=123&bar=456', "just index");
+  equal(router.generate('index', { queryParams: { foo: '123', bar: '456' } }), '/index?bar=456&foo=123', "just index");
 });
 
 test("errors in enter/setup hooks fire `error`", function() {
