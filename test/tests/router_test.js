@@ -2293,7 +2293,7 @@ test("resolved models can be swapped out within afterModel", function() {
 
 
 test("String/number args in transitionTo are treated as url params", function() {
-  expect(10);
+  expect(11);
 
   var adminParams = { id: "1" },
       adminModel = { id: "1" },
@@ -2504,6 +2504,53 @@ test("errors in enter/setup hooks fire `error`", function() {
     equal(reason, "OMG SETUP", "setup's error was propagated");
     delete handlers.index.setup;
   }).then(start, shouldNotHappen);
+});
+
+test("invalidating parent model with different string/numeric parameters invalidates children", function() {
+
+  map(function(match) {
+    match("/:p").to("parent", function(match) {
+      match("/:c").to("child");
+    });
+  });
+
+  expect(8);
+
+  var count = 0;
+  handlers = {
+    parent: {
+      model: function(params) {
+        ok(true, "parent model called");
+        return { id: params.p };
+      },
+      setup: function(model) {
+        if (count === 0) {
+          deepEqual(model, { id: '1' });
+        } else {
+          deepEqual(model, { id: '2' });
+        }
+      }
+    },
+    child: {
+      model: function(params) {
+        ok(true, "child model called");
+        return { id: params.c };
+      },
+      setup: function(model) {
+        if (count === 0) {
+          deepEqual(model, { id: '1' });
+        } else {
+          deepEqual(model, { id: '1' });
+        }
+      }
+    }
+  };
+
+  transitionTo(router, 'child', '1', '1');
+  count = 1;
+  transitionTo(router, 'child', '2', '1');
+
+
 });
 
 module("Multiple dynamic segments per route");
