@@ -2,7 +2,7 @@
 var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 var forEach = require("./utils").forEach;
 var promiseLabel = require("./utils").promiseLabel;
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 
 function TransitionState(other) {
   this.handlerInfos = [];
