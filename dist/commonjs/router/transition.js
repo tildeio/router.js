@@ -1,5 +1,5 @@
 "use strict";
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 var trigger = require("./utils").trigger;
 var slice = require("./utils").slice;
