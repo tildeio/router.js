@@ -11,6 +11,10 @@ module("Query Params", {
 
     map(function(match) {
       match("/index").to("index");
+      match("/parent").to("parent", function(match) {
+        match("/").to("parentIndex");
+        match("/child").to("parentChild");
+      });
     });
   }
 });
@@ -88,6 +92,66 @@ test("a change in query params fires a queryParamsDidChange event", function() {
   transitionTo(router, '/index?foo=5&bar=6');
   count = 3;
   transitionTo(router, '/index?foo=8&bar=9');
+});
+
+test("transitioning between routes fires a queryParamsDidChange event", function() {
+  expect(8);
+  var count = 0;
+  handlers.parent = {
+    events: {
+      finalizeQueryParamChange: function(params, finalParams) {
+        // copy to finalParams to tell the router we're consuming
+        // these params.
+        finalParams.push({ key: 'foo', value: params.foo });
+        finalParams.push({ key: 'bar', value: params.bar });
+      },
+      queryParamsDidChange: function(changed, all) {
+        switch (count) {
+          case 0:
+            ok(false, "shouldn't fire on first trans");
+            break;
+          case 1:
+            deepEqual(changed, { foo: '5', bar: null });
+            deepEqual(all,     { foo: '5' });
+            break;
+          case 2:
+            deepEqual(changed, { bar: '6' });
+            deepEqual(all,     { foo: '5', bar: '6' });
+            break;
+          case 3:
+            deepEqual(changed, { foo: '8', bar: '9' });
+            deepEqual(all,     { foo: '8', bar: '9' });
+            break;
+          case 4:
+            deepEqual(changed, { foo: '10', bar: '11'});
+            deepEqual(all,     { foo: '10', bar: '11'});
+        }
+      }
+    }
+  };
+
+  handlers.parentChild = {
+    events: {
+      finalizeQueryParamChange: function() {
+        // Do nothing since this handler isn't consuming the QPs
+        return true;
+      },
+
+      queryParamsDidChange: function(changed, all) {
+        return true;
+      }
+    }
+  };
+  transitionTo(router, '/parent/child');
+  count = 1;
+  transitionTo(router, '/parent/child?foo=5');
+  count = 2;
+  transitionTo(router, '/parent/child?foo=5&bar=6');
+  count = 3;
+  transitionTo(router, '/parent/child?foo=8&bar=9');
+  count = 4;
+  transitionTo(router, '/parent?foo=10&bar=11');
+
 });
 
 test("a handler can opt into a full-on transition by calling refresh", function() {
@@ -288,13 +352,14 @@ test("can cause full transition by calling refresh within queryParamsDidChange",
 });
 
 test("can retry a query-params refresh", function() {
+  var causeRedirect = false;
 
   map(function(match) {
     match("/index").to("index");
     match("/login").to("login");
   });
 
-  expect(8);
+  expect(11);
 
   var redirect = false;
   var indexTransition;
@@ -311,7 +376,7 @@ test("can retry a query-params refresh", function() {
     events: {
       queryParamsDidChange: function() {
         ok(true, "index#queryParamsDidChange");
-        redirect = true;
+        redirect = causeRedirect;
         router.refresh(this);
       },
       finalizeQueryParamChange: function(params, finalParams) {
@@ -329,9 +394,11 @@ test("can retry a query-params refresh", function() {
 
   expectedUrl = '/index?foo=abc';
   transitionTo(router, '/index?foo=abc');
+  causeRedirect = true;
   expectedUrl = '/login';
   transitionTo(router, '/index?foo=def');
   flushBackburner();
+  causeRedirect = false;
   redirect = false;
   ok(indexTransition, "index transition was saved");
   indexTransition.retry();
