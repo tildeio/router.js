@@ -11,8 +11,8 @@
   },
   "main": "dist/commonjs/main.js",
   "dependencies": {
-    "rsvp": "~3.0.4",
-    "route-recognizer": "0.1.0"
+    "rsvp": "^3.0.6",
+    "route-recognizer": "^0.1.0"
   },
   "devDependencies": {
     "brfs": "0.0.8",
