@@ -1564,6 +1564,44 @@ test("Errors shouldn't be handled after proceeding to next child route", functio
   router.handleURL('/parent/articles');
 });
 
+asyncTest("Error handling shouldn't trigger for transitions that are already aborted", function() {
+
+  expect(1);
+
+  map(function(match) {
+    match("/slow_failure").to('slow_failure');
+    match("/good").to('good');
+  });
+
+  handlers = {
+    slow_failure: {
+      model: function() {
+	return new Promise(function(res, rej){
+	  router.transitionTo('good');
+	  rej();
+	  start();
+	});
+      },
+      events: {
+        error: function() {
+          ok(false, "error handling shouldn't fire");
+        }
+      }
+    },
+
+    good: {
+      setup: function() {
+        ok(true, 'good#setup');
+      }
+    },
+
+  };
+
+  router.handleURL('/slow_failure');
+  flushBackburner();
+});
+
+
 test("can redirect from error handler", function() {
 
   expect(4);
