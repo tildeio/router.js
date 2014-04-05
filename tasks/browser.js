@@ -5,8 +5,11 @@ module.exports = function(grunt) {
 
       output.push.apply(output, f.src.map(grunt.file.read));
 
-      output.push('define("route-recognizer", [], function() { return RouteRecognizer; });');
+      output.push('define("route-recognizer", [], function() { return {default: RouteRecognizer}; });');
+
       output.push('define("rsvp", [], function() { return RSVP;});');
+
+      output.push('define("rsvp/promise", [], function() { return {default: RSVP.Promise}; });');
 
       output.push("window.<%= pkg.namespace %> = requireModule('<%= pkg.name %>');");
 
