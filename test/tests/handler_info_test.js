@@ -1,10 +1,35 @@
-import { module } from "tests/test_helpers";
+import { module, stubbedHandlerInfoFactory } from "tests/test_helpers";
 import Router from "router";
-import { HandlerInfo, ResolvedHandlerInfo, UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
-import { Backburner } from "backburner";
-import { resolve, configure, reject, Promise } from "rsvp";
+
+import HandlerInfo from 'router/handler-info';
+
+import ResolvedHandlerInfo from 'router/handler-info/resolved-handler-info';
+import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handler-info-by-object';
+import UnresolvedHandlerInfoByParam from 'router/handler-info/unresolved-handler-info-by-param';
+
+import { resolve, reject, Promise } from "rsvp";
+import { subclass, merge } from 'router/utils';
 
 function noop() {}
+
+var resolvedModel = {};
+
+var StubHandlerInfo = subclass(HandlerInfo, {
+  getModel: function() {
+    return resolvedModel;
+  }
+});
+
+function create(Klass, _props) {
+  var props = _props || {};
+  props.handler = props.handler || {};
+  props.params = props.params || {};
+  props.name = props.name || 'foo';
+
+  var handlerInfo = new Klass(props);
+  handlerInfo.factory = stubbedHandlerInfoFactory;
+  return handlerInfo;
+}
 
 module("HandlerInfo");
 
@@ -29,10 +54,7 @@ test("HandlerInfo can be aborted mid-resolve", function() {
 
   expect(2);
 
-  var handlerInfo = new HandlerInfo({
-    name: 'foo',
-    handler: {}
-  });
+  var handlerInfo = create(StubHandlerInfo);
 
   function abortResolve() {
     ok(true, "abort was called");
@@ -47,17 +69,10 @@ test("HandlerInfo can be aborted mid-resolve", function() {
 test("HandlerInfo#resolve resolves with a ResolvedHandlerInfo", function() {
   expect(1);
 
-  var handlerInfo = new HandlerInfo({
-    name: 'foo',
-    handler: {},
-    params: {},
-    getModel: noop
-  });
+  var handlerInfo = create(StubHandlerInfo);
 
   handlerInfo.resolve(async, noop, {}).then(function(resolvedHandlerInfo) {
-    return resolvedHandlerInfo.resolve().then(function(previouslyResolvedHandlerInfo) {
-      equal(previouslyResolvedHandlerInfo, resolvedHandlerInfo);
-    });
+    equal(resolvedHandlerInfo._handlerInfoType, 'resolved');
   });
 });
 
@@ -67,15 +82,12 @@ test("HandlerInfo#resolve runs beforeModel hook on handler", function() {
 
   var transition = {};
 
-  var handler = {
-    beforeModel: function(payload) {
-      equal(transition, payload, "beforeModel was called with the payload we passed to resolve()");
+  var handlerInfo = create(StubHandlerInfo, {
+    handler: {
+      beforeModel: function(payload) {
+        equal(transition, payload, "beforeModel was called with the payload we passed to resolve()");
+      }
     }
-  };
-
-  var handlerInfo = new HandlerInfo({
-    name: 'foo',
-    handler: handler
   });
 
   handlerInfo.resolve(async, noop, transition);
@@ -87,13 +99,12 @@ test("HandlerInfo#resolve runs getModel hook", function() {
 
   var transition = {};
 
-  var handlerInfo = new HandlerInfo({
-    name: 'foo',
-    handler: {},
+  var handlerInfo = create(StubHandlerInfo, {
     getModel: function(_, payload) {
       equal(payload, transition);
     }
   });
+  handlerInfo.factory = stubbedHandlerInfoFactory;
 
   handlerInfo.resolve(async, noop, transition);
 });
@@ -105,21 +116,19 @@ test("HandlerInfo#resolve runs afterModel hook on handler", function() {
   var transition = {};
   var model = {};
 
-  var handler = {
-    afterModel: function(resolvedModel, payload) {
-      equal(resolvedModel, model, "afterModel receives the value resolved by model");
-      equal(payload, transition);
-      return resolve(123); // 123 should get ignored
-    }
-  };
-
   var handlerInfo = new HandlerInfo({
-    name: 'foo',
-    handler: handler,
-    params: {},
+    handler: {
+      afterModel: function(resolvedModel, payload) {
+        equal(resolvedModel, model, "afterModel receives the value resolved by model");
+        equal(payload, transition);
+        return resolve(123); // 123 should get ignored
+      }
+    },
+
     getModel: function() {
       return resolve(model);
-    }
+    },
+    factory: stubbedHandlerInfoFactory
   });
 
   handlerInfo.resolve(async, noop, transition).then(function(resolvedHandlerInfo) {
@@ -132,16 +141,14 @@ test("UnresolvedHandlerInfoByParam gets its model hook called", function() {
 
   var transition = {};
 
-  var handler = {
-    model: function(params, payload) {
-      equal(payload, transition);
-      deepEqual(params, { first_name: 'Alex', last_name: 'Matchnerd' });
-    }
-  };
-
   var handlerInfo = new UnresolvedHandlerInfoByParam({
-    name: 'foo',
-    handler: handler,
+    handler: {
+      model: function(params, payload) {
+        equal(payload, transition);
+        deepEqual(params, { first_name: 'Alex', last_name: 'Matchnerd' });
+      }
+    },
+
     params: { first_name: 'Alex', last_name: 'Matchnerd' }
   });
 
@@ -151,15 +158,13 @@ test("UnresolvedHandlerInfoByParam gets its model hook called", function() {
 test("UnresolvedHandlerInfoByObject does NOT get its model hook called", function() {
   expect(1);
 
-  var handler = {
-    model: function() {
-      ok(false, "I shouldn't be called because I already have a context/model");
-    }
-  };
 
-  var handlerInfo = new UnresolvedHandlerInfoByObject({
-    name: 'foo',
-    handler: handler,
+  var handlerInfo = create(UnresolvedHandlerInfoByObject, {
+    handler: {
+      model: function() {
+        ok(false, "I shouldn't be called because I already have a context/model");
+      }
+    },
     names: ['wat'],
     context: resolve({ name: 'dorkletons' })
   });

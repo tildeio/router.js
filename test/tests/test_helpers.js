@@ -1,5 +1,6 @@
 import { Backburner } from "backburner";
 import { resolve, configure, reject, Promise } from "rsvp";
+import { oCreate } from 'router/utils';
 
 var slice = Array.prototype.slice;
 
@@ -63,6 +64,12 @@ function shouldBeTransition (object) {
 }
 
 
+function stubbedHandlerInfoFactory(name, props) {
+  var obj = oCreate(props);
+  obj._handlerInfoType = name;
+  return obj;
+}
+
 module("backburner sanity test");
 
 test("backburnerized testing works as expected", function() {
@@ -72,4 +79,4 @@ test("backburnerized testing works as expected", function() {
   });
 });
 
-export { module, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen, shouldBeTransition };
+export { module, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen, shouldBeTransition, stubbedHandlerInfoFactory };

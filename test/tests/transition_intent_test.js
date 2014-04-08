@@ -1,9 +1,12 @@
-import { module } from "tests/test_helpers";
+import { module, stubbedHandlerInfoFactory } from "tests/test_helpers";
 import TransitionIntent from 'router/transition-intent';
 import URLTransitionIntent from 'router/transition-intent/url-transition-intent';
 import NamedTransitionIntent from 'router/transition-intent/named-transition-intent';
 import TransitionState from 'router/transition-state';
-import { HandlerInfo, ResolvedHandlerInfo, UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+
+import ResolvedHandlerInfo from 'router/handler-info/resolved-handler-info';
+import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handler-info-by-object';
+import UnresolvedHandlerInfoByParam from 'router/handler-info/unresolved-handler-info-by-param';
 
 var handlers, recognizer;
 
@@ -74,15 +77,14 @@ function getHandler(name) {
 }
 
 test("URLTransitionIntent can be applied to an empty state", function() {
-
   var state = new TransitionState();
   var intent = new URLTransitionIntent({ url: '/foo/bar' });
   var newState = intent.applyToState(state, recognizer, getHandler);
   var handlerInfos = newState.handlerInfos;
 
   equal(handlerInfos.length, 2);
-  ok(handlerInfos[0] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 1");
-  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  ok(!handlerInfos[0].isResolved, "generated state consists of unresolved handler info, 1");
+  ok(!handlerInfos[1].isResolved, "generated state consists of unresolved handler info, 2");
   equal(handlerInfos[0].handler, handlers.foo);
   equal(handlerInfos[1].handler, handlers.bar);
 });

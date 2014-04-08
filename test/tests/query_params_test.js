@@ -93,6 +93,7 @@ test("a change in query params fires a queryParamsDidChange event", function() {
 test("a handler can opt into a full-on transition by calling refresh", function() {
 
   expect(2);
+  debugger;
 
   var count = 0;
   handlers.index = {

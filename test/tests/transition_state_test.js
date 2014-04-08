@@ -1,7 +1,10 @@
-import { module, flushBackburner } from "tests/test_helpers";
+import { module, flushBackburner, stubbedHandlerInfoFactory } from "tests/test_helpers";
 import Router from "router";
 import TransitionState from 'router/transition-state';
-import { UnresolvedHandlerInfoByObject, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+
+import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handler-info-by-object';
+import UnresolvedHandlerInfoByParam from 'router/handler-info/unresolved-handler-info-by-param';
+
 import { resolve, configure, reject } from "rsvp";
 
 module("TransitionState");
@@ -104,13 +107,15 @@ test("Integration w/ HandlerInfos", function() {
           equal(params.foo_id, '123', "foo#model received expected params");
           return resolve(fooModel);
         }
-      }
+      },
+      factory: stubbedHandlerInfoFactory
     }),
     new UnresolvedHandlerInfoByObject({
       name: 'bar',
       names: ['bar_id'],
       context: resolve(barModel),
-      handler: {}
+      handler: {},
+      factory: stubbedHandlerInfoFactory
     })
   ];
 

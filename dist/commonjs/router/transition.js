@@ -40,15 +40,15 @@ function Transition(router, intent, state, error) {
 
     for (var i = 0; i < len; ++i) {
       var handlerInfo = state.handlerInfos[i];
-      if (!(handlerInfo instanceof ResolvedHandlerInfo)) {
-        break;
-      }
+
+      // TODO: this all seems hacky
+      if (!handlerInfo.isResolved) { break; }
       this.pivotHandler = handlerInfo.handler;
     }
 
     this.sequence = Transition.currentSequence++;
     this.promise = state.resolve(router.async, checkForAbort, this)['catch'](function(result) {
-      if (result.wasAborted) {
+      if (result.wasAborted || transition.isAborted) {
         return Promise.reject(logAbort(transition));
       } else {
         transition.trigger('error', result.error, transition, result.handlerWithError);

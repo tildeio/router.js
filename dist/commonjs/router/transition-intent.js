@@ -2,15 +2,15 @@
 var merge = require("./utils").merge;
 
 function TransitionIntent(props) {
-  if (props) {
-    merge(this, props);
-  }
+  this.initialize(props);
+
+  // TODO: wat
   this.data = this.data || {};
 }
 
-TransitionIntent.prototype.applyToState = function(oldState) {
-  // Default TransitionIntent is a no-op.
-  return oldState;
+TransitionIntent.prototype = {
+  initialize: null,
+  applyToState: null
 };
 
 exports["default"] = TransitionIntent;
