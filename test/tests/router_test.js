@@ -2587,8 +2587,50 @@ test("invalidating parent model with different string/numeric parameters invalid
   transitionTo(router, 'child', '1', '1');
   count = 1;
   transitionTo(router, 'child', '2', '1');
+});
 
 
+test("intents make use of previous transition state in case not enough contexts are provided to retry a transition", function() {
+
+  expect(3);
+
+  map(function(match) {
+    match("/").to("application", function(match) {
+      match("/users/:user").to("user", function(match) {
+        match("/index").to("userIndex");
+        match("/auth").to("auth");
+      });
+      match("/login").to("login");
+    });
+  });
+
+  var hasAuthed = false, savedTransition, didFinish = false;
+  handlers = {
+    auth: {
+      beforeModel: function(transition) {
+        if (!hasAuthed) {
+          savedTransition = transition;
+          router.transitionTo('login');
+        }
+      },
+      setup: function(obj) {
+        didFinish = true;
+      }
+    },
+  };
+
+  transitionTo(router, 'userIndex', { user: "machty" });
+
+  // Then attempt to transition into auth; this will redirect.
+  transitionTo(router, 'auth');
+  ok(savedTransition, "transition was saved");
+
+  hasAuthed = true;
+  savedTransition.retry();
+  flushBackburner();
+
+  ok(didFinish, "did enter auth route");
+  equal(handlers.user.context.user, "machty", "User was remembered upon retry");
 });
 
 module("Multiple dynamic segments per route");
