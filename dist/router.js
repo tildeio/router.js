@@ -329,8 +329,8 @@ define("router/handler-info/unresolved-handler-info-by-object",
         if (names.length !== 1) { return; }
 
         var name = names[0];
-
-        if (/_id$/.test(name)) {
+        //object name shouldn't be empty. '_id' can be declared as variable name. 
+        if (/.+_id$/.test(name)) {
           object[name] = model.id;
         } else {
           object[name] = model;
