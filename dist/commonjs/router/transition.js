@@ -82,6 +82,8 @@ Transition.prototype = {
   isActive: true,
   state: null,
 
+  isTransition: true,
+
   /**
     @public
 

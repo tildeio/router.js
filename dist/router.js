@@ -148,7 +148,13 @@ define("router/handler-info",
 
         var handler = this.handler;
         return async(function() {
-          return handler[hookName] && handler[hookName].apply(handler, args);
+          var result = handler[hookName] && handler[hookName].apply(handler, args);
+
+          if (result && result.isTransition) {
+            return null;
+          }
+
+          return result;
         }, this.promiseLabel("Handle " + hookName));
       },
 
@@ -1603,6 +1609,8 @@ define("router/transition",
       resolvedModels: null,
       isActive: true,
       state: null,
+
+      isTransition: true,
 
       /**
         @public
