@@ -18,6 +18,7 @@ module("The router", {
       });
       match("/posts", function(match) {
         match("/:id").to("showPost");
+        match("/id/:_id").to("showUnderscoredIdPost");
         match("/on/:date").to("showPostsForDate");
         match("/admin/:id").to("admin", function(match) {
           match("/posts").to("adminPosts");
@@ -80,6 +81,9 @@ function flush(expectedError) {
 test("Mapping adds named routes to the end", function() {
   url = router.recognizer.generate("showPost", { id: 1 });
   equal(url, "/posts/1");
+
+  url = router.recognizer.generate("showUnderscoredIdPost", { _id: 1 });
+  equal(url, "/posts/id/1");
 
   url = router.recognizer.generate("showAllPosts");
   equal(url, "/posts");
