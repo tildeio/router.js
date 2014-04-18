@@ -96,7 +96,7 @@ HandlerInfo.prototype = {
       result = null;
     }
 
-    return Promise.resolve(result);
+    return Promise.resolve(result, null, this.promiseLabel("Resolve value returned from one of the model hooks"));
   },
 
   // overridden by subclasses
