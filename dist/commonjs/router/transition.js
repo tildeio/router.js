@@ -47,7 +47,7 @@ function Transition(router, intent, state, error) {
     }
 
     this.sequence = Transition.currentSequence++;
-    this.promise = state.resolve(router.async, checkForAbort, this)['catch'](function(result) {
+    this.promise = state.resolve(checkForAbort, this)['catch'](function(result) {
       if (result.wasAborted || transition.isAborted) {
         return Promise.reject(logAbort(transition));
       } else {

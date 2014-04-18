@@ -97,12 +97,12 @@ define("router/handler-info",
         return this.params || {};
       },
 
-      resolve: function(async, shouldContinue, payload) {
-        var checkForAbort  = bind(this.checkForAbort,      this, shouldContinue),
-            beforeModel    = bind(this.runBeforeModelHook, this, async, payload),
-            model          = bind(this.getModel,           this, async, payload),
-            afterModel     = bind(this.runAfterModelHook,  this, async, payload),
-            becomeResolved = bind(this.becomeResolved,     this, payload);
+      resolve: function(shouldContinue, payload) {
+        var checkForAbort  = bind(this, this.checkForAbort,      shouldContinue),
+            beforeModel    = bind(this, this.runBeforeModelHook, payload),
+            model          = bind(this, this.getModel,           payload),
+            afterModel     = bind(this, this.runAfterModelHook,  payload),
+            becomeResolved = bind(this, this.becomeResolved,     payload);
 
         return Promise.resolve(undefined, this.promiseLabel("Start handler"))
                .then(checkForAbort, null, this.promiseLabel("Check for abort"))
@@ -115,21 +115,21 @@ define("router/handler-info",
                .then(becomeResolved, null, this.promiseLabel("Become resolved"));
       },
 
-      runBeforeModelHook: function(async, payload) {
+      runBeforeModelHook: function(payload) {
         if (payload.trigger) {
           payload.trigger(true, 'willResolveModel', payload, this.handler);
         }
-        return this.runSharedModelHook(async, payload, 'beforeModel', []);
+        return this.runSharedModelHook(payload, 'beforeModel', []);
       },
 
-      runAfterModelHook: function(async, payload, resolvedModel) {
+      runAfterModelHook: function(payload, resolvedModel) {
         // Stash the resolved model on the payload.
         // This makes it possible for users to swap out
         // the resolved model in afterModel.
         var name = this.name;
         this.stashResolvedModel(payload, resolvedModel);
 
-        return this.runSharedModelHook(async, payload, 'afterModel', [resolvedModel])
+        return this.runSharedModelHook(payload, 'afterModel', [resolvedModel])
                    .then(function() {
                      // Ignore the fulfilled value returned from afterModel.
                      // Return the value stashed in resolvedModels, which
@@ -138,7 +138,7 @@ define("router/handler-info",
                    }, null, this.promiseLabel("Ignore fulfillment value and return model value"));
       },
 
-      runSharedModelHook: function(async, payload, hookName, args) {
+      runSharedModelHook: function(payload, hookName, args) {
         this.log(payload, "calling " + hookName + " hook");
 
         if (this.queryParams) {
@@ -147,15 +147,13 @@ define("router/handler-info",
         args.push(payload);
 
         var handler = this.handler;
-        return async(function() {
-          var result = handler[hookName] && handler[hookName].apply(handler, args);
+        var result = handler[hookName] && handler[hookName].apply(handler, args);
 
-          if (result && result.isTransition) {
-            return null;
-          }
+        if (result && result.isTransition) {
+          result = null;
+        }
 
-          return result;
-        }, this.promiseLabel("Handle " + hookName));
+        return Promise.resolve(result);
       },
 
       // overridden by subclasses
@@ -264,7 +262,7 @@ define("router/handler-info/resolved-handler-info",
     var Promise = __dependency3__["default"];
 
     var ResolvedHandlerInfo = subclass(HandlerInfo, {
-      resolve: function(async, shouldContinue, payload) {
+      resolve: function(shouldContinue, payload) {
         // A ResolvedHandlerInfo just resolved with itself.
         if (payload && payload.resolvedModels) {
           payload.resolvedModels[this.name] = this.context;
@@ -297,7 +295,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
     var Promise = __dependency3__["default"];
 
     var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
-      getModel: function(async, payload) {
+      getModel: function(payload) {
         this.log(payload, this.name + ": resolving provided model");
         return Promise.resolve(this.context);
       },
@@ -362,7 +360,7 @@ define("router/handler-info/unresolved-handler-info-by-param",
         this.params = props.params || {};
       },
 
-      getModel: function(async, payload) {
+      getModel: function(payload) {
         var fullParams = this.params;
         if (payload && payload.queryParams) {
           fullParams = {};
@@ -373,7 +371,7 @@ define("router/handler-info/unresolved-handler-info-by-param",
         var hookName = typeof this.handler.deserialize === 'function' ?
                        'deserialize' : 'model';
 
-        return this.runSharedModelHook(async, payload, hookName, [fullParams]);
+        return this.runSharedModelHook(payload, hookName, [fullParams]);
       }
     });
 
@@ -515,9 +513,7 @@ define("router/router",
           // For our purposes, swap out the promise to resolve
           // after the transition has been finalized.
           newTransition.promise = newTransition.promise.then(function(result) {
-            return router.async(function() {
-              return finalizeTransition(newTransition, result.state);
-            }, "Finalize transition");
+            return finalizeTransition(newTransition, result.state);
           }, null, promiseLabel("Settle transition promise when transition is finalized"));
 
           if (!wasTransitioning) {
@@ -728,24 +724,6 @@ define("router/router",
       trigger: function(name) {
         var args = slice.call(arguments);
         trigger(this, this.currentHandlerInfos, false, args);
-      },
-
-      /**
-        @private
-
-        Pluggable hook for possibly running route hooks
-        in a try-catch escaping manner.
-
-        @param {Function} callback the callback that will
-                          be asynchronously called
-
-        @return {Promise} a promise that fulfills with the
-                          value returned from the callback
-       */
-      async: function(callback, label) {
-        return new Promise(function(resolve) {
-          resolve(callback());
-        }, label);
       },
 
       /**
@@ -1446,7 +1424,7 @@ define("router/transition-state",
         return promiseLabel("'" + targetName + "': " + label);
       },
 
-      resolve: function(async, shouldContinue, payload) {
+      resolve: function(shouldContinue, payload) {
         var self = this;
         // First, calculate params for this state. This is useful
         // information to provide to the various route hooks.
@@ -1520,7 +1498,7 @@ define("router/transition-state",
 
           var handlerInfo = currentState.handlerInfos[payload.resolveIndex];
 
-          return handlerInfo.resolve(async, innerShouldContinue, payload)
+          return handlerInfo.resolve(innerShouldContinue, payload)
                             .then(proceed, null, promiseLabel('Proceed'));
         }
       }
@@ -1580,7 +1558,7 @@ define("router/transition",
         }
 
         this.sequence = Transition.currentSequence++;
-        this.promise = state.resolve(router.async, checkForAbort, this)['catch'](function(result) {
+        this.promise = state.resolve(checkForAbort, this)['catch'](function(result) {
           if (result.wasAborted || transition.isAborted) {
             return Promise.reject(logAbort(transition));
           } else {
@@ -1865,7 +1843,7 @@ define("router/utils",
       }
     }
 
-    __exports__.log = log;function bind(fn, context) {
+    __exports__.log = log;function bind(context, fn) {
       var boundArgs = arguments;
       return function(value) {
         var args = slice.call(boundArgs, 2);
@@ -1994,7 +1972,8 @@ define("router",
 
     __exports__["default"] = Router;
   });
-define("route-recognizer", [], function() { return RouteRecognizer; });
+define("route-recognizer", [], function() { return {default: RouteRecognizer}; });
 define("rsvp", [], function() { return RSVP;});
+define("rsvp/promise", [], function() { return {default: RSVP.Promise}; });
 window.Router = requireModule('router');
 }(window, window.RSVP, window.RouteRecognizer));

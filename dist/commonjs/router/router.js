@@ -131,9 +131,7 @@ Router.prototype = {
       // For our purposes, swap out the promise to resolve
       // after the transition has been finalized.
       newTransition.promise = newTransition.promise.then(function(result) {
-        return router.async(function() {
-          return finalizeTransition(newTransition, result.state);
-        }, "Finalize transition");
+        return finalizeTransition(newTransition, result.state);
       }, null, promiseLabel("Settle transition promise when transition is finalized"));
 
       if (!wasTransitioning) {
@@ -344,24 +342,6 @@ Router.prototype = {
   trigger: function(name) {
     var args = slice.call(arguments);
     trigger(this, this.currentHandlerInfos, false, args);
-  },
-
-  /**
-    @private
-
-    Pluggable hook for possibly running route hooks
-    in a try-catch escaping manner.
-
-    @param {Function} callback the callback that will
-                      be asynchronously called
-
-    @return {Promise} a promise that fulfills with the
-                      value returned from the callback
-   */
-  async: function(callback, label) {
-    return new Promise(function(resolve) {
-      resolve(callback());
-    }, label);
   },
 
   /**

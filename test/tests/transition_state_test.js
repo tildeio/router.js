@@ -14,8 +14,6 @@ test("it starts off with default state", function() {
   deepEqual(state.handlerInfos, [], "it has an array of handlerInfos");
 });
 
-var async = Router.prototype.async;
-
 test("#resolve delegates to handleInfo objects' resolve()", function() {
 
   expect(8);
@@ -28,7 +26,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
 
   state.handlerInfos = [
     {
-      resolve: function(_, shouldContinue) {
+      resolve: function(shouldContinue) {
         ++counter;
         equal(counter, 1);
         shouldContinue();
@@ -36,7 +34,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
       }
     },
     {
-      resolve: function(_, shouldContinue) {
+      resolve: function(shouldContinue) {
         ++counter;
         equal(counter, 2);
         shouldContinue();
@@ -49,7 +47,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
     ok(true, "continuation function was called");
   }
 
-  state.resolve(async, keepGoing).then(function(result) {
+  state.resolve(keepGoing).then(function(result) {
     ok(!result.error);
     deepEqual(result.state.handlerInfos, resolvedHandlerInfos);
   });
@@ -63,7 +61,7 @@ test("State resolution can be halted", function() {
 
   state.handlerInfos = [
     {
-      resolve: function(_, shouldContinue) {
+      resolve: function(shouldContinue) {
         return shouldContinue();
       }
     },
@@ -78,7 +76,7 @@ test("State resolution can be halted", function() {
     return reject("NOPE");
   }
 
-  state.resolve(async, keepGoing).catch(function(reason) {
+  state.resolve(keepGoing).catch(function(reason) {
     equal(reason.error, "NOPE");
     ok(reason.wasAborted, "state resolution was correctly marked as aborted");
   });
@@ -121,7 +119,7 @@ test("Integration w/ HandlerInfos", function() {
 
   function noop() {}
 
-  state.resolve(async, noop, transition).then(function(result) {
+  state.resolve(noop, transition).then(function(result) {
     var models = result.state.handlerInfos.map(function(handlerInfo) {
       return handlerInfo.context;
     });

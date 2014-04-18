@@ -71,7 +71,7 @@ function log(router, sequence, msg) {
   }
 }
 
-exports.log = log;function bind(fn, context) {
+exports.log = log;function bind(context, fn) {
   var boundArgs = arguments;
   return function(value) {
     var args = slice.call(boundArgs, 2);

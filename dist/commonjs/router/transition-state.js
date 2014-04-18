@@ -26,7 +26,7 @@ TransitionState.prototype = {
     return promiseLabel("'" + targetName + "': " + label);
   },
 
-  resolve: function(async, shouldContinue, payload) {
+  resolve: function(shouldContinue, payload) {
     var self = this;
     // First, calculate params for this state. This is useful
     // information to provide to the various route hooks.
@@ -100,7 +100,7 @@ TransitionState.prototype = {
 
       var handlerInfo = currentState.handlerInfos[payload.resolveIndex];
 
-      return handlerInfo.resolve(async, innerShouldContinue, payload)
+      return handlerInfo.resolve(innerShouldContinue, payload)
                         .then(proceed, null, promiseLabel('Proceed'));
     }
   }
