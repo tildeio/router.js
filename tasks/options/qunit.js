@@ -1,3 +1,3 @@
 module.exports = {
-  all: ['test/**/*.html']
+  all: ['dist/tests/index.html']
 };
