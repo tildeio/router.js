@@ -52,7 +52,7 @@ var define, requireModule, require, requirejs;
   };
 })();
 
-define("router/handler-info", 
+define("router/handler-info",
   ["./utils","rsvp/promise","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
@@ -229,7 +229,7 @@ define("router/handler-info",
 
     __exports__["default"] = HandlerInfo;
   });
-define("router/handler-info/factory", 
+define("router/handler-info/factory",
   ["router/handler-info/resolved-handler-info","router/handler-info/unresolved-handler-info-by-object","router/handler-info/unresolved-handler-info-by-param","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
@@ -252,7 +252,7 @@ define("router/handler-info/factory",
 
     __exports__["default"] = handlerInfoFactory;
   });
-define("router/handler-info/resolved-handler-info", 
+define("router/handler-info/resolved-handler-info",
   ["../handler-info","router/utils","rsvp/promise","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
@@ -283,7 +283,7 @@ define("router/handler-info/resolved-handler-info",
 
     __exports__["default"] = ResolvedHandlerInfo;
   });
-define("router/handler-info/unresolved-handler-info-by-object", 
+define("router/handler-info/unresolved-handler-info-by-object",
   ["../handler-info","router/utils","rsvp/promise","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
@@ -345,7 +345,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
 
     __exports__["default"] = UnresolvedHandlerInfoByObject;
   });
-define("router/handler-info/unresolved-handler-info-by-param", 
+define("router/handler-info/unresolved-handler-info-by-param",
   ["../handler-info","router/utils","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
@@ -377,9 +377,9 @@ define("router/handler-info/unresolved-handler-info-by-param",
 
     __exports__["default"] = UnresolvedHandlerInfoByParam;
   });
-define("router/router", 
-  ["route-recognizer","rsvp/promise","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","exports"],
-  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __exports__) {
+define("router/router",
+  ["route-recognizer","rsvp/promise","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","./handler-info","exports"],
+  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __dependency8__, __exports__) {
     "use strict";
     var RouteRecognizer = __dependency1__["default"];
     var Promise = __dependency2__["default"];
@@ -398,6 +398,7 @@ define("router/router",
     var TransitionAborted = __dependency5__.TransitionAborted;
     var NamedTransitionIntent = __dependency6__["default"];
     var URLTransitionIntent = __dependency7__["default"];
+    var ResolvedHandlerInfo = __dependency8__.ResolvedHandlerInfo;
 
     var pop = Array.prototype.pop;
 
@@ -517,7 +518,7 @@ define("router/router",
           }, null, promiseLabel("Settle transition promise when transition is finalized"));
 
           if (!wasTransitioning) {
-            trigger(this, this.state.handlerInfos, true, ['willTransition', newTransition]);
+            notifyExistingHandlers(this, newState, newTransition);
           }
 
           return newTransition;
@@ -1099,9 +1100,49 @@ define("router/router",
       return finalQueryParams;
     }
 
+    function notifyExistingHandlers(router, newState, newTransition) {
+      var oldHandlers = router.state.handlerInfos,
+          changing = [],
+          leavingIndex = null,
+          leaving, leavingChecker, i, oldHandler, newHandler;
+
+      for (i = 0; i < oldHandlers.length; i++) {
+        oldHandler = oldHandlers[i];
+        newHandler = newState.handlerInfos[i];
+
+        if (!newHandler || oldHandler.name !== newHandler.name) {
+          leavingIndex = i;
+          break;
+        }
+
+        if (!newHandler.isResolved) {
+          changing.push(oldHandler);
+        }
+      }
+
+      if (leavingIndex !== null) {
+        leaving = oldHandlers.slice(leavingIndex, oldHandlers.length);
+        leavingChecker = function(name) {
+          for (var h = 0; h < leaving.length; h++) {
+            if (leaving[h].name === name) {
+              return true;
+            }
+          }
+          return false;
+        };
+        trigger(router, leaving, true, ['willLeave', newTransition, leavingChecker]);
+      }
+
+      if (changing.length > 0) {
+        trigger(router, changing, true, ['willChangeContext', newTransition]);
+      }
+
+      trigger(router, oldHandlers, true, ['willTransition', newTransition]);
+    }
+
     __exports__["default"] = Router;
   });
-define("router/transition-intent", 
+define("router/transition-intent",
   ["./utils","exports"],
   function(__dependency1__, __exports__) {
     "use strict";
@@ -1121,7 +1162,7 @@ define("router/transition-intent",
 
     __exports__["default"] = TransitionIntent;
   });
-define("router/transition-intent/named-transition-intent", 
+define("router/transition-intent/named-transition-intent",
   ["../transition-intent","../transition-state","../handler-info/factory","../utils","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __exports__) {
     "use strict";
@@ -1323,7 +1364,7 @@ define("router/transition-intent/named-transition-intent",
       }
     });
   });
-define("router/transition-intent/url-transition-intent", 
+define("router/transition-intent/url-transition-intent",
   ["../transition-intent","../transition-state","../handler-info/factory","../utils","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __exports__) {
     "use strict";
@@ -1393,7 +1434,7 @@ define("router/transition-intent/url-transition-intent",
       this.name = "UnrecognizedURLError";
     }
   });
-define("router/transition-state", 
+define("router/transition-state",
   ["./handler-info","./utils","rsvp/promise","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
@@ -1506,7 +1547,7 @@ define("router/transition-state",
 
     __exports__["default"] = TransitionState;
   });
-define("router/transition", 
+define("router/transition",
   ["rsvp/promise","./handler-info","./utils","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
@@ -1767,7 +1808,7 @@ define("router/transition",
     __exports__.logAbort = logAbort;
     __exports__.TransitionAborted = TransitionAborted;
   });
-define("router/utils", 
+define("router/utils",
   ["exports"],
   function(__exports__) {
     "use strict";
@@ -1964,15 +2005,14 @@ define("router/utils",
     __exports__.isParam = isParam;
     __exports__.coerceQueryParamsToString = coerceQueryParamsToString;
   });
-define("router", 
+define("router",
   ["./router/router","exports"],
   function(__dependency1__, __exports__) {
     "use strict";
     var Router = __dependency1__["default"];
 
     __exports__["default"] = Router;
-  });
-define("route-recognizer", [], function() { return {default: RouteRecognizer}; });
+  });define("route-recognizer", [], function() { return {default: RouteRecognizer}; });
 define("rsvp", [], function() { return RSVP;});
 define("rsvp/promise", [], function() { return {default: RSVP.Promise}; });
 window.Router = requireModule('router');

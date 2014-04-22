@@ -1,56 +1,60 @@
 "use strict";
 var TransitionIntent = require("../transition-intent")["default"];
 var TransitionState = require("../transition-state")["default"];
-var UnresolvedHandlerInfoByParam = require("../handler-info").UnresolvedHandlerInfoByParam;
+var handlerInfoFactory = require("../handler-info/factory")["default"];
 var oCreate = require("../utils").oCreate;
 var merge = require("../utils").merge;
+var subclass = require("../utils").subclass;
 
-function URLTransitionIntent(props) {
-  TransitionIntent.call(this, props);
-}
+exports["default"] = subclass(TransitionIntent, {
+  url: null,
 
-URLTransitionIntent.prototype = oCreate(TransitionIntent.prototype);
-URLTransitionIntent.prototype.applyToState = function(oldState, recognizer, getHandler) {
-  var newState = new TransitionState();
+  initialize: function(props) {
+    this.url = props.url;
+  },
 
-  var results = recognizer.recognize(this.url),
-      queryParams = {},
-      i, len;
+  applyToState: function(oldState, recognizer, getHandler) {
+    var newState = new TransitionState();
 
-  if (!results) {
-    throw new UnrecognizedURLError(this.url);
-  }
+    var results = recognizer.recognize(this.url),
+        queryParams = {},
+        i, len;
 
-  var statesDiffer = false;
-
-  for (i = 0, len = results.length; i < len; ++i) {
-    var result = results[i];
-    var name = result.handler;
-    var handler = getHandler(name);
-
-    if (handler.inaccessibleByURL) {
+    if (!results) {
       throw new UnrecognizedURLError(this.url);
     }
 
-    var newHandlerInfo = new UnresolvedHandlerInfoByParam({
-      name: name,
-      handler: handler,
-      params: result.params
-    });
+    var statesDiffer = false;
 
-    var oldHandlerInfo = oldState.handlerInfos[i];
-    if (statesDiffer || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
-      statesDiffer = true;
-      newState.handlerInfos[i] = newHandlerInfo;
-    } else {
-      newState.handlerInfos[i] = oldHandlerInfo;
+    for (i = 0, len = results.length; i < len; ++i) {
+      var result = results[i];
+      var name = result.handler;
+      var handler = getHandler(name);
+
+      if (handler.inaccessibleByURL) {
+        throw new UnrecognizedURLError(this.url);
+      }
+
+      var newHandlerInfo = handlerInfoFactory('param', {
+        name: name,
+        handler: handler,
+        params: result.params
+      });
+
+      var oldHandlerInfo = oldState.handlerInfos[i];
+      if (statesDiffer || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
+        statesDiffer = true;
+        newState.handlerInfos[i] = newHandlerInfo;
+      } else {
+        newState.handlerInfos[i] = oldHandlerInfo;
+      }
     }
+
+    merge(newState.queryParams, results.queryParams);
+
+    return newState;
   }
-
-  merge(newState.queryParams, results.queryParams);
-
-  return newState;
-};
+});
 
 /**
   Promise reject reasons passed to promise rejection
@@ -60,5 +64,3 @@ function UnrecognizedURLError(message) {
   this.message = (message || "UnrecognizedURLError");
   this.name = "UnrecognizedURLError";
 }
-
-exports["default"] = URLTransitionIntent;

@@ -315,6 +315,7 @@ test("A delegate provided to router.js is passed along to route-recognizer", fun
 
 test("handleURL: Handling a nested URL triggers each handler", function() {
   expect(28);
+  debugger;
 
   var posts = [];
   var allPosts = { all: true };

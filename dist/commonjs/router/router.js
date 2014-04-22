@@ -16,6 +16,7 @@ var Transition = require("./transition").Transition;
 var TransitionAborted = require("./transition").TransitionAborted;
 var NamedTransitionIntent = require("./transition-intent/named-transition-intent")["default"];
 var URLTransitionIntent = require("./transition-intent/url-transition-intent")["default"];
+var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 
 var pop = Array.prototype.pop;
 
@@ -135,7 +136,7 @@ Router.prototype = {
       }, null, promiseLabel("Settle transition promise when transition is finalized"));
 
       if (!wasTransitioning) {
-        trigger(this, this.state.handlerInfos, true, ['willTransition', newTransition]);
+        notifyExistingHandlers(this, newState, newTransition);
       }
 
       return newTransition;
@@ -715,6 +716,46 @@ function finalizeQueryParamChange(router, resolvedHandlers, newQueryParams, tran
     }
   }
   return finalQueryParams;
+}
+
+function notifyExistingHandlers(router, newState, newTransition) {
+  var oldHandlers = router.state.handlerInfos,
+      changing = [],
+      leavingIndex = null,
+      leaving, leavingChecker, i, oldHandler, newHandler;
+
+  for (i = 0; i < oldHandlers.length; i++) {
+    oldHandler = oldHandlers[i];
+    newHandler = newState.handlerInfos[i];
+
+    if (!newHandler || oldHandler.name !== newHandler.name) {
+      leavingIndex = i;
+      break;
+    }
+
+    if (!newHandler.isResolved) {
+      changing.push(oldHandler);
+    }
+  }
+
+  if (leavingIndex !== null) {
+    leaving = oldHandlers.slice(leavingIndex, oldHandlers.length);
+    leavingChecker = function(name) {
+      for (var h = 0; h < leaving.length; h++) {
+        if (leaving[h].name === name) {
+          return true;
+        }
+      }
+      return false;
+    };
+    trigger(router, leaving, true, ['willLeave', newTransition, leavingChecker]);
+  }
+
+  if (changing.length > 0) {
+    trigger(router, changing, true, ['willChangeContext', newTransition]);
+  }
+
+  trigger(router, oldHandlers, true, ['willTransition', newTransition]);
 }
 
 exports["default"] = Router;
