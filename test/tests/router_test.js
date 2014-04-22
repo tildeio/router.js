@@ -1151,7 +1151,7 @@ test("params are known by a transition up front", function() {
     }
   };
 
-  transitionTo(router, '/posts/filter/sad', 'blorg')
+  transitionTo(router, '/posts/filter/sad', 'blorg');
 });
 
 test("transitionTo uses the current context if you are already in a handler with a context that is not changing", function() {
@@ -1576,11 +1576,11 @@ asyncTest("Error handling shouldn't trigger for transitions that are already abo
   handlers = {
     slow_failure: {
       model: function() {
-	return new Promise(function(res, rej){
-	  router.transitionTo('good');
-	  rej();
-	  start();
-	});
+        return new Promise(function(res, rej){
+          router.transitionTo('good');
+          rej();
+          start();
+        });
       },
       events: {
         error: function() {
@@ -3093,11 +3093,11 @@ module("willLeave and willChangeContext events", {
 
     map(function(match) {
       match("/people").to("people", function (match) {
-	match("/").to("peopleIndex");
-	match("/:id").to("person", function (match) {
-	  match("/").to("personIndex");
-	  match("/detail").to("personDetail");
-	});
+      match("/").to("peopleIndex");
+      match("/:id").to("person", function (match) {
+        match("/").to("personIndex");
+        match("/detail").to("personDetail");
+      });
       });
     });
   }
@@ -3109,10 +3109,10 @@ asyncTest("trigger willLeave for routes that we're leaving", function() {
   handlers = {
     peopleIndex: {
       events: {
-	willLeave: function(t){
-	  ok(true, 'peopleIndex willLeave');
-	},
-	willChangeContext: function(transition) {
+      willLeave: function(t){
+        ok(true, 'peopleIndex willLeave');
+      },
+      willChangeContext: function(transition) {
           ok(false, 'peopleIndex should not change context');
         }
       }
@@ -3122,7 +3122,7 @@ asyncTest("trigger willLeave for routes that we're leaving", function() {
         willLeave: function(transition) {
           ok(false, 'people should not leave');
         },
-	willChangeContext: function(transition) {
+        willChangeContext: function(transition) {
           ok(false, 'people should not change context');
         }
       }
@@ -3177,7 +3177,7 @@ asyncTest("doesn't trigger willChangeContext when only children change", functio
         willLeave: function(transition) {
           ok(false, 'people should not leave');
         },
-	willChangeContext: function(transition) {
+        willChangeContext: function(transition) {
           ok(false, 'people should not change context');
         }
       }
@@ -3187,7 +3187,7 @@ asyncTest("doesn't trigger willChangeContext when only children change", functio
         willLeave: function(transition) {
           ok(false, 'person should not leave');
         },
-	willChangeContext: function(transition) {
+        willChangeContext: function(transition) {
           ok(false, 'person should not change context');
         }
       }
@@ -3197,7 +3197,7 @@ asyncTest("doesn't trigger willChangeContext when only children change", functio
         willLeave: function(transition) {
           ok(true, 'personIndex should leave');
         },
-	willChangeContext: function(transition) {
+        willChangeContext: function(transition) {
           ok(false, 'personIndex should not change context');
         }
       }
@@ -3218,7 +3218,7 @@ asyncTest("let handlers ask which other handlers are leaving", function() {
       events: {
         willLeave: function(transition, alsoLeaving) {
           ok(alsoLeaving("person"), "also leaving person");
-	  ok(!alsoLeaving("people"), "not also leaving people");
+          ok(!alsoLeaving("people"), "not also leaving people");
         }
       }
     }

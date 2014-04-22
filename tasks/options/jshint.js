@@ -1,12 +1,8 @@
 module.exports = {
   options: {
-    'jshintrc': '.jshintrc',
-    'force': true
+    'jshintrc': '.jshintrc'
   },
-  dev: {
-    src: ["Gruntfile.js", "Brocfile.js"]
-  },
-  output: {
-    src: ['dist/<%= pkg.name %>.js']
+  src: {
+    src: ["Gruntfile.js", "Brocfile.js", "lib", "test/tests"]
   }
 };

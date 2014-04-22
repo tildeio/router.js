@@ -35,7 +35,7 @@ function module(name, options) {
       }
     }
   });
-};
+}
 
 
 // Helper method that performs a transition and flushes
