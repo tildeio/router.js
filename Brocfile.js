@@ -5,6 +5,7 @@ var moveFile = require('broccoli-file-mover');
 var pickFiles = require('broccoli-static-compiler');
 var uglifyJavaScript = require('broccoli-uglify-js');
 var wrapFiles = require('broccoli-wrap');
+var concatFilenames = require('broccoli-concat-filenames');
 
 var trees = [
   createAMDTree(),
@@ -35,6 +36,15 @@ function makeTests() {
     outputFile: '/tests/tests.js'
   });
 
+  // Create /tests/tests_main.js which requires all tests (all test/tests/**/*_test.js files)
+  var testsMain = concatFilenames("test", {
+    inputFiles: ["**/*_test.js"],
+    outputFile: "/tests/tests_main.js",
+    transform: function(fileName) {
+      return "require('" + fileName  + "');";
+    }
+  });
+
   // Copy files needed for QUnit
   var qunit = pickFiles('test', {
     files:  ['index.html', 'vendor/*'],
@@ -49,7 +59,7 @@ function makeTests() {
   });
 
   // Merge all test related stuff into tests tree
-  return mergeTrees([deps, qunit, loader, tests]);
+  return mergeTrees([deps, qunit, loader, tests, testsMain]);
 }
 
 
