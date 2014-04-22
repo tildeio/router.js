@@ -18,7 +18,7 @@ module.exports = function(grunt) {
 
   // Build a new version of the library
   this.registerTask('build', 'Builds a distributable version of <%= cfg.name %>',
-                    ['clean', 'broccoli:dist:build', 'jshint']);
+                    ['clean', 'jshint', 'broccoli:dist:build']);
 
   config.env = process.env;
   config.pkg = grunt.file.readJSON('package.json');
