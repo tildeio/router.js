@@ -678,7 +678,16 @@ define("router/router",
 
         @param {String} message The message to log.
       */
-      log: null
+      log: null,
+
+      _willChangeContextEvent: 'willChangeContext',
+      _triggerWillChangeContext: function(handlerInfos, newTransition) {
+        trigger(this, handlerInfos, true, [this._willChangeContextEvent, newTransition]);
+      },
+
+      _triggerWillLeave: function(handlerInfos, newTransition, leavingChecker) {
+        trigger(this, handlerInfos, true, ['willLeave', newTransition, leavingChecker]);
+      }
     };
 
     /**
@@ -1076,11 +1085,12 @@ define("router/router",
           }
           return false;
         };
-        trigger(router, leaving, true, ['willLeave', newTransition, leavingChecker]);
+
+        router._triggerWillLeave(leaving, newTransition, leavingChecker);
       }
 
       if (changing.length > 0) {
-        trigger(router, changing, true, ['willChangeContext', newTransition]);
+        router._triggerWillChangeContext(changing, newTransition);
       }
 
       trigger(router, oldHandlers, true, ['willTransition', newTransition]);
