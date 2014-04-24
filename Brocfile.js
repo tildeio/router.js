@@ -110,7 +110,7 @@ function createStandaloneTree() {
   end.push('define("route-recognizer", [], function() { return {default: RouteRecognizer}; });');
   end.push('define("rsvp", [], function() { return RSVP;});');
   end.push('define("rsvp/promise", [], function() { return {default: RSVP.Promise}; });');
-  end.push("window.Router = requireModule('router');");
+  end.push("window.Router = requireModule('router')['default'];");
   end.push('}(window, window.RSVP, window.RouteRecognizer));');
   end = end.join('\n');
 
