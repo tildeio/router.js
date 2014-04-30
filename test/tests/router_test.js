@@ -188,6 +188,29 @@ test("handleURL accepts query params", function() {
   router.handleURL("/posts/all?sort=name&sortDirection=descending");
 });
 
+test("redirect hook shouldn't get called on parent routes", function() {
+  map(function(match) {
+    match("/").to('app', function(match) {
+      match("/").to('index');
+      match("/other").to('other');
+    });
+  });
+
+  var appRedirects = 0;
+  handlers = {
+    app: {
+      redirect: function() {
+        appRedirects++;
+      }
+    }
+  };
+
+  transitionTo(router, '/');
+  equal(appRedirects, 1);
+  transitionTo(router, 'other');
+  equal(appRedirects, 1);
+});
+
 test("when transitioning with the same context, setup should only be called once", function() {
   var parentSetupCount = 0,
       childSetupCount = 0;
