@@ -625,13 +625,7 @@ define("router/router",
         return this.recognizer.generate(handlerName, params);
       },
 
-      isActive: function(handlerName) {
-
-        var partitionedArgs   = extractQueryParams(slice.call(arguments, 1)),
-            contexts          = partitionedArgs[0],
-            queryParams       = partitionedArgs[1],
-            activeQueryParams  = this.state.queryParams;
-
+      isActiveIntent: function(handlerName, contexts, queryParams) {
         var targetHandlerInfos = this.state.handlerInfos,
             found = false, names, object, handlerInfo, handlerObj, i, len;
 
@@ -665,6 +659,8 @@ define("router/router",
         // Get a hash of QPs that will still be active on new route
         var activeQPsOnNewHandler = {};
         merge(activeQPsOnNewHandler, queryParams);
+
+        var activeQueryParams  = this.state.queryParams;
         for (var key in activeQueryParams) {
           if (activeQueryParams.hasOwnProperty(key) &&
               activeQPsOnNewHandler.hasOwnProperty(key)) {
@@ -674,6 +670,11 @@ define("router/router",
 
         return handlerInfosEqual(newState.handlerInfos, state.handlerInfos) &&
                !getChangelist(activeQPsOnNewHandler, queryParams);
+      },
+
+      isActive: function(handlerName) {
+        var partitionedArgs   = extractQueryParams(slice.call(arguments, 1));
+        return this.isActiveIntent(handlerName, partitionedArgs[0], partitionedArgs[1]);
       },
 
       trigger: function(name) {
