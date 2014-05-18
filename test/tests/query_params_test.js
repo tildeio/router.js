@@ -232,7 +232,7 @@ test("transitionTo() works with single query param arg", function() {
   transitionTo(router, '/index?bar=9&foo=8');
   deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
 
-  expectedUrl = '/index?bar=9&foo=123';
+  expectedUrl = '/index?foo=123';
   transitionTo(router, { queryParams: { foo: '123' }});
 });
 

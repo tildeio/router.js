@@ -1296,7 +1296,6 @@ define("router/transition-intent/named-transition-intent",
           this.invalidateChildren(newState.handlerInfos, invalidateIndex);
         }
 
-        merge(newState.queryParams, oldState.queryParams);
         merge(newState.queryParams, this.queryParams || {});
 
         return newState;
