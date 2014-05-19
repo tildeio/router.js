@@ -64,7 +64,7 @@ Router.prototype = {
         this._changedQueryParams[k] = null;
       }
     }
-    trigger(this, newState.handlerInfos, true, ['queryParamsDidChange', changelist.changed, changelist.all, changelist.removed]);
+    fireQueryParamDidChange(this, newState, changelist);
     this._changedQueryParams = null;
 
     if (!wasTransitioning && this.activeTransition) {
@@ -107,11 +107,11 @@ Router.prototype = {
 
     try {
       var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate);
+      var queryParamChangelist = getChangelist(oldState.queryParams, newState.queryParams);
 
       if (handlerInfosEqual(newState.handlerInfos, oldState.handlerInfos)) {
 
         // This is a no-op transition. See if query params changed.
-        var queryParamChangelist = getChangelist(oldState.queryParams, newState.queryParams);
         if (queryParamChangelist) {
           newTransition = this.queryParamsTransition(queryParamChangelist, wasTransitioning, oldState, newState);
           if (newTransition) {
@@ -147,6 +147,8 @@ Router.prototype = {
       if (!wasTransitioning) {
         notifyExistingHandlers(this, newState, newTransition);
       }
+
+      fireQueryParamDidChange(this, newState, queryParamChangelist);
 
       return newTransition;
     } catch(e) {
@@ -385,6 +387,29 @@ Router.prototype = {
     trigger(this, handlerInfos, true, ['willLeave', newTransition, leavingChecker]);
   }
 };
+
+/**
+  @private
+
+  Fires queryParamsDidChange event
+*/
+function fireQueryParamDidChange(router, newState, queryParamChangelist) {
+  // If queryParams changed trigger event
+  if (queryParamChangelist) {
+
+    // This is a little hacky but we need some way of storing
+    // changed query params given that no activeTransition
+    // is guaranteed to have occurred.
+    router._changedQueryParams = queryParamChangelist.changed;
+    for (var i in queryParamChangelist.removed) {
+      if (queryParamChangelist.removed.hasOwnProperty(i)) {
+        router._changedQueryParams[i] = null;
+      }
+    }
+    trigger(router, newState.handlerInfos, true, ['queryParamsDidChange', queryParamChangelist.changed, queryParamChangelist.all, queryParamChangelist.removed]);
+    router._changedQueryParams = null;
+  }
+}
 
 /**
   @private
