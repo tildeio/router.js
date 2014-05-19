@@ -613,6 +613,11 @@ test("replaceWith calls replaceURL", function() {
   });
 });
 
+test("applyIntent returns a tentative state based on a named transition", function() {
+  transitionTo(router, '/posts');
+  var state = router.applyIntent('faq', []);
+  ok(state.handlerInfos.length);
+});
 
 test("Moving to a new top-level route triggers exit callbacks", function() {
   expect(5);

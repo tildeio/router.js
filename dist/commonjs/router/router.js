@@ -80,6 +80,7 @@ Router.prototype = {
       // the user the ability to set the url update
       // method (default is replaceState).
       var newTransition = new Transition(this);
+      newTransition.queryParamsOnly = true;
 
       oldState.queryParams = finalizeQueryParamChange(this, newState.handlerInfos, newState.queryParams, newTransition);
 
@@ -297,6 +298,16 @@ Router.prototype = {
     return this.recognizer.generate(handlerName, params);
   },
 
+  applyIntent: function(handlerName, contexts) {
+    var intent = new NamedTransitionIntent({
+      name: handlerName,
+      contexts: contexts
+    });
+
+    var state = this.activeTransition && this.activeTransition.state || this.state;
+    return intent.applyToState(state, this.recognizer, this.getHandler);
+  },
+
   isActiveIntent: function(handlerName, contexts, queryParams) {
     var targetHandlerInfos = this.state.handlerInfos,
         found = false, names, object, handlerInfo, handlerObj, i, len;
@@ -328,6 +339,11 @@ Router.prototype = {
 
     var newState = intent.applyToHandlers(state, recogHandlers, this.getHandler, targetHandler, true, true);
 
+    var handlersEqual = handlerInfosEqual(newState.handlerInfos, state.handlerInfos);
+    if (!queryParams || !handlersEqual) {
+      return handlersEqual;
+    }
+
     // Get a hash of QPs that will still be active on new route
     var activeQPsOnNewHandler = {};
     merge(activeQPsOnNewHandler, queryParams);
@@ -340,12 +356,11 @@ Router.prototype = {
       }
     }
 
-    return handlerInfosEqual(newState.handlerInfos, state.handlerInfos) &&
-           !getChangelist(activeQPsOnNewHandler, queryParams);
+    return handlersEqual && !getChangelist(activeQPsOnNewHandler, queryParams);
   },
 
   isActive: function(handlerName) {
-    var partitionedArgs   = extractQueryParams(slice.call(arguments, 1));
+    var partitionedArgs = extractQueryParams(slice.call(arguments, 1));
     return this.isActiveIntent(handlerName, partitionedArgs[0], partitionedArgs[1]);
   },
 
