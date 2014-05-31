@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/tildeio/router.js.png?branch=master)](https://travis-ci.org/tildeio/router.js)
 
-`router.js` is a lightweight JavaScript library 
+`router.js` is a lightweight JavaScript library
 that builds on
 [`route-recognizer`](https://github.com/tildeio/route-recognizer)
 and [`rsvp`](https://github.com/tildeio/rsvp.js)
@@ -11,7 +11,7 @@ to provide an API for handling routes.
 In keeping with the Unix philosophy, it is a modular library
 that does one thing and does it well.
 
-`router.js` is the routing microlib used by 
+`router.js` is the routing microlib used by
 [Ember.js](https://github.com/emberjs/ember.js).
 
 ## Downloads
@@ -271,16 +271,16 @@ invokes a number of callbacks:
 
 #### Model Resolution / Entry Validation Callbacks
 
-Before any routes are entered or exited, `router.js` first 
-attempts to resolve all of the model objects for destination 
+Before any routes are entered or exited, `router.js` first
+attempts to resolve all of the model objects for destination
 routes while also validating whether the destination routes
 can be entered at this time. To do this, `router.js` makes
 use of the `model`, `beforeModel`, and `afterModel` hooks.
 
 The value returned from the `model` callback is the model
-object that will eventually be supplied to `setup` 
-(described below) once all other routes have finished 
-validating/resolving their models. It is passed a hash 
+object that will eventually be supplied to `setup`
+(described below) once all other routes have finished
+validating/resolving their models. It is passed a hash
 of URL parameters specific to its route that can be used
 to resolve the model.
 
@@ -292,37 +292,37 @@ myHandlers.showPost = {
 ```
 
 `model` will be called for every newly entered route,
-except for when a model is explicitly provided as an 
-argument to `transitionTo`. 
+except for when a model is explicitly provided as an
+argument to `transitionTo`.
 
 There are two other hooks you can use that will always
 fire when attempting to enter a route:
 
-* **beforeModel** is called before `model` is called, 
-  or before the passed-in model is attempted to be 
+* **beforeModel** is called before `model` is called,
+  or before the passed-in model is attempted to be
   resolved. It receives a `transition` as its sole
   parameter (see below).
 * **afterModel** is called after `after` is called,
-  or after the passed-in model has resolved. It 
+  or after the passed-in model has resolved. It
   receives both the resolved model and `transition`
   as its two parameters.
 
 If the values returned from `model`, `beforeModel`,
 or `afterModel` are promises, the transition will
 wait until the promise resolves (or rejects) before
-proceeding with (or aborting) the transition. 
+proceeding with (or aborting) the transition.
 
 #### `serialize`
 
-`serialize` should be implemented on as many handlers 
-as necessary to consume the passed in contexts, if the 
-transition occurred through `transitionTo`. A context 
-is consumed if the handler's route fragment has a 
+`serialize` should be implemented on as many handlers
+as necessary to consume the passed in contexts, if the
+transition occurred through `transitionTo`. A context
+is consumed if the handler's route fragment has a
 dynamic segment and the handler has a model method.
 
 #### Entry, update, exit hooks.
 
-The following hooks are called after all 
+The following hooks are called after all
 model resolution / route validation hooks
 have resolved:
 
@@ -356,13 +356,13 @@ followed by the URL segment it handles.
 Consider the following transitions:
 
 1. A URL transition to `/posts/1`.
-   1. Triggers the `beforeModel`, `model`, `afterModel` 
+   1. Triggers the `beforeModel`, `model`, `afterModel`
       callbacks on the `index`, `posts`, and `showPost`
       handlers
    2. Triggers the `enter` callback on the same
    3. Triggers the `setup` callback on the same
 2. A direct transition to `newPost`
-   1. Triggers the `beforeModel`, `model`, `afterModel` 
+   1. Triggers the `beforeModel`, `model`, `afterModel`
       callbacks on the `newPost`.
    2. Triggers the `exit` callback on `showPost`
    3. Triggers the `enter` callback on `newPost`
@@ -516,7 +516,7 @@ var formRoute = {
 };
 ```
 
-You can also redirect elsewhere by calling 
+You can also redirect elsewhere by calling
 `this.transitionTo('elsewhere')` from within `willTransition`.
 Note that `willTransition` will not be fired for the
 redirecting `transitionTo`, since `willTransition` doesn't
@@ -531,7 +531,7 @@ When attempting to transition into a route, any of the hooks
 may throw an error, or return a promise that rejects, at which
 point an `error` event will be fired on the partially-entered
 routes, allowing for per-route error handling logic, or shared
-error handling logic defined on a parent route. 
+error handling logic defined on a parent route.
 
 Here is an example of an error handler that will be invoked
 for rejected promises / thrown errors from the various hooks
@@ -550,9 +550,9 @@ var adminRoute = {
     error: function(error, transition) {
       // Assuming we got here due to the error in `beforeModel`,
       // we can expect that error === "bad things!",
-      // but a promise model rejecting would also 
+      // but a promise model rejecting would also
       // call this hook, as would any errors encountered
-      // in `afterModel`. 
+      // in `afterModel`.
 
       // The `error` hook is also provided the failed
       // `transition`, which can be stored and later
@@ -592,5 +592,19 @@ found in [ARCHITECTURE.md](ARCHITECTURE.md). Please read this document
 if you are interested in better understanding / contributing to
 router.js.
 
-[builds-page]: http://routerjs.builds.emberjs.com.s3-website-us-east-1.amazonaws.com/index.html
+## Building router.js
 
+1. Ensure that [Node.js](http://nodejs.org/) is installed.
+2. Run `npm install` to ensure the required dependencies are installed.
+3. Run `grunt dist` to build router.js. The builds will be placed in the `dist/` directory.
+
+## Running the unit tests
+
+1. To start the development server, run `grunt server`.
+2. Visit `http://localhost:4200/tests/`
+
+or from the command line:
+
+1. run `grunt test`
+
+[builds-page]: http://routerjs.builds.emberjs.com.s3-website-us-east-1.amazonaws.com/index.html
