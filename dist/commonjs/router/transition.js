@@ -32,6 +32,7 @@ function Transition(router, intent, state, error) {
   if (state) {
     this.params = state.params;
     this.queryParams = state.queryParams;
+    this.handlerInfos = state.handlerInfos;
 
     var len = state.handlerInfos.length;
     if (len) {
@@ -84,6 +85,17 @@ Transition.prototype = {
   queryParamsOnly: false,
 
   isTransition: true,
+
+  isExiting: function(handler) {
+    var handlerInfos = this.handlerInfos;
+    for (var i = 0, len = handlerInfos.length; i < len; ++i) {
+      var handlerInfo = handlerInfos[i];
+      if (handlerInfo.name === handler || handlerInfo.handler === handler) {
+        return false;
+      }
+    }
+    return true;
+  },
 
   /**
     @public

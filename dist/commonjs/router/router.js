@@ -458,7 +458,7 @@ function setupContexts(router, newState, transition) {
   forEach(partition.exited, function(handlerInfo) {
     var handler = handlerInfo.handler;
     delete handler.context;
-    if (handler.exit) { handler.exit(); }
+    if (handler.exit) { handler.exit(transition); }
   });
 
   var oldState = router.oldState = router.state;

@@ -620,7 +620,7 @@ test("applyIntent returns a tentative state based on a named transition", functi
 });
 
 test("Moving to a new top-level route triggers exit callbacks", function() {
-  expect(5);
+  expect(6);
 
   var allPosts = { posts: "all" };
   var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
@@ -632,13 +632,14 @@ test("Moving to a new top-level route triggers exit callbacks", function() {
         return allPosts;
       },
 
-      setup: function(posts) {
+      setup: function(posts, transition) {
+        ok(!transition.isExiting(this));
         equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
         currentPath = "postIndex.showAllPosts";
       },
 
-      exit: function() {
-        ok(true, "Should get here");
+      exit: function(transition) {
+        ok(transition.isExiting(this));
       }
     },
 
