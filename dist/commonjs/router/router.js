@@ -458,6 +458,7 @@ function setupContexts(router, newState, transition) {
   forEach(partition.exited, function(handlerInfo) {
     var handler = handlerInfo.handler;
     delete handler.context;
+    if (handler.reset) { handler.reset(true, transition); }
     if (handler.exit) { handler.exit(transition); }
   });
 
@@ -466,6 +467,11 @@ function setupContexts(router, newState, transition) {
   var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice();
 
   try {
+    forEach(partition.reset, function(handlerInfo) {
+      var handler = handlerInfo.handler;
+      if (handler.reset) { handler.reset(false, transition); }
+    });
+
     forEach(partition.updatedContext, function(handlerInfo) {
       return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, false, transition);
     });
@@ -565,7 +571,7 @@ function partitionHandlers(oldState, newState) {
         unchanged: []
       };
 
-  var handlerChanged, contextChanged, queryParamsChanged, i, l;
+  var handlerChanged, contextChanged, i, l;
 
   for (i=0, l=newHandlers.length; i<l; i++) {
     var oldHandler = oldHandlers[i], newHandler = newHandlers[i];
@@ -577,7 +583,7 @@ function partitionHandlers(oldState, newState) {
     if (handlerChanged) {
       handlers.entered.push(newHandler);
       if (oldHandler) { handlers.exited.unshift(oldHandler); }
-    } else if (contextChanged || oldHandler.context !== newHandler.context || queryParamsChanged) {
+    } else if (contextChanged || oldHandler.context !== newHandler.context) {
       contextChanged = true;
       handlers.updatedContext.push(newHandler);
     } else {
@@ -588,6 +594,9 @@ function partitionHandlers(oldState, newState) {
   for (i=newHandlers.length, l=oldHandlers.length; i<l; i++) {
     handlers.exited.unshift(oldHandlers[i]);
   }
+
+  handlers.reset = handlers.updatedContext.slice();
+  handlers.reset.reverse();
 
   return handlers;
 }

@@ -840,6 +840,7 @@ define("router/router",
       forEach(partition.exited, function(handlerInfo) {
         var handler = handlerInfo.handler;
         delete handler.context;
+        if (handler.reset) { handler.reset(true, transition); }
         if (handler.exit) { handler.exit(transition); }
       });
 
@@ -848,6 +849,11 @@ define("router/router",
       var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice();
 
       try {
+        forEach(partition.reset, function(handlerInfo) {
+          var handler = handlerInfo.handler;
+          if (handler.reset) { handler.reset(false, transition); }
+        });
+
         forEach(partition.updatedContext, function(handlerInfo) {
           return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, false, transition);
         });
@@ -947,7 +953,7 @@ define("router/router",
             unchanged: []
           };
 
-      var handlerChanged, contextChanged, queryParamsChanged, i, l;
+      var handlerChanged, contextChanged, i, l;
 
       for (i=0, l=newHandlers.length; i<l; i++) {
         var oldHandler = oldHandlers[i], newHandler = newHandlers[i];
@@ -959,7 +965,7 @@ define("router/router",
         if (handlerChanged) {
           handlers.entered.push(newHandler);
           if (oldHandler) { handlers.exited.unshift(oldHandler); }
-        } else if (contextChanged || oldHandler.context !== newHandler.context || queryParamsChanged) {
+        } else if (contextChanged || oldHandler.context !== newHandler.context) {
           contextChanged = true;
           handlers.updatedContext.push(newHandler);
         } else {
@@ -970,6 +976,9 @@ define("router/router",
       for (i=newHandlers.length, l=oldHandlers.length; i<l; i++) {
         handlers.exited.unshift(oldHandlers[i]);
       }
+
+      handlers.reset = handlers.updatedContext.slice();
+      handlers.reset.reverse();
 
       return handlers;
     }
@@ -2087,8 +2096,8 @@ define("router",
     var Router = __dependency1__["default"];
 
     __exports__["default"] = Router;
-  });define("route-recognizer", [], function() { return {default: RouteRecognizer}; });
+  });define("route-recognizer", [], function() { return {"default": RouteRecognizer}; });
 define("rsvp", [], function() { return RSVP;});
-define("rsvp/promise", [], function() { return {default: RSVP.Promise}; });
+define("rsvp/promise", [], function() { return {"default": RSVP.Promise}; });
 window.Router = requireModule('router');
 }(window, window.RSVP, window.RouteRecognizer));
