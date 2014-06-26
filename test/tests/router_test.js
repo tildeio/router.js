@@ -475,6 +475,8 @@ test("handleURL: Handling a nested URL triggers each handler", function() {
 });
 
 test("it can handle direct transitions to named routes", function() {
+  expect(11);
+
   var posts = [];
   var allPosts = { all: true };
   var popularPosts = { popular: true };
@@ -484,25 +486,12 @@ test("it can handle direct transitions to named routes", function() {
   var postIndexHandler = {
     model: function(params) {
       return allPosts;
-    },
-
-    serialize: function(object, params) {
-      return {};
-    },
-
-    setup: function(object) {
-
     }
   };
 
   var showAllPostsHandler = {
     model: function(params) {
-      //ok(!params, 'params is falsy for non dynamic routes');
       return allPosts;
-    },
-
-    serialize: function(object, params) {
-      return {};
     },
 
     setup: function(object) {
@@ -513,10 +502,6 @@ test("it can handle direct transitions to named routes", function() {
   var showPopularPostsHandler = {
     model: function(params) {
       return popularPosts;
-    },
-
-    serialize: function(object) {
-      return {};
     },
 
     setup: function(object) {
@@ -587,6 +572,8 @@ test("it can handle direct transitions to named routes", function() {
 });
 
 test("replaceWith calls replaceURL", function() {
+  expect(2);
+
   var updateCount = 0,
       replaceCount = 0;
 
@@ -609,7 +596,9 @@ test("replaceWith calls replaceURL", function() {
 test("applyIntent returns a tentative state based on a named transition", function() {
   transitionTo(router, '/posts');
   var state = router.applyIntent('faq', []);
-  ok(state.handlerInfos.length);
+
+  equal(state.handlerInfos.length, 1);
+  equal(state.handlerInfos[0].name, 'faq');
 });
 
 test("Moving to a new top-level route triggers exit callbacks", function() {
@@ -694,6 +683,8 @@ test("pivotHandler is exposed on Transition object", function() {
 });
 
 asyncTest("transition.resolvedModels after redirects b/w routes", function() {
+  expect(3);
+
   map(function(match) {
     match("/").to('application', function(match) {
       match("/peter").to('peter');
@@ -718,6 +709,7 @@ asyncTest("transition.resolvedModels after redirects b/w routes", function() {
         router.transitionTo("wagenet");
       }
     },
+
     wagenet: {
       model: function(params, transition) {
         deepEqual(transition.resolvedModels.application, app, "wagenet: resolvedModel correctly stored in resolvedModels for parent route");
@@ -730,6 +722,8 @@ asyncTest("transition.resolvedModels after redirects b/w routes", function() {
 });
 
 test("transition.resolvedModels after redirects within the same route", function() {
+  expect(2);
+
   var admin = { admin: true },
       redirect = true;
 
@@ -798,7 +792,6 @@ test("Moving to a sibling route only triggers exit callbacks on the current rout
 
     setup: function(posts) {
       equal(posts, allPosts, "The correct context was passed into showAllPostsHandler#setup");
-
     },
 
     enter: function() {
@@ -943,6 +936,7 @@ test("Moving to a sibling route only triggers exit callbacks on the current rout
 });
 
 test("events can be targeted at the current handler", function() {
+  expect(2);
 
   handlers = {
     showPost: {
@@ -965,6 +959,7 @@ test("events can be targeted at the current handler", function() {
 });
 
 test("event triggering is pluggable", function() {
+  expect(2);
 
   handlers = {
     showPost: {
@@ -979,6 +974,7 @@ test("event triggering is pluggable", function() {
       }
     }
   };
+
   router.triggerEvent = function(handlerInfos, ignoreFailure, args) {
     var name = args.shift();
 
@@ -1002,6 +998,7 @@ test("event triggering is pluggable", function() {
       }
     }
   };
+
   router.handleURL("/posts/1").then(function() {
     router.trigger("expand");
   });
@@ -1072,7 +1069,6 @@ test("events can bubble up to a parent handler via `return true`", function() {
   router.handleURL("/posts").then(function(result) {
     router.trigger("expand");
   });
-
 });
 
 test("handled-then-bubbled events don't throw an exception if uncaught by parent route", function() {
@@ -1177,6 +1173,8 @@ test("params are known by a transition up front", function() {
 });
 
 test("transitionTo uses the current context if you are already in a handler with a context that is not changing", function() {
+  expect(3);
+
   var admin = { id: 47 },
       adminPost = { id: 74 };
 
@@ -1273,6 +1271,8 @@ test("tests whether arguments to transitionTo are considered active", function()
 });
 
 test("calling generate on a non-dynamic route does not blow away parent contexts", function() {
+  expect(2);
+
   map(function(match) {
     match("/projects").to('projects', function(match) {
       match("/").to('projectsIndex');
@@ -1286,7 +1286,7 @@ test("calling generate on a non-dynamic route does not blow away parent contexts
 
   handlers = {
     projects: {
-      model: function(){
+      model: function() {
         return projects;
       }
     }
@@ -1342,19 +1342,17 @@ test("reset exits and clears the current and target route handlers", function() 
   var postIndexExited = false;
   var showAllPostsExited = false;
 
-  var postIndexHandler = {
-    exit: function() {
-      postIndexExited = true;
-    }
-  };
-  var showAllPostsHandler = {
-    exit: function() {
-      showAllPostsExited = true;
-    }
-  };
   handlers = {
-    postIndex: postIndexHandler,
-    showAllPosts: showAllPostsHandler
+    postIndex: {
+      exit: function() {
+        postIndexExited = true;
+      }
+    },
+    showAllPosts: {
+      exit: function() {
+        showAllPostsExited = true;
+      }
+    }
   };
 
   transitionTo(router, "/posts/all");
@@ -1370,6 +1368,7 @@ test("reset exits and clears the current and target route handlers", function() 
 
 test("any of the model hooks can redirect with or without promise", function() {
   expect(26);
+
   var setupShouldBeEntered = false;
   var returnPromise = false;
   var redirectTo;
