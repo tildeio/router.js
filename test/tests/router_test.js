@@ -105,7 +105,6 @@ test("Handling a URL triggers model on the handler and passes the result into th
   expect(4);
 
   var post = { post: true };
-  var posts = { index: true };
 
   handlers = {
     showPost: {
