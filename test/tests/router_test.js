@@ -13,7 +13,7 @@ module("The router", {
       match("/index").to("index");
       match("/about").to("about");
       match("/faq").to("faq");
-      match('/nested').to('nestedParent', function (match) {
+      match('/nested').to('nestedParent', function(match) {
         match('/').to('nestedChild');
       });
       match("/posts", function(match) {
@@ -45,9 +45,8 @@ function map(fn) {
   };
 
   router.updateURL = function(newUrl) {
-
     if (expectedUrl) {
-      equal(newUrl, expectedUrl, "The url is " + newUrl+ " as expected");
+      equal(newUrl, expectedUrl, "The url is " + newUrl + " as expected");
     }
 
     url = newUrl;
@@ -55,7 +54,6 @@ function map(fn) {
 }
 
 function enableErrorHandlingDeferredActionQueue() {
-
   actions = [];
   configure('async', function(callback, promise) {
     actions.push({
@@ -136,23 +134,21 @@ test("isActive should not break on initial intermediate route", function() {
 test("Handling a URL passes in query params", function() {
   expect(3);
 
-  var indexHandler = {
-    model: function(params, transition) {
-      deepEqual(transition.queryParams, { sort: 'date', filter: 'true' });
-    },
-    events: {
-      finalizeQueryParamChange: function(params, finalParams) {
-        ok(true, 'finalizeQueryParamChange');
-        // need to consume the params so that the router
-        // knows that they're active
-        finalParams.push({ key: 'sort', value: params.sort });
-        finalParams.push({ key: 'filter', value: params.filter });
+  handlers = {
+    index: {
+      model: function(params, transition) {
+        deepEqual(transition.queryParams, { sort: 'date', filter: 'true' });
+      },
+      events: {
+        finalizeQueryParamChange: function(params, finalParams) {
+          ok(true, 'finalizeQueryParamChange');
+          // need to consume the params so that the router
+          // knows that they're active
+          finalParams.push({ key: 'sort', value: params.sort });
+          finalParams.push({ key: 'filter', value: params.filter });
+        }
       }
     }
-  };
-
-  handlers = {
-    index: indexHandler
   };
 
   router.handleURL("/index?sort=date&filter");
@@ -161,6 +157,7 @@ test("Handling a URL passes in query params", function() {
 });
 
 test("handleURL accepts slash-less URLs", function() {
+  expect(1);
 
   handlers = {
     showAllPosts: {
@@ -174,9 +171,9 @@ test("handleURL accepts slash-less URLs", function() {
 });
 
 test("handleURL accepts query params", function() {
+  expect(1);
+
   handlers = {
-    posts: {},
-    postIndex: {},
     showAllPosts: {
       setup: function() {
         ok(true, "showAllPosts' setup called");
@@ -227,10 +224,6 @@ test("when transitioning with the same context, setup should only be called once
     post: {
       setup: function() {
         parentSetupCount++;
-      },
-
-      model: function(params) {
-        return params;
       }
     },
 
@@ -243,21 +236,22 @@ test("when transitioning with the same context, setup should only be called once
 
   transitionTo(router, '/');
 
-  equal(parentSetupCount, 0, 'precond - parent not setup');
-  equal(childSetupCount, 0, 'precond - parent not setup');
+  equal(parentSetupCount, 0, 'precondition - parent not setup');
+  equal(childSetupCount, 0, 'precondition - child not setup');
 
   transitionTo(router, 'postDetails', context);
 
-  equal(parentSetupCount, 1, 'after one transition parent is setup once');
-  equal(childSetupCount, 1, 'after one transition child is setup once');
+  equal(parentSetupCount, 1, 'after initial transition parent is setup once');
+  equal(childSetupCount, 1, 'after initial transition child is setup once');
 
   transitionTo(router, 'postDetails', context);
 
-  equal(parentSetupCount, 1, 'after two transitions, parent is still setup once');
-  equal(childSetupCount, 1, 'after two transitions, child is still setup once');
+  equal(parentSetupCount, 1, 'after duplicate transition, parent is still setup once');
+  equal(childSetupCount, 1, 'after duplicate transition, child is still setup once');
 });
 
 test("when transitioning to a new parent and child state, the parent's context should be available to the child's model", function() {
+  expect(1);
   var contexts = [];
 
   map(function(match) {
