@@ -47,6 +47,15 @@ function enableErrorHandlingDeferredActionQueue() {
   });
 }
 
+function consumeAllFinalQueryParams(params, finalParams) {
+  for (var key in params) {
+    var value = params[key];
+    delete params[key];
+    finalParams.push({ key: key, value: value });
+  }
+  return true;
+}
+
 test("a change in query params fires a queryParamsDidChange event", function() {
   expect(7);
 
@@ -56,12 +65,7 @@ test("a change in query params fires a queryParamsDidChange event", function() {
       equal(count, 0, "setup should be called exactly once since we're only changing query params after the first transition");
     },
     events: {
-      finalizeQueryParamChange: function(params, finalParams) {
-        // copy to finalParams to tell the router we're consuming
-        // these params.
-        finalParams.push({ key: 'foo', value: params.foo });
-        finalParams.push({ key: 'bar', value: params.bar });
-      },
+      finalizeQueryParamChange: consumeAllFinalQueryParams,
 
       queryParamsDidChange: function(changed, all) {
         switch (count) {
@@ -69,7 +73,7 @@ test("a change in query params fires a queryParamsDidChange event", function() {
             ok(false, "shouldn't fire on first trans");
             break;
           case 1:
-            deepEqual(changed, { foo: '5', bar: null });
+            deepEqual(changed, { foo: '5' });
             deepEqual(all,     { foo: '5' });
             break;
           case 2:
@@ -99,19 +103,14 @@ test("transitioning between routes fires a queryParamsDidChange event", function
   var count = 0;
   handlers.parent = {
     events: {
-      finalizeQueryParamChange: function(params, finalParams) {
-        // copy to finalParams to tell the router we're consuming
-        // these params.
-        finalParams.push({ key: 'foo', value: params.foo });
-        finalParams.push({ key: 'bar', value: params.bar });
-      },
+      finalizeQueryParamChange: consumeAllFinalQueryParams,
       queryParamsDidChange: function(changed, all) {
         switch (count) {
           case 0:
             ok(false, "shouldn't fire on first trans");
             break;
           case 1:
-            deepEqual(changed, { foo: '5', bar: null });
+            deepEqual(changed, { foo: '5' });
             deepEqual(all,     { foo: '5' });
             break;
           case 2:
@@ -155,17 +154,20 @@ test("transitioning between routes fires a queryParamsDidChange event", function
 });
 
 test("a handler can opt into a full-on transition by calling refresh", function() {
-  expect(2);
+  expect(3);
 
   var count = 0;
   handlers.index = {
     model: function() {
       switch (count) {
         case 0:
-          ok(true, "model called at first");
+          ok(true, "model called in initial transition");
           break;
         case 1:
-          ok(true, "model called at second");
+          ok(true, "model called during refresh");
+          break;
+        case 2:
+          ok(true, "model called during refresh w 2 QPs");
           break;
         default:
           ok(false, "shouldn't have been called for " + count);
@@ -173,26 +175,21 @@ test("a handler can opt into a full-on transition by calling refresh", function(
     },
     events: {
       queryParamsDidChange: function(changed, all) {
-        switch (count) {
-          case 0:
-            ok(false, "shouldn't fire on first trans");
-            break;
-          case 1:
-            router.refresh(this);
-            break;
+        if (count === 0) {
+          ok(false, "shouldn't fire on first trans");
+        } else {
+          router.refresh(this);
         }
       },
-      finalizeQueryParamChange: function(params) {
-        // we have to consume each param so that the
-        // router doesn't think it lost lost the param.
-        delete params.foo;
-      }
+      finalizeQueryParamChange: consumeAllFinalQueryParams
     }
   };
 
   transitionTo(router, '/index');
   count = 1;
   transitionTo(router, '/index?foo=5');
+  count = 2;
+  transitionTo(router, '/index?foo=5&wat=lol');
 });
 
 
