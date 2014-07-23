@@ -211,7 +211,7 @@ router.transitionTo('showPost', post).then(function() {
 
 ## Nesting
 
-You can nested routes, and each level of nesting can have
+You can nest routes, and each level of nesting can have
 its own handler.
 
 If you move from one child of a parent route to another,
@@ -302,7 +302,7 @@ fire when attempting to enter a route:
   or before the passed-in model is attempted to be
   resolved. It receives a `transition` as its sole
   parameter (see below).
-* **afterModel** is called after `after` is called,
+* **afterModel** is called after `model` is called,
   or after the passed-in model has resolved. It
   receives both the resolved model and `transition`
   as its two parameters.
