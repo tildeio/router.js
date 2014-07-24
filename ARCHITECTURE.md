@@ -115,7 +115,7 @@ object.
 `HandlerInfo` has just a `resolve` method which fires all `model` hooks and
 ultimately resolves to a `ResolvedHandlerInfo` object.
 
-The `ResolvedHandlerInfo`'s `resolve` method is just returns a promise that
+The `ResolvedHandlerInfo`'s `resolve` method just returns a promise that
 fulfills with itself.
 
 ### `TransitionState`
