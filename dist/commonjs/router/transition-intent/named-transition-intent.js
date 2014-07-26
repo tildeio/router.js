@@ -24,7 +24,6 @@ exports["default"] = subclass(TransitionIntent, {
 
     var partitionedArgs     = extractQueryParams([this.name].concat(this.contexts)),
       pureArgs              = partitionedArgs[0],
-      queryParams           = partitionedArgs[1],
       handlers              = recognizer.handlersFor(pureArgs[0]);
 
     var targetRouteName = handlers[handlers.length-1].handler;
@@ -49,8 +48,6 @@ exports["default"] = subclass(TransitionIntent, {
         }
       }
     }
-
-    var pivotHandlerFound = !this.pivotHandler;
 
     for (i = handlers.length - 1; i >= 0; --i) {
       var result = handlers[i];
@@ -117,14 +114,12 @@ exports["default"] = subclass(TransitionIntent, {
 
   invalidateChildren: function(handlerInfos, invalidateIndex) {
     for (var i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
-      var handlerInfo = handlerInfos[i];
       handlerInfos[i] = handlerInfos[i].getUnresolved();
     }
   },
 
   getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i) {
 
-    var numNames = names.length;
     var objectToUse;
     if (objects.length > 0) {
 

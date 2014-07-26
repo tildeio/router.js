@@ -87,9 +87,6 @@ define("router/handler-info",
       runSharedModelHook: function(payload, hookName, args) {
         this.log(payload, "calling " + hookName + " hook");
 
-        if (this.queryParams) {
-          args.push(this.queryParams);
-        }
         args.push(payload);
 
         var handler = this.handler;
@@ -99,7 +96,7 @@ define("router/handler-info",
           result = null;
         }
 
-        return Promise.resolve(result, null, this.promiseLabel("Resolve value returned from one of the model hooks"));
+        return Promise.resolve(result, this.promiseLabel("Resolve value returned from one of the model hooks"));
       },
 
       // overridden by subclasses
@@ -248,7 +245,6 @@ define("router/handler-info/unresolved-handler-info-by-object",
 
       initialize: function(props) {
         this.names = props.names || [];
-        this.context = props.context;
       },
 
       /**
@@ -398,7 +394,6 @@ define("router/router",
           // the user the ability to set the url update
           // method (default is replaceState).
           var newTransition = new Transition(this);
-          newTransition.queryParamsOnly = true;
 
           oldState.queryParams = finalizeQueryParamChange(this, newState.handlerInfos, newState.queryParams, newTransition);
 
@@ -421,7 +416,6 @@ define("router/router",
         var wasTransitioning = !!this.activeTransition;
         var oldState = wasTransitioning ? this.activeTransition.state : this.state;
         var newTransition;
-        var router = this;
 
         try {
           var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate);
@@ -555,11 +549,6 @@ define("router/router",
       refresh: function(pivotHandler) {
         var state = this.activeTransition ? this.activeTransition.state : this.state;
         var handlerInfos = state.handlerInfos;
-        var params = {};
-        for (var i = 0, len = handlerInfos.length; i < len; ++i) {
-          var handlerInfo = handlerInfos[i];
-          params[handlerInfo.name] = handlerInfo.params || {};
-        }
 
         log(this, "Starting a refresh transition");
         var intent = new NamedTransitionIntent({
@@ -628,7 +617,7 @@ define("router/router",
 
       isActiveIntent: function(handlerName, contexts, queryParams) {
         var targetHandlerInfos = this.state.handlerInfos,
-            found = false, names, object, handlerInfo, handlerObj, i, len;
+            handlerInfo, len;
 
         if (!targetHandlerInfos.length) { return false; }
 
@@ -773,7 +762,7 @@ define("router/router",
         if (handler.exit) { handler.exit(transition); }
       });
 
-      var oldState = router.oldState = router.state;
+      var oldState = router.state;
       router.state = newState;
       var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice();
 
@@ -956,8 +945,7 @@ define("router/router",
         log(transition.router, transition.sequence, "Resolved all models on destination route; finalizing transition.");
 
         var router = transition.router,
-            handlerInfos = newState.handlerInfos,
-            seq = transition.sequence;
+            handlerInfos = newState.handlerInfos;
 
         // Run all the necessary enter/setup/exit hooks
         setupContexts(router, newState, transition);
@@ -1188,7 +1176,6 @@ define("router/transition-intent/named-transition-intent",
 
         var partitionedArgs     = extractQueryParams([this.name].concat(this.contexts)),
           pureArgs              = partitionedArgs[0],
-          queryParams           = partitionedArgs[1],
           handlers              = recognizer.handlersFor(pureArgs[0]);
 
         var targetRouteName = handlers[handlers.length-1].handler;
@@ -1213,8 +1200,6 @@ define("router/transition-intent/named-transition-intent",
             }
           }
         }
-
-        var pivotHandlerFound = !this.pivotHandler;
 
         for (i = handlers.length - 1; i >= 0; --i) {
           var result = handlers[i];
@@ -1281,14 +1266,12 @@ define("router/transition-intent/named-transition-intent",
 
       invalidateChildren: function(handlerInfos, invalidateIndex) {
         for (var i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
-          var handlerInfo = handlerInfos[i];
           handlerInfos[i] = handlerInfos[i].getUnresolved();
         }
       },
 
       getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i) {
 
-        var numNames = names.length;
         var objectToUse;
         if (objects.length > 0) {
 
@@ -1382,7 +1365,6 @@ define("router/transition-intent/url-transition-intent",
         var newState = new TransitionState();
 
         var results = recognizer.recognize(this.url),
-            queryParams = {},
             i, len;
 
         if (!results) {
@@ -1439,7 +1421,7 @@ define("router/transition-state",
     var promiseLabel = __dependency2__.promiseLabel;
     var Promise = __dependency3__["default"];
 
-    function TransitionState(other) {
+    function TransitionState() {
       this.handlerInfos = [];
       this.queryParams = {};
       this.params = {};
@@ -1462,7 +1444,7 @@ define("router/transition-state",
       },
 
       resolve: function(shouldContinue, payload) {
-        var self = this;
+
         // First, calculate params for this state. This is useful
         // information to provide to the various route hooks.
         var params = this.params;
@@ -1481,13 +1463,13 @@ define("router/transition-state",
         .then(resolveOneHandlerInfo, null, this.promiseLabel('Resolve handler'))['catch'](handleError, this.promiseLabel('Handle error'));
 
         function innerShouldContinue() {
-          return Promise.resolve(shouldContinue(), promiseLabel("Check if should continue"))['catch'](function(reason) {
+          return Promise.resolve(shouldContinue(), currentState.promiseLabel("Check if should continue"))['catch'](function(reason) {
             // We distinguish between errors that occurred
             // during resolution (e.g. beforeModel/model/afterModel),
             // and aborts due to a rejecting promise from shouldContinue().
             wasAborted = true;
             return Promise.reject(reason);
-          }, promiseLabel("Handle abort"));
+          }, currentState.promiseLabel("Handle abort"));
         }
 
         function handleError(error) {
@@ -1524,7 +1506,7 @@ define("router/transition-state",
 
           // Proceed after ensuring that the redirect hook
           // didn't abort this transition by transitioning elsewhere.
-          return innerShouldContinue().then(resolveOneHandlerInfo, null, promiseLabel('Resolve handler'));
+          return innerShouldContinue().then(resolveOneHandlerInfo, null, currentState.promiseLabel('Resolve handler'));
         }
 
         function resolveOneHandlerInfo() {
@@ -1540,7 +1522,7 @@ define("router/transition-state",
           var handlerInfo = currentState.handlerInfos[payload.resolveIndex];
 
           return handlerInfo.resolve(innerShouldContinue, payload)
-                            .then(proceed, null, promiseLabel('Proceed'));
+                            .then(proceed, null, currentState.promiseLabel('Proceed'));
         }
       }
     };
@@ -1634,7 +1616,6 @@ define("router/transition",
       resolvedModels: null,
       isActive: true,
       state: null,
-      queryParamsOnly: false,
 
       isTransition: true,
 

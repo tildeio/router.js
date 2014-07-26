@@ -14,7 +14,6 @@ var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
 
   initialize: function(props) {
     this.names = props.names || [];
-    this.context = props.context;
   },
 
   /**
