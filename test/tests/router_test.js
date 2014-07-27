@@ -1341,15 +1341,19 @@ test("calling transitionTo on a dynamic parent route causes non-dynamic child co
 test("reset exits and clears the current and target route handlers", function() {
   var postIndexExited = false;
   var showAllPostsExited = false;
+  var steps = 0;
 
+  equal(++steps, 1);
   var postIndexHandler = {
     exit: function() {
       postIndexExited = true;
+      equal(++steps, 4);
     }
   };
   var showAllPostsHandler = {
     exit: function() {
       showAllPostsExited = true;
+      equal(++steps, 3);
     }
   };
   handlers = {
@@ -1359,8 +1363,8 @@ test("reset exits and clears the current and target route handlers", function() 
 
   transitionTo(router, "/posts/all");
 
+  equal(++steps, 2);
   router.reset();
-  router.reset(); // two resets back to back should work
 
   ok(postIndexExited, "Post index handler did not exit");
   ok(showAllPostsExited, "Show all posts handler did not exit");
