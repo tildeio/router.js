@@ -207,6 +207,36 @@ test("redirect hook shouldn't get called on parent routes", function() {
   equal(appRedirects, 1);
 });
 
+test("failed redirect, reporting correct handler", function() {
+  expect(2);
+
+  map(function(match) {
+    match("/").to('app', function(match) {
+      match("/").to('index');
+      match("/other").to('other');
+    });
+  });
+
+  handlers = {
+    app: {
+      redirect: function() {
+        throw new Error('Error in redirect of the app-handler.');
+      },
+      events: {
+        error: function (error, promise, handler) {
+          equal(error.message, 'Error in redirect of the app-handler.');
+          equal(handler, handlers['app']);
+        }
+      }
+    },
+    other: {
+      test: 23
+    }
+  };
+
+  transitionTo(router, '/other');
+});
+
 test("when transitioning with the same context, setup should only be called once", function() {
   var parentSetupCount = 0,
       childSetupCount = 0;
