@@ -82,7 +82,6 @@ Transition.prototype = {
   resolvedModels: null,
   isActive: true,
   state: null,
-  queryParamsOnly: false,
 
   isTransition: true,
 

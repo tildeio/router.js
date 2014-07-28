@@ -84,9 +84,6 @@ HandlerInfo.prototype = {
   runSharedModelHook: function(payload, hookName, args) {
     this.log(payload, "calling " + hookName + " hook");
 
-    if (this.queryParams) {
-      args.push(this.queryParams);
-    }
     args.push(payload);
 
     var handler = this.handler;
@@ -96,7 +93,7 @@ HandlerInfo.prototype = {
       result = null;
     }
 
-    return Promise.resolve(result, null, this.promiseLabel("Resolve value returned from one of the model hooks"));
+    return Promise.resolve(result, this.promiseLabel("Resolve value returned from one of the model hooks"));
   },
 
   // overridden by subclasses

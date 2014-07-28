@@ -17,7 +17,6 @@ exports["default"] = subclass(TransitionIntent, {
     var newState = new TransitionState();
 
     var results = recognizer.recognize(this.url),
-        queryParams = {},
         i, len;
 
     if (!results) {

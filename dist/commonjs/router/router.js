@@ -70,7 +70,6 @@ Router.prototype = {
       // the user the ability to set the url update
       // method (default is replaceState).
       var newTransition = new Transition(this);
-      newTransition.queryParamsOnly = true;
 
       oldState.queryParams = finalizeQueryParamChange(this, newState.handlerInfos, newState.queryParams, newTransition);
 
@@ -93,7 +92,6 @@ Router.prototype = {
     var wasTransitioning = !!this.activeTransition;
     var oldState = wasTransitioning ? this.activeTransition.state : this.state;
     var newTransition;
-    var router = this;
 
     try {
       var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate);
@@ -227,11 +225,6 @@ Router.prototype = {
   refresh: function(pivotHandler) {
     var state = this.activeTransition ? this.activeTransition.state : this.state;
     var handlerInfos = state.handlerInfos;
-    var params = {};
-    for (var i = 0, len = handlerInfos.length; i < len; ++i) {
-      var handlerInfo = handlerInfos[i];
-      params[handlerInfo.name] = handlerInfo.params || {};
-    }
 
     log(this, "Starting a refresh transition");
     var intent = new NamedTransitionIntent({
@@ -300,7 +293,7 @@ Router.prototype = {
 
   isActiveIntent: function(handlerName, contexts, queryParams) {
     var targetHandlerInfos = this.state.handlerInfos,
-        found = false, names, object, handlerInfo, handlerObj, i, len;
+        handlerInfo, len;
 
     if (!targetHandlerInfos.length) { return false; }
 
@@ -445,7 +438,7 @@ function setupContexts(router, newState, transition) {
     if (handler.exit) { handler.exit(transition); }
   });
 
-  var oldState = router.oldState = router.state;
+  var oldState = router.state;
   router.state = newState;
   var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice();
 
@@ -628,8 +621,7 @@ function finalizeTransition(transition, newState) {
     log(transition.router, transition.sequence, "Resolved all models on destination route; finalizing transition.");
 
     var router = transition.router,
-        handlerInfos = newState.handlerInfos,
-        seq = transition.sequence;
+        handlerInfos = newState.handlerInfos;
 
     // Run all the necessary enter/setup/exit hooks
     setupContexts(router, newState, transition);
