@@ -6,6 +6,7 @@ var pickFiles = require('broccoli-static-compiler');
 var uglifyJavaScript = require('broccoli-uglify-js');
 var wrapFiles = require('broccoli-wrap');
 var concatFilenames = require('broccoli-concat-filenames');
+var jshint = require('broccoli-jshint');
 
 var trees = [
   createAMDTree(),
@@ -25,12 +26,18 @@ function makeTests() {
     outputFile: '/tests/deps.js'
   });
 
+  var jshintLib = jshint('lib');
+  var jshintTests = jshint('test/tests');
+
   // Create AMD module 'tests' containing all tests in 'test/tests' and concatenate them into tests/tests.js
   var tests = filterES6Modules('test/tests', {
     moduleType: 'amd',
     packageName: 'tests',
     anonymous: false
   });
+
+  tests = mergeTrees([jshintTests, jshintLib, tests]);
+
   tests = concat(tests, {
     inputFiles: ['**/*.js'],
     outputFile: '/tests/tests.js'
