@@ -1,5 +1,6 @@
 "use strict";
 var HandlerInfo = require("../handler-info")["default"];
+var resolveHook = require("router/utils").resolveHook;
 var merge = require("router/utils").merge;
 var subclass = require("router/utils").subclass;
 var promiseLabel = require("router/utils").promiseLabel;
@@ -18,8 +19,9 @@ var UnresolvedHandlerInfoByParam = subclass (HandlerInfo, {
       fullParams.queryParams = payload.queryParams;
     }
 
-    var hookName = typeof this.handler.deserialize === 'function' ?
-                   'deserialize' : 'model';
+    var handler = this.handler;
+    var hookName = resolveHook(handler, 'deserialize') ||
+                   resolveHook(handler, 'model');
 
     return this.runSharedModelHook(payload, hookName, [fullParams]);
   }

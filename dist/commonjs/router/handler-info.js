@@ -3,6 +3,7 @@ var bind = require("./utils").bind;
 var merge = require("./utils").merge;
 var serialize = require("./utils").serialize;
 var promiseLabel = require("./utils").promiseLabel;
+var applyHook = require("./utils").applyHook;
 var Promise = require("rsvp/promise")["default"];
 
 function HandlerInfo(_props) {
@@ -89,14 +90,13 @@ HandlerInfo.prototype = {
     }
     args.push(payload);
 
-    var handler = this.handler;
-    var result = handler[hookName] && handler[hookName].apply(handler, args);
+    var result = applyHook(this.handler, hookName, args);
 
     if (result && result.isTransition) {
       result = null;
     }
 
-    return Promise.resolve(result, null, this.promiseLabel("Resolve value returned from one of the model hooks"));
+    return Promise.resolve(result, this.promiseLabel("Resolve value returned from one of the model hooks"));
   },
 
   // overridden by subclasses

@@ -187,7 +187,29 @@ exports.promiseLabel = promiseLabel;function subclass(parentConstructor, proto) 
   return C;
 }
 
-exports.subclass = subclass;exports.merge = merge;
+exports.subclass = subclass;function resolveHook(obj, hookName) {
+  if (!obj) { return; }
+  var underscored = "_" + hookName;
+  return obj[underscored] && underscored ||
+         obj[hookName] && hookName;
+}
+
+function callHook(obj, hookName) {
+  var args = slice.call(arguments, 2);
+  return applyHook(obj, hookName, args);
+}
+
+function applyHook(obj, _hookName, args) {
+  var hookName = resolveHook(obj, _hookName);
+  if (hookName) {
+    return obj[hookName].apply(obj, args);
+  }
+}
+
+exports.merge = merge;
 exports.slice = slice;
 exports.isParam = isParam;
 exports.coerceQueryParamsToString = coerceQueryParamsToString;
+exports.callHook = callHook;
+exports.resolveHook = resolveHook;
+exports.applyHook = applyHook;

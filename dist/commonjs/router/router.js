@@ -10,6 +10,7 @@ var serialize = require("./utils").serialize;
 var extractQueryParams = require("./utils").extractQueryParams;
 var getChangelist = require("./utils").getChangelist;
 var promiseLabel = require("./utils").promiseLabel;
+var callHook = require("./utils").callHook;
 var TransitionState = require("./transition-state")["default"];
 var logAbort = require("./transition").logAbort;
 var Transition = require("./transition").Transition;
@@ -153,11 +154,9 @@ Router.prototype = {
   */
   reset: function() {
     if (this.state) {
-      forEach(this.state.handlerInfos, function(handlerInfo) {
+      forEach(this.state.handlerInfos.slice().reverse(), function(handlerInfo) {
         var handler = handlerInfo.handler;
-        if (handler.exit) {
-          handler.exit();
-        }
+        callHook(handler, 'exit');
       });
     }
 
@@ -221,7 +220,7 @@ Router.prototype = {
   },
 
   intermediateTransitionTo: function(name) {
-    doTransition(this, arguments, true);
+    return doTransition(this, arguments, true);
   },
 
   refresh: function(pivotHandler) {
@@ -441,8 +440,9 @@ function setupContexts(router, newState, transition) {
   forEach(partition.exited, function(handlerInfo) {
     var handler = handlerInfo.handler;
     delete handler.context;
-    if (handler.reset) { handler.reset(true, transition); }
-    if (handler.exit) { handler.exit(transition); }
+
+    callHook(handler, 'reset', true, transition);
+    callHook(handler, 'exit', transition);
   });
 
   var oldState = router.oldState = router.state;
@@ -452,7 +452,7 @@ function setupContexts(router, newState, transition) {
   try {
     forEach(partition.reset, function(handlerInfo) {
       var handler = handlerInfo.handler;
-      if (handler.reset) { handler.reset(false, transition); }
+      callHook(handler, 'reset', false, transition);
     });
 
     forEach(partition.updatedContext, function(handlerInfo) {
@@ -483,15 +483,15 @@ function handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, enter, transi
   var handler = handlerInfo.handler,
       context = handlerInfo.context;
 
-  if (enter && handler.enter) { handler.enter(transition); }
+  callHook(handler, 'enter', transition);
   if (transition && transition.isAborted) {
     throw new TransitionAborted();
   }
 
   handler.context = context;
-  if (handler.contextDidChange) { handler.contextDidChange(); }
+  callHook(handler, 'contextDidChange');
 
-  if (handler.setup) { handler.setup(context, transition); }
+  callHook(handler, 'setup', context, transition);
   if (transition && transition.isAborted) {
     throw new TransitionAborted();
   }
@@ -554,7 +554,7 @@ function partitionHandlers(oldState, newState) {
         unchanged: []
       };
 
-  var handlerChanged, contextChanged, i, l;
+  var handlerChanged, contextChanged = false, i, l;
 
   for (i=0, l=newHandlers.length; i<l; i++) {
     var oldHandler = oldHandlers[i], newHandler = newHandlers[i];
@@ -772,9 +772,10 @@ function notifyExistingHandlers(router, newState, newTransition) {
   var oldHandlers = router.state.handlerInfos,
       changing = [],
       leavingIndex = null,
-      leaving, leavingChecker, i, oldHandler, newHandler;
+      leaving, leavingChecker, i, oldHandlerLen, oldHandler, newHandler;
 
-  for (i = 0; i < oldHandlers.length; i++) {
+  oldHandlerLen = oldHandlers.length;
+  for (i = 0; i < oldHandlerLen; i++) {
     oldHandler = oldHandlers[i];
     newHandler = newState.handlerInfos[i];
 
@@ -789,9 +790,9 @@ function notifyExistingHandlers(router, newState, newTransition) {
   }
 
   if (leavingIndex !== null) {
-    leaving = oldHandlers.slice(leavingIndex, oldHandlers.length);
+    leaving = oldHandlers.slice(leavingIndex, oldHandlerLen);
     leavingChecker = function(name) {
-      for (var h = 0; h < leaving.length; h++) {
+      for (var h = 0, len = leaving.length; h < len; h++) {
         if (leaving[h].name === name) {
           return true;
         }
