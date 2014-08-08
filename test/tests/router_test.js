@@ -2659,6 +2659,49 @@ test("intents make use of previous transition state in case not enough contexts 
   equal(handlers.user.context.user, "machty", "User was remembered upon retry");
 });
 
+test("A failed transition calls the catch and finally callbacks", function() {
+
+  expect(2);
+
+  map(function(match) {
+    match("/").to("application", function(match) {
+      match("/bad").to("badRoute");
+    });
+  });
+
+  handlers = {
+    badRoute: {
+      beforeModel: function(transition) {
+        return new Promise(function(resolve, reject) {
+          reject("example reason");
+        });
+      }
+    }
+  };
+
+  router.handleURL("/bad").catch(function() {
+    ok(true, "catch callback was called");
+  }).finally(function() {
+    ok(true, "finally callback was called");
+  });
+  flushBackburner();
+});
+
+test("A successful transition calls the finally callback", function() {
+
+  expect(1);
+
+  map(function(match) {
+    match("/").to("application", function(match) {
+      match("/example").to("exampleRoute");
+    });
+  });
+
+  router.handleURL("/example").finally(function() {
+    ok(true, "finally callback was called");
+  });
+});
+
 module("Multiple dynamic segments per route");
 
 test("Multiple string/number params are soaked up", function() {
