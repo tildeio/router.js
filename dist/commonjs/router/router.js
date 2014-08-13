@@ -657,7 +657,7 @@ function finalizeTransition(transition, newState) {
     // Resolve with the final handler.
     return handlerInfos[handlerInfos.length - 1].handler;
   } catch(e) {
-    if (!(e instanceof TransitionAborted)) {
+    if (!((e instanceof TransitionAborted))) {
       //var erroneousHandler = handlerInfos.pop();
       var infos = transition.state.handlerInfos;
       transition.trigger(true, 'error', e, transition, infos[infos.length-1].handler);

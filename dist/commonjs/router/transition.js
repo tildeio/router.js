@@ -153,8 +153,8 @@ Transition.prototype = {
     Useful for tooling.
     @return {Promise}
    */
-  catch: function(onRejection, label) {
-    return this.promise.catch(onRejection, label);
+  "catch": function(onRejection, label) {
+    return this.promise["catch"](onRejection, label);
   },
 
   /**
@@ -170,8 +170,8 @@ Transition.prototype = {
     Useful for tooling.
     @return {Promise}
    */
-  finally: function(callback, label) {
-    return this.promise.finally(callback, label);
+  "finally": function(callback, label) {
+    return this.promise["finally"](callback, label);
   },
 
   /**

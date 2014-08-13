@@ -7,6 +7,7 @@ var uglifyJavaScript = require('broccoli-uglify-js');
 var wrapFiles = require('broccoli-wrap');
 var concatFilenames = require('broccoli-concat-filenames');
 var jshint = require('broccoli-jshint');
+var recast = require('broccoli-es3-safe-recast');
 
 var trees = [
   createAMDTree(),
@@ -16,6 +17,8 @@ var trees = [
   // TODO only add tests when Broccoli environment is development ...
   makeTests()
 ];
+
+trees = trees.map(recast);
 
 module.exports = mergeTrees(trees);
 
