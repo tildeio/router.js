@@ -564,6 +564,21 @@ var adminRoute = {
 };
 ```
 
+## Generating URLs
+
+Often, you'll want to be able to generate URLs from their components. To do so, use the `router.generate` method:
+
+```js
+myRouter = new Router()
+  myRouter.map(function(match){
+    match("/posts/:id").to("showPost");
+    match("/posts").to("postIndex");
+    match("/posts/new").to("newPost");
+  })
+
+myRouter.generate("showPost", id=4); // returns '/posts/4'
+```
+
 ## Route Recognizer
 
 `router.js` uses `route-recognizer` under the hood, which
