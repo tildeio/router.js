@@ -356,6 +356,58 @@ define("router/router",
       this.reset();
     }
 
+    function getTransitionByIntent(intent, isIntermediate) {
+      var wasTransitioning = !!this.activeTransition;
+      var oldState = wasTransitioning ? this.activeTransition.state : this.state;
+      var newTransition;
+
+      var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate);
+      var queryParamChangelist = getChangelist(oldState.queryParams, newState.queryParams);
+
+      if (handlerInfosEqual(newState.handlerInfos, oldState.handlerInfos)) {
+
+        // This is a no-op transition. See if query params changed.
+        if (queryParamChangelist) {
+          newTransition = this.queryParamsTransition(queryParamChangelist, wasTransitioning, oldState, newState);
+          if (newTransition) {
+            return newTransition;
+          }
+        }
+
+        // No-op. No need to create a new transition.
+        return new Transition(this);
+      }
+
+      if (isIntermediate) {
+        setupContexts(this, newState);
+        return;
+      }
+
+      // Create a new transition to the destination route.
+      newTransition = new Transition(this, intent, newState);
+
+      // Abort and usurp any previously active transition.
+      if (this.activeTransition) {
+        this.activeTransition.abort();
+      }
+      this.activeTransition = newTransition;
+
+      // Transition promises by default resolve with resolved state.
+      // For our purposes, swap out the promise to resolve
+      // after the transition has been finalized.
+      newTransition.promise = newTransition.promise.then(function(result) {
+        return finalizeTransition(newTransition, result.state);
+      }, null, promiseLabel("Settle transition promise when transition is finalized"));
+
+      if (!wasTransitioning) {
+        notifyExistingHandlers(this, newState, newTransition);
+      }
+
+      fireQueryParamDidChange(this, newState, queryParamChangelist);
+
+      return newTransition;
+    }
+
     Router.prototype = {
 
       /**
@@ -420,58 +472,8 @@ define("router/router",
       // it shall remain until our ES6 transpiler can
       // handle cyclical deps.
       transitionByIntent: function(intent, isIntermediate) {
-
-        var wasTransitioning = !!this.activeTransition;
-        var oldState = wasTransitioning ? this.activeTransition.state : this.state;
-        var newTransition;
-        var router = this;
-
         try {
-          var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate);
-          var queryParamChangelist = getChangelist(oldState.queryParams, newState.queryParams);
-
-          if (handlerInfosEqual(newState.handlerInfos, oldState.handlerInfos)) {
-
-            // This is a no-op transition. See if query params changed.
-            if (queryParamChangelist) {
-              newTransition = this.queryParamsTransition(queryParamChangelist, wasTransitioning, oldState, newState);
-              if (newTransition) {
-                return newTransition;
-              }
-            }
-
-            // No-op. No need to create a new transition.
-            return new Transition(this);
-          }
-
-          if (isIntermediate) {
-            setupContexts(this, newState);
-            return;
-          }
-
-          // Create a new transition to the destination route.
-          newTransition = new Transition(this, intent, newState);
-
-          // Abort and usurp any previously active transition.
-          if (this.activeTransition) {
-            this.activeTransition.abort();
-          }
-          this.activeTransition = newTransition;
-
-          // Transition promises by default resolve with resolved state.
-          // For our purposes, swap out the promise to resolve
-          // after the transition has been finalized.
-          newTransition.promise = newTransition.promise.then(function(result) {
-            return finalizeTransition(newTransition, result.state);
-          }, null, promiseLabel("Settle transition promise when transition is finalized"));
-
-          if (!wasTransitioning) {
-            notifyExistingHandlers(this, newState, newTransition);
-          }
-
-          fireQueryParamDidChange(this, newState, queryParamChangelist);
-
-          return newTransition;
+          return getTransitionByIntent.apply(this, arguments);
         } catch(e) {
           return new Transition(this, intent, null, e);
         }
