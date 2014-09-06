@@ -815,7 +815,9 @@ define("router/router",
       var handler = handlerInfo.handler,
           context = handlerInfo.context;
 
-      callHook(handler, 'enter', transition);
+      if (enter) {
+        callHook(handler, 'enter', transition);
+      }
       if (transition && transition.isAborted) {
         throw new TransitionAborted();
       }

@@ -3299,4 +3299,35 @@ asyncTest("let handlers ask which other handlers are leaving", function() {
   flushBackburner();
 });
 
+test("transitioning to the same route with different context should not reenter the route", function() {
+  map(function(match) {
+    match("/project/:project_id").to('project');
+  });
 
+  var projectEnterCount = 0;
+  var projectSetupCount = 0;
+  var projectHandler = {
+    model: function(params) {
+      delete params.queryParams;
+      return params;
+    },
+    enter: function () {
+      projectEnterCount++;
+    },
+    setup: function () {
+      projectSetupCount++;
+    }
+  };
+
+  handlers = {
+    project: projectHandler
+  };
+
+  transitionTo(router, '/project/1');
+  equal(projectEnterCount, 1, 'project handler should have been entered once');
+  equal(projectSetupCount, 1, 'project handler should have been setup once');
+
+  transitionTo(router, '/project/2');
+  equal(projectEnterCount, 1, 'project handler should still have been entered only once');
+  equal(projectSetupCount, 2, 'project handler should have been setup twice');
+});
