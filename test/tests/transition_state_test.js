@@ -40,7 +40,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
         shouldContinue();
         return resolve(resolvedHandlerInfos[1]);
       }
-    },
+    }
   ];
 
   function keepGoing() {
@@ -69,7 +69,7 @@ test("State resolution can be halted", function() {
       resolve: function() {
         ok(false, "I should not be entered because we threw an error in shouldContinue");
       }
-    },
+    }
   ];
 
   function keepGoing() {
@@ -120,13 +120,16 @@ test("Integration w/ HandlerInfos", function() {
   function noop() {}
 
   state.resolve(noop, transition).then(function(result) {
-    var models = result.state.handlerInfos.map(function(handlerInfo) {
-      return handlerInfo.context;
-    });
+    var models = [];
+    for (var i=0;i<result.state.handlerInfos.length;i++){
+      models.push(result.state.handlerInfos[i].context);
+    }
 
     ok(!result.error);
     equal(models[0], fooModel);
     equal(models[1], barModel);
+  }).catch(function(error){
+    ok(false, "Caught error: "+error);
   });
 });
 
