@@ -42,8 +42,9 @@ function module(name, options) {
 // the backburner queue. Helpful for when you want to write
 // tests that avoid .then callbacks.
 function transitionTo(router) {
-  router.transitionTo.apply(router, slice.call(arguments, 1));
+  var result = router.transitionTo.apply(router, slice.call(arguments, 1));
   flushBackburner();
+  return result;
 }
 
 function transitionToWithAbort(router) {
