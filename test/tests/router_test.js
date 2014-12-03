@@ -3331,3 +3331,15 @@ test("transitioning to the same route with different context should not reenter 
   equal(projectEnterCount, 1, 'project handler should still have been entered only once');
   equal(projectSetupCount, 2, 'project handler should have been setup twice');
 });
+
+test("synchronous transition errors can be detected synchronously", function() {
+  map(function(match) {
+    match("/").to('root');
+  });
+
+  router.getHandler = function() {
+    throw new Error("boom!");
+  };
+
+  equal(transitionTo(router, '/').error.message, "boom!");
+});
