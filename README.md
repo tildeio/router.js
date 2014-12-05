@@ -564,6 +564,70 @@ var adminRoute = {
 };
 ```
 
+## Generating URLs
+
+Often, you'll want to be able to generate URLs from their components. To do so, use the `router.generate(*parts)` method.
+
+```js
+myRouter = new Router()
+  myRouter.map(function(match){
+    match("/posts/:id/:mode").to("showPost", function(match){
+      match("/version/:versionId", "postVersion");
+    });
+  });
+  
+myHandlers.showPost = {
+  serialize: function(obj) {
+    return {
+      id: obj.id,
+      tag: obj.modeName
+    };
+  } //...
+};
+
+myHandlers.postVersion = {
+  serialize: function(obj) {
+    return {
+      versionId: obj.id
+    };
+  }
+  //...
+};
+
+//...
+```
+
+`*parts` can accept either a set of primitives, or a set of objects. If it is a set of strings, `router.generate` will attempt to build the route using each string in order. 
+
+```js
+myRouter.generate("showPost", 4, 'a'); // returns '/posts/4/a'
+```
+
+If it is a set of objects, it will attempt to build the route by serializing each object.
+
+```js
+myRouter.generate("showPost", {id: 4, modeName: 'a'}); // returns '/posts/4/a'
+```
+
+One can also use `generate` with nested routes. With strings, one simply provides all the URL fragments for each route in order:
+
+```js
+myRouter.generate("postVersion", 4, 'a', 'first'); // returns '/posts/4/a/version/first'
+```
+
+With objects, one provides one object for each route in the chain; each route will then deserialize the corresponding object.
+
+```js
+myRouter.generate("postVersion", {id: 4, modeName: 'a'}, {id: 'first'}); // returns '/posts/4/a/version/first'
+```
+
+One *can* mix and match between strings and objects; however, this is not recommended, as it can be extremely confusing and error prone:
+
+```js
+myRouter.generate("postVersion", 4, modeName: 'a', {id: 'first'}); // returns '/posts/4/a/version/first'
+myRouter.generate("postVersion", {id: 4, modeName: 'a'}, 'first'); // returns '/posts/4/a/version/first'
+```
+
 ## Route Recognizer
 
 `router.js` uses `route-recognizer` under the hood, which
