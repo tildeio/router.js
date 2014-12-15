@@ -299,8 +299,9 @@ Router.prototype = {
     return intent.applyToState(state, this.recognizer, this.getHandler);
   },
 
-  isActiveIntent: function(handlerName, contexts, queryParams) {
-    var targetHandlerInfos = this.state.handlerInfos,
+  isActiveIntent: function(handlerName, contexts, queryParams, _state) {
+    var state = _state || this.state,
+        targetHandlerInfos = state.handlerInfos,
         found = false, names, object, handlerInfo, handlerObj, i, len;
 
     if (!targetHandlerInfos.length) { return false; }
@@ -319,8 +320,8 @@ Router.prototype = {
       return false;
     }
 
-    var state = new TransitionState();
-    state.handlerInfos = targetHandlerInfos.slice(0, index + 1);
+    var testState = new TransitionState();
+    testState.handlerInfos = targetHandlerInfos.slice(0, index + 1);
     recogHandlers = recogHandlers.slice(0, index + 1);
 
     var intent = new NamedTransitionIntent({
@@ -328,9 +329,9 @@ Router.prototype = {
       contexts: contexts
     });
 
-    var newState = intent.applyToHandlers(state, recogHandlers, this.getHandler, targetHandler, true, true);
+    var newState = intent.applyToHandlers(testState, recogHandlers, this.getHandler, targetHandler, true, true);
 
-    var handlersEqual = handlerInfosEqual(newState.handlerInfos, state.handlerInfos);
+    var handlersEqual = handlerInfosEqual(newState.handlerInfos, testState.handlerInfos);
     if (!queryParams || !handlersEqual) {
       return handlersEqual;
     }
@@ -339,7 +340,7 @@ Router.prototype = {
     var activeQPsOnNewHandler = {};
     merge(activeQPsOnNewHandler, queryParams);
 
-    var activeQueryParams  = this.state.queryParams;
+    var activeQueryParams  = this.testState.queryParams;
     for (var key in activeQueryParams) {
       if (activeQueryParams.hasOwnProperty(key) &&
           activeQPsOnNewHandler.hasOwnProperty(key)) {
@@ -438,32 +439,33 @@ function fireQueryParamDidChange(router, newState, queryParamChangelist) {
 */
 function setupContexts(router, newState, transition) {
   var partition = partitionHandlers(router.state, newState);
+  var i, l, handler;
 
-  forEach(partition.exited, function(handlerInfo) {
-    var handler = handlerInfo.handler;
+  for (i=0, l=partition.exited.length; i<l; i++) {
+    handler = partition.exited[i].handler;
     delete handler.context;
 
     callHook(handler, 'reset', true, transition);
     callHook(handler, 'exit', transition);
-  });
+  }
 
   var oldState = router.oldState = router.state;
   router.state = newState;
   var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice();
 
   try {
-    forEach(partition.reset, function(handlerInfo) {
-      var handler = handlerInfo.handler;
+    for (i=0, l=partition.reset.length; i<l; i++) {
+      handler = partition.reset[i].handler;
       callHook(handler, 'reset', false, transition);
-    });
+    }
 
-    forEach(partition.updatedContext, function(handlerInfo) {
-      return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, false, transition);
-    });
+    for (i=0, l=partition.updatedContext.length; i<l; i++) {
+      handlerEnteredOrUpdated(currentHandlerInfos, partition.updatedContext[i], false, transition);
+    }
 
-    forEach(partition.entered, function(handlerInfo) {
-      return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, true, transition);
-    });
+    for (i=0, l=partition.entered.length; i<l; i++) {
+      handlerEnteredOrUpdated(currentHandlerInfos, partition.entered[i], true, transition);
+    }
   } catch(e) {
     router.state = oldState;
     router.currentHandlerInfos = oldState.handlerInfos;

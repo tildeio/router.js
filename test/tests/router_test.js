@@ -2687,6 +2687,25 @@ test("A failed transition calls the catch and finally callbacks", function() {
   flushBackburner();
 });
 
+test("underscore-prefixed hooks are preferred over non-prefixed", function() {
+  expect(2);
+
+  handlers = {
+    showPost: {
+      _model: function(params) {
+        ok(true);
+        return {};
+      },
+
+      _setup: function(object) {
+        ok(true);
+      }
+    }
+  };
+
+  router.handleURL("/posts/1");
+});
+
 test("A successful transition calls the finally callback", function() {
 
   expect(1);

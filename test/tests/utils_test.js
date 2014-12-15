@@ -27,7 +27,6 @@ test("callHook invokes optional methods, preferring underscored versions", funct
     a: function(a, b, c) {
       equal(a, 1);
       equal(b, 2);
-      equal(c, 3);
       equal(this, obj);
       ok(true);
       return "A";
@@ -43,6 +42,7 @@ test("callHook invokes optional methods, preferring underscored versions", funct
 
   equal("A", callHook(obj, 'a', 1, 2, 3));
   equal("B", callHook(obj, 'b'));
+  ok(typeof callHook(obj, 'c'), 'undefined');
   callHook(null, "wat");
 });
 

@@ -683,8 +683,9 @@ define("router/router",
         return intent.applyToState(state, this.recognizer, this.getHandler);
       },
 
-      isActiveIntent: function(handlerName, contexts, queryParams) {
-        var targetHandlerInfos = this.state.handlerInfos,
+      isActiveIntent: function(handlerName, contexts, queryParams, _state) {
+        var state = _state || this.state,
+            targetHandlerInfos = state.handlerInfos,
             found = false, names, object, handlerInfo, handlerObj, i, len;
 
         if (!targetHandlerInfos.length) { return false; }
@@ -703,8 +704,8 @@ define("router/router",
           return false;
         }
 
-        var state = new TransitionState();
-        state.handlerInfos = targetHandlerInfos.slice(0, index + 1);
+        var testState = new TransitionState();
+        testState.handlerInfos = targetHandlerInfos.slice(0, index + 1);
         recogHandlers = recogHandlers.slice(0, index + 1);
 
         var intent = new NamedTransitionIntent({
@@ -712,9 +713,9 @@ define("router/router",
           contexts: contexts
         });
 
-        var newState = intent.applyToHandlers(state, recogHandlers, this.getHandler, targetHandler, true, true);
+        var newState = intent.applyToHandlers(testState, recogHandlers, this.getHandler, targetHandler, true, true);
 
-        var handlersEqual = handlerInfosEqual(newState.handlerInfos, state.handlerInfos);
+        var handlersEqual = handlerInfosEqual(newState.handlerInfos, testState.handlerInfos);
         if (!queryParams || !handlersEqual) {
           return handlersEqual;
         }
@@ -723,7 +724,7 @@ define("router/router",
         var activeQPsOnNewHandler = {};
         merge(activeQPsOnNewHandler, queryParams);
 
-        var activeQueryParams  = this.state.queryParams;
+        var activeQueryParams  = this.testState.queryParams;
         for (var key in activeQueryParams) {
           if (activeQueryParams.hasOwnProperty(key) &&
               activeQPsOnNewHandler.hasOwnProperty(key)) {
@@ -822,32 +823,33 @@ define("router/router",
     */
     function setupContexts(router, newState, transition) {
       var partition = partitionHandlers(router.state, newState);
+      var i, l, handler;
 
-      forEach(partition.exited, function(handlerInfo) {
-        var handler = handlerInfo.handler;
+      for (i=0, l=partition.exited.length; i<l; i++) {
+        handler = partition.exited[i].handler;
         delete handler.context;
 
         callHook(handler, 'reset', true, transition);
         callHook(handler, 'exit', transition);
-      });
+      }
 
       var oldState = router.oldState = router.state;
       router.state = newState;
       var currentHandlerInfos = router.currentHandlerInfos = partition.unchanged.slice();
 
       try {
-        forEach(partition.reset, function(handlerInfo) {
-          var handler = handlerInfo.handler;
+        for (i=0, l=partition.reset.length; i<l; i++) {
+          handler = partition.reset[i].handler;
           callHook(handler, 'reset', false, transition);
-        });
+        }
 
-        forEach(partition.updatedContext, function(handlerInfo) {
-          return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, false, transition);
-        });
+        for (i=0, l=partition.updatedContext.length; i<l; i++) {
+          handlerEnteredOrUpdated(currentHandlerInfos, partition.updatedContext[i], false, transition);
+        }
 
-        forEach(partition.entered, function(handlerInfo) {
-          return handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, true, transition);
-        });
+        for (i=0, l=partition.entered.length; i<l; i++) {
+          handlerEnteredOrUpdated(currentHandlerInfos, partition.entered[i], true, transition);
+        }
       } catch(e) {
         router.state = oldState;
         router.currentHandlerInfos = oldState.handlerInfos;
@@ -1638,6 +1640,7 @@ define("router/transition",
 
       if (error) {
         this.promise = Promise.reject(error);
+        this.error = error;
         return;
       }
 
@@ -2117,15 +2120,23 @@ define("router/utils",
              obj[hookName] && hookName;
     }
 
-    function callHook(obj, hookName) {
-      var args = slice.call(arguments, 2);
-      return applyHook(obj, hookName, args);
+    function callHook(obj, _hookName, arg1, arg2) {
+      var hookName = resolveHook(obj, _hookName);
+      return obj[hookName].call(obj, arg1, arg2);
     }
 
     function applyHook(obj, _hookName, args) {
       var hookName = resolveHook(obj, _hookName);
       if (hookName) {
-        return obj[hookName].apply(obj, args);
+        if (args.length === 0) {
+          return obj[hookName].call(obj);
+        } else if (args.length === 1) {
+          return obj[hookName].call(obj, args[0]);
+        } else if (args.length === 2) {
+          return obj[hookName].call(obj, args[0], args[1]);
+        } else {
+          return obj[hookName].apply(obj, args);
+        }
       }
     }
 

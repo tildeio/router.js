@@ -194,15 +194,23 @@ exports.subclass = subclass;function resolveHook(obj, hookName) {
          obj[hookName] && hookName;
 }
 
-function callHook(obj, hookName) {
-  var args = slice.call(arguments, 2);
-  return applyHook(obj, hookName, args);
+function callHook(obj, _hookName, arg1, arg2) {
+  var hookName = resolveHook(obj, _hookName);
+  return obj[hookName].call(obj, arg1, arg2);
 }
 
 function applyHook(obj, _hookName, args) {
   var hookName = resolveHook(obj, _hookName);
   if (hookName) {
-    return obj[hookName].apply(obj, args);
+    if (args.length === 0) {
+      return obj[hookName].call(obj);
+    } else if (args.length === 1) {
+      return obj[hookName].call(obj, args[0]);
+    } else if (args.length === 2) {
+      return obj[hookName].call(obj, args[0], args[1]);
+    } else {
+      return obj[hookName].apply(obj, args);
+    }
   }
 }
 

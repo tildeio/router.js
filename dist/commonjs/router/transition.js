@@ -26,6 +26,7 @@ function Transition(router, intent, state, error) {
 
   if (error) {
     this.promise = Promise.reject(error);
+    this.error = error;
     return;
   }
 
