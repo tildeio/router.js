@@ -1890,6 +1890,54 @@ test("transitions fire a didTransition event on the destination route", function
   }, shouldNotHappen);
 });
 
+test("willTransition function fired before route change", function() {
+  expect(1);
+
+  var beforeModelNotCalled = true;
+
+  handlers = {
+    about: {
+      beforeModel: function() {
+        beforeModelNotCalled = false;
+      }
+    }
+  };
+
+  router.willTransition = function() {
+    ok(beforeModelNotCalled, "about beforeModel hook should not be called at this time");
+  };
+
+  router.handleURL("/about");
+});
+
+test("willTransition function fired with handler infos passed in", function() {
+  expect(2);
+
+  router.handleURL("/about").then(function() {
+    router.willTransition = function(fromInfos, toInfos, transition) {
+      equal(routePath(fromInfos), "about", "first argument should be the old handler infos");
+      equal(routePath(toInfos), "postIndex.showPopularPosts", "second argument should be the new handler infos");
+    };
+
+    router.handleURL("/posts/popular");
+  });
+});
+
+test("willTransition function fired with cancellable transition passed in", function() {
+  expect(2);
+
+  router.handleURL('/index').then(function() {
+    router.willTransition = function(fromInfos, toInfos, transition) {
+      ok(true, "index's transitionTo was called");
+      transition.abort();
+    };
+
+    return router.transitionTo('about').then(shouldNotHappen, function(e) {
+      equal(e.name, 'TransitionAborted', 'reject object is a TransitionAborted');
+    }).then(start);
+  });
+});
+
 test("transitions can be aborted in the willTransition event", function() {
 
   expect(3);
