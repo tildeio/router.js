@@ -660,7 +660,7 @@ router.js.
 
 1. Ensure that [Node.js](http://nodejs.org/) is installed.
 2. Run `npm install` to ensure the required dependencies are installed.
-3. Run `grunt dist` to build router.js. The builds will be placed in the `dist/` directory.
+3. Run `grunt build` to build router.js. The builds will be placed in the `dist/` directory.
 
 ## Running the unit tests
 
