@@ -16,7 +16,7 @@ that does one thing and does it well.
 
 ## Downloads
 
-Passing builds of the 'master' branch will be automatically pubilshed to S3.
+Passing builds of the 'master' branch will be automatically published to S3.
 You can find them on the [builds page][builds-page].
 
 **Note**: The S3 files are provided for developer convenience, but you should
