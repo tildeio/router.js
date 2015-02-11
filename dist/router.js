@@ -724,7 +724,7 @@ define("router/router",
         var activeQPsOnNewHandler = {};
         merge(activeQPsOnNewHandler, queryParams);
 
-        var activeQueryParams  = this.testState.queryParams;
+        var activeQueryParams  = state.queryParams;
         for (var key in activeQueryParams) {
           if (activeQueryParams.hasOwnProperty(key) &&
               activeQPsOnNewHandler.hasOwnProperty(key)) {
@@ -1198,6 +1198,10 @@ define("router/router",
       }
 
       trigger(router, oldHandlers, true, ['willTransition', newTransition]);
+
+      if (router.willTransition) {
+        router.willTransition(oldHandlers, newState.handlerInfos, newTransition);
+      }
     }
 
     __exports__["default"] = Router;
@@ -2122,7 +2126,7 @@ define("router/utils",
 
     function callHook(obj, _hookName, arg1, arg2) {
       var hookName = resolveHook(obj, _hookName);
-      return obj[hookName].call(obj, arg1, arg2);
+      return hookName && obj[hookName].call(obj, arg1, arg2);
     }
 
     function applyHook(obj, _hookName, args) {
