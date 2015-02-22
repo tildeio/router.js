@@ -37,20 +37,21 @@ module("The router", {
 });
 
 function map(fn) {
-  router = new Router();
-  router.map(fn);
+  router = new Router({
+    getHandler: function(name) {
+      return handlers[name] || (handlers[name] = {});
+    },
 
-  router.getHandler = function(name) {
-    return handlers[name] || (handlers[name] = {});
-  };
+    updateURL: function(newUrl) {
+      if (expectedUrl) {
+        equal(newUrl, expectedUrl, "The url is " + newUrl + " as expected");
+      }
 
-  router.updateURL = function(newUrl) {
-    if (expectedUrl) {
-      equal(newUrl, expectedUrl, "The url is " + newUrl + " as expected");
+      url = newUrl;
     }
+  });
 
-    url = newUrl;
-  };
+  router.map(fn);
 }
 
 function enableErrorHandlingDeferredActionQueue() {
@@ -290,24 +291,24 @@ test("when transitioning to a new parent and child state, the parent's context s
 
 
 test("A delegate provided to router.js is passed along to route-recognizer", function() {
-  router = new Router();
+  router = new Router({
+    delegate: {
+      willAddRoute: function(context, route) {
+        if (!context) { return route; }
 
-  router.delegate = {
-    willAddRoute: function(context, route) {
-      if (!context) { return route; }
+        if (context === 'application') {
+          return route;
+        }
 
-      if (context === 'application') {
-        return route;
+        return context + "." + route;
+      },
+
+      // Test that both delegates work together
+      contextEntered: function(name, match) {
+        match("/").to("index");
       }
-
-      return context + "." + route;
-    },
-
-    // Test that both delegates work together
-    contextEntered: function(name, match) {
-      match("/").to("index");
     }
-  };
+  });
 
   router.map(function(match) {
     match("/").to("application", function(match) {
