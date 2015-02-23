@@ -340,7 +340,7 @@ Router.prototype = {
     var activeQPsOnNewHandler = {};
     merge(activeQPsOnNewHandler, queryParams);
 
-    var activeQueryParams  = this.testState.queryParams;
+    var activeQueryParams  = state.queryParams;
     for (var key in activeQueryParams) {
       if (activeQueryParams.hasOwnProperty(key) &&
           activeQPsOnNewHandler.hasOwnProperty(key)) {
@@ -814,6 +814,10 @@ function notifyExistingHandlers(router, newState, newTransition) {
   }
 
   trigger(router, oldHandlers, true, ['willTransition', newTransition]);
+
+  if (router.willTransition) {
+    router.willTransition(oldHandlers, newState.handlerInfos, newTransition);
+  }
 }
 
 exports["default"] = Router;
