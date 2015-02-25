@@ -1,6 +1,6 @@
 "use strict";
 var RouteRecognizer = require("route-recognizer")["default"];
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 var trigger = require("./utils").trigger;
 var log = require("./utils").log;
 var slice = require("./utils").slice;
@@ -55,7 +55,7 @@ function getTransitionByIntent(intent, isIntermediate) {
     }
 
     // No-op. No need to create a new transition.
-    return new Transition(this);
+    return this.activeTransition || new Transition(this);
   }
 
   if (isIntermediate) {

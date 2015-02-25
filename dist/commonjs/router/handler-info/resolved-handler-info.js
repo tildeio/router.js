@@ -1,8 +1,8 @@
 "use strict";
 var HandlerInfo = require("../handler-info")["default"];
-var subclass = require("router/utils").subclass;
-var promiseLabel = require("router/utils").promiseLabel;
-var Promise = require("rsvp/promise")["default"];
+var subclass = require("../utils").subclass;
+var promiseLabel = require("../utils").promiseLabel;
+var Promise = require("rsvp").Promise;
 
 var ResolvedHandlerInfo = subclass(HandlerInfo, {
   resolve: function(shouldContinue, payload) {

@@ -1,5 +1,5 @@
 define("router/handler-info",
-  ["./utils","rsvp/promise","exports"],
+  ["./utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var bind = __dependency1__.bind;
@@ -7,7 +7,7 @@ define("router/handler-info",
     var serialize = __dependency1__.serialize;
     var promiseLabel = __dependency1__.promiseLabel;
     var applyHook = __dependency1__.applyHook;
-    var Promise = __dependency2__["default"];
+    var Promise = __dependency2__.Promise;
 
     function HandlerInfo(_props) {
       var props = _props || {};
@@ -176,7 +176,7 @@ define("router/handler-info",
     __exports__["default"] = HandlerInfo;
   });
 define("router/handler-info/factory",
-  ["router/handler-info/resolved-handler-info","router/handler-info/unresolved-handler-info-by-object","router/handler-info/unresolved-handler-info-by-param","exports"],
+  ["./resolved-handler-info","./unresolved-handler-info-by-object","./unresolved-handler-info-by-param","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var ResolvedHandlerInfo = __dependency1__["default"];
@@ -199,13 +199,13 @@ define("router/handler-info/factory",
     __exports__["default"] = handlerInfoFactory;
   });
 define("router/handler-info/resolved-handler-info",
-  ["../handler-info","router/utils","rsvp/promise","exports"],
+  ["../handler-info","../utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
     var subclass = __dependency2__.subclass;
     var promiseLabel = __dependency2__.promiseLabel;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     var ResolvedHandlerInfo = subclass(HandlerInfo, {
       resolve: function(shouldContinue, payload) {
@@ -230,7 +230,7 @@ define("router/handler-info/resolved-handler-info",
     __exports__["default"] = ResolvedHandlerInfo;
   });
 define("router/handler-info/unresolved-handler-info-by-object",
-  ["../handler-info","router/utils","rsvp/promise","exports"],
+  ["../handler-info","../utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
@@ -238,7 +238,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
     var subclass = __dependency2__.subclass;
     var promiseLabel = __dependency2__.promiseLabel;
     var isParam = __dependency2__.isParam;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
       getModel: function(payload) {
@@ -292,7 +292,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
     __exports__["default"] = UnresolvedHandlerInfoByObject;
   });
 define("router/handler-info/unresolved-handler-info-by-param",
-  ["../handler-info","router/utils","exports"],
+  ["../handler-info","../utils","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
@@ -326,11 +326,11 @@ define("router/handler-info/unresolved-handler-info-by-param",
     __exports__["default"] = UnresolvedHandlerInfoByParam;
   });
 define("router/router",
-  ["route-recognizer","rsvp/promise","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","./handler-info","exports"],
+  ["route-recognizer","rsvp","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","./handler-info","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __dependency8__, __exports__) {
     "use strict";
     var RouteRecognizer = __dependency1__["default"];
-    var Promise = __dependency2__["default"];
+    var Promise = __dependency2__.Promise;
     var trigger = __dependency3__.trigger;
     var log = __dependency3__.log;
     var slice = __dependency3__.slice;
@@ -385,7 +385,7 @@ define("router/router",
         }
 
         // No-op. No need to create a new transition.
-        return new Transition(this);
+        return this.activeTransition || new Transition(this);
       }
 
       if (isIntermediate) {
@@ -1433,14 +1433,14 @@ define("router/transition-intent/url-transition-intent",
     });
   });
 define("router/transition-state",
-  ["./handler-info","./utils","rsvp/promise","exports"],
+  ["./handler-info","./utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var ResolvedHandlerInfo = __dependency1__.ResolvedHandlerInfo;
     var forEach = __dependency2__.forEach;
     var promiseLabel = __dependency2__.promiseLabel;
     var callHook = __dependency2__.callHook;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     function TransitionState(other) {
       this.handlerInfos = [];
@@ -1549,10 +1549,10 @@ define("router/transition-state",
     __exports__["default"] = TransitionState;
   });
 define("router/transition",
-  ["rsvp/promise","./handler-info","./utils","exports"],
+  ["rsvp","./handler-info","./utils","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
-    var Promise = __dependency1__["default"];
+    var Promise = __dependency1__.Promise;
     var ResolvedHandlerInfo = __dependency2__.ResolvedHandlerInfo;
     var trigger = __dependency3__.trigger;
     var slice = __dependency3__.slice;
