@@ -1,7 +1,7 @@
 "use strict";
-var ResolvedHandlerInfo = require("router/handler-info/resolved-handler-info")["default"];
-var UnresolvedHandlerInfoByObject = require("router/handler-info/unresolved-handler-info-by-object")["default"];
-var UnresolvedHandlerInfoByParam = require("router/handler-info/unresolved-handler-info-by-param")["default"];
+var ResolvedHandlerInfo = require("./resolved-handler-info")["default"];
+var UnresolvedHandlerInfoByObject = require("./unresolved-handler-info-by-object")["default"];
+var UnresolvedHandlerInfoByParam = require("./unresolved-handler-info-by-param")["default"];
 
 handlerInfoFactory.klasses = {
   resolved: ResolvedHandlerInfo,

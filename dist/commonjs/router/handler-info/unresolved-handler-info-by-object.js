@@ -1,10 +1,10 @@
 "use strict";
 var HandlerInfo = require("../handler-info")["default"];
-var merge = require("router/utils").merge;
-var subclass = require("router/utils").subclass;
-var promiseLabel = require("router/utils").promiseLabel;
-var isParam = require("router/utils").isParam;
-var Promise = require("rsvp/promise")["default"];
+var merge = require("../utils").merge;
+var subclass = require("../utils").subclass;
+var promiseLabel = require("../utils").promiseLabel;
+var isParam = require("../utils").isParam;
+var Promise = require("rsvp").Promise;
 
 var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
   getModel: function(payload) {
