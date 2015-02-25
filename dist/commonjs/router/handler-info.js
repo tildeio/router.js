@@ -4,7 +4,7 @@ var merge = require("./utils").merge;
 var serialize = require("./utils").serialize;
 var promiseLabel = require("./utils").promiseLabel;
 var applyHook = require("./utils").applyHook;
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 
 function HandlerInfo(_props) {
   var props = _props || {};

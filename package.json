@@ -2,6 +2,7 @@
   "name": "router",
   "namespace": "Router",
   "version": "1.0.0",
+  "main": "dist/commonjs/main.js",
   "description": "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
   "author": "Tilde, Inc.",
   "license": "MIT",
@@ -46,5 +47,9 @@
     "router",
     "route-recognizer",
     "rsvp"
-  ]
+  ],
+  "dependencies": {
+    "route-recognizer": "^0.1.5",
+    "rsvp": "^3.0.17"
+  }
 }
