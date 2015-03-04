@@ -196,7 +196,7 @@ exports.subclass = subclass;function resolveHook(obj, hookName) {
 
 function callHook(obj, _hookName, arg1, arg2) {
   var hookName = resolveHook(obj, _hookName);
-  return obj[hookName].call(obj, arg1, arg2);
+  return hookName && obj[hookName].call(obj, arg1, arg2);
 }
 
 function applyHook(obj, _hookName, args) {
