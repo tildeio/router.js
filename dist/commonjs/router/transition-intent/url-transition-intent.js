@@ -5,6 +5,7 @@ var handlerInfoFactory = require("../handler-info/factory")["default"];
 var oCreate = require("../utils").oCreate;
 var merge = require("../utils").merge;
 var subclass = require("../utils").subclass;
+var UnrecognizedURLError = require("./../unrecognized-url-error")["default"];
 
 exports["default"] = subclass(TransitionIntent, {
   url: null,
@@ -55,12 +56,3 @@ exports["default"] = subclass(TransitionIntent, {
     return newState;
   }
 });
-
-/**
-  Promise reject reasons passed to promise rejection
-  handlers for failed transitions.
- */
-function UnrecognizedURLError(message) {
-  this.message = (message || "UnrecognizedURLError");
-  this.name = "UnrecognizedURLError";
-}

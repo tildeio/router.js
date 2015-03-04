@@ -21,7 +21,17 @@ var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 
 var pop = Array.prototype.pop;
 
-function Router() {
+function Router(_options) {
+  var options = _options || {};
+  this.getHandler = options.getHandler || this.getHandler;
+  this.updateURL = options.updateURL || this.updateURL;
+  this.replaceURL = options.replaceURL || this.replaceURL;
+  this.didTransition = options.didTransition || this.didTransition;
+  this.willTransition = options.willTransition || this.willTransition;
+  this.delegate = options.delegate || this.delegate;
+  this.triggerEvent = options.triggerEvent || this.triggerEvent;
+  this.log = options.log || this.log;
+
   this.recognizer = new RouteRecognizer();
   this.reset();
 }
@@ -104,6 +114,8 @@ Router.prototype = {
   hasRoute: function(route) {
     return this.recognizer.hasRoute(route);
   },
+
+  getHandler: function() {},
 
   queryParamsTransition: function(changelist, wasTransitioning, oldState, newState) {
     var router = this;
@@ -340,7 +352,7 @@ Router.prototype = {
     var activeQPsOnNewHandler = {};
     merge(activeQPsOnNewHandler, queryParams);
 
-    var activeQueryParams  = this.testState.queryParams;
+    var activeQueryParams  = state.queryParams;
     for (var key in activeQueryParams) {
       if (activeQueryParams.hasOwnProperty(key) &&
           activeQPsOnNewHandler.hasOwnProperty(key)) {
@@ -366,16 +378,7 @@ Router.prototype = {
 
     @param {String} message The message to log.
   */
-  log: null,
-
-  _willChangeContextEvent: 'willChangeContext',
-  _triggerWillChangeContext: function(handlerInfos, newTransition) {
-    trigger(this, handlerInfos, true, [this._willChangeContextEvent, newTransition]);
-  },
-
-  _triggerWillLeave: function(handlerInfos, newTransition, leavingChecker) {
-    trigger(this, handlerInfos, true, ['willLeave', newTransition, leavingChecker]);
-  }
+  log: null
 };
 
 /**
@@ -805,15 +808,13 @@ function notifyExistingHandlers(router, newState, newTransition) {
       }
       return false;
     };
-
-    router._triggerWillLeave(leaving, newTransition, leavingChecker);
-  }
-
-  if (changing.length > 0) {
-    router._triggerWillChangeContext(changing, newTransition);
   }
 
   trigger(router, oldHandlers, true, ['willTransition', newTransition]);
+
+  if (router.willTransition) {
+    router.willTransition(oldHandlers, newState.handlerInfos, newTransition);
+  }
 }
 
 exports["default"] = Router;

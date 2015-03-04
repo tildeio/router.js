@@ -405,7 +405,17 @@ define("router/router",
 
     var pop = Array.prototype.pop;
 
-    function Router() {
+    function Router(_options) {
+      var options = _options || {};
+      this.getHandler = options.getHandler || this.getHandler;
+      this.updateURL = options.updateURL || this.updateURL;
+      this.replaceURL = options.replaceURL || this.replaceURL;
+      this.didTransition = options.didTransition || this.didTransition;
+      this.willTransition = options.willTransition || this.willTransition;
+      this.delegate = options.delegate || this.delegate;
+      this.triggerEvent = options.triggerEvent || this.triggerEvent;
+      this.log = options.log || this.log;
+
       this.recognizer = new RouteRecognizer();
       this.reset();
     }
@@ -488,6 +498,8 @@ define("router/router",
       hasRoute: function(route) {
         return this.recognizer.hasRoute(route);
       },
+
+      getHandler: function() {},
 
       queryParamsTransition: function(changelist, wasTransitioning, oldState, newState) {
         var router = this;
@@ -724,7 +736,7 @@ define("router/router",
         var activeQPsOnNewHandler = {};
         merge(activeQPsOnNewHandler, queryParams);
 
-        var activeQueryParams  = this.testState.queryParams;
+        var activeQueryParams  = state.queryParams;
         for (var key in activeQueryParams) {
           if (activeQueryParams.hasOwnProperty(key) &&
               activeQPsOnNewHandler.hasOwnProperty(key)) {
@@ -750,16 +762,7 @@ define("router/router",
 
         @param {String} message The message to log.
       */
-      log: null,
-
-      _willChangeContextEvent: 'willChangeContext',
-      _triggerWillChangeContext: function(handlerInfos, newTransition) {
-        trigger(this, handlerInfos, true, [this._willChangeContextEvent, newTransition]);
-      },
-
-      _triggerWillLeave: function(handlerInfos, newTransition, leavingChecker) {
-        trigger(this, handlerInfos, true, ['willLeave', newTransition, leavingChecker]);
-      }
+      log: null
     };
 
     /**
@@ -1189,15 +1192,13 @@ define("router/router",
           }
           return false;
         };
-
-        router._triggerWillLeave(leaving, newTransition, leavingChecker);
-      }
-
-      if (changing.length > 0) {
-        router._triggerWillChangeContext(changing, newTransition);
       }
 
       trigger(router, oldHandlers, true, ['willTransition', newTransition]);
+
+      if (router.willTransition) {
+        router.willTransition(oldHandlers, newState.handlerInfos, newTransition);
+      }
     }
 
     __exports__["default"] = Router;
@@ -1424,8 +1425,8 @@ define("router/transition-intent/named-transition-intent",
     });
   });
 define("router/transition-intent/url-transition-intent",
-  ["../transition-intent","../transition-state","../handler-info/factory","../utils","exports"],
-  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __exports__) {
+  ["../transition-intent","../transition-state","../handler-info/factory","../utils","./../unrecognized-url-error","exports"],
+  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __exports__) {
     "use strict";
     var TransitionIntent = __dependency1__["default"];
     var TransitionState = __dependency2__["default"];
@@ -1433,6 +1434,7 @@ define("router/transition-intent/url-transition-intent",
     var oCreate = __dependency4__.oCreate;
     var merge = __dependency4__.merge;
     var subclass = __dependency4__.subclass;
+    var UnrecognizedURLError = __dependency5__["default"];
 
     __exports__["default"] = subclass(TransitionIntent, {
       url: null,
@@ -1483,15 +1485,6 @@ define("router/transition-intent/url-transition-intent",
         return newState;
       }
     });
-
-    /**
-      Promise reject reasons passed to promise rejection
-      handlers for failed transitions.
-     */
-    function UnrecognizedURLError(message) {
-      this.message = (message || "UnrecognizedURLError");
-      this.name = "UnrecognizedURLError";
-    }
   });
 define("router/transition-state",
   ["./handler-info","./utils","rsvp/promise","exports"],
@@ -1921,6 +1914,26 @@ define("router/transition",
     __exports__.logAbort = logAbort;
     __exports__.TransitionAborted = TransitionAborted;
   });
+define("router/unrecognized-url-error",
+  ["./utils","exports"],
+  function(__dependency1__, __exports__) {
+    "use strict";
+    var oCreate = __dependency1__.oCreate;
+
+    /**
+      Promise reject reasons passed to promise rejection
+      handlers for failed transitions.
+     */
+    function UnrecognizedURLError(message) {
+      this.message = (message || "UnrecognizedURLError");
+      this.name = "UnrecognizedURLError";
+      Error.call(this);
+    }
+
+    UnrecognizedURLError.prototype = oCreate(Error);
+
+    __exports__["default"] = UnrecognizedURLError;
+  });
 define("router/utils",
   ["exports"],
   function(__exports__) {
@@ -2122,7 +2135,7 @@ define("router/utils",
 
     function callHook(obj, _hookName, arg1, arg2) {
       var hookName = resolveHook(obj, _hookName);
-      return obj[hookName].call(obj, arg1, arg2);
+      return hookName && obj[hookName].call(obj, arg1, arg2);
     }
 
     function applyHook(obj, _hookName, args) {
