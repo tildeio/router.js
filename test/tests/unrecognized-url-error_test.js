@@ -5,11 +5,11 @@ module("unrecognized-url-error");
 test("correct inheritance", function() {
   var error;
   try {
-    throw UnrecognizedURLError('Message');
-  } catch(e) { 
+    throw new UnrecognizedURLError('Message');
+  } catch(e) {
     error = e;
   }
 
-  assert(error instanceof UnrecognizedURLError);
-  assert(error instanceof Error);
+  ok(error instanceof UnrecognizedURLError);
+  ok(error instanceof Error);
 });
