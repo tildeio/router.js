@@ -11,6 +11,6 @@ function UnrecognizedURLError(message) {
   Error.call(this);
 }
 
-UnrecognizedURLError.prototype = oCreate(Error);
+UnrecognizedURLError.prototype = oCreate(Error.prototype);
 
 exports["default"] = UnrecognizedURLError;

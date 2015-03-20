@@ -1876,7 +1876,7 @@ define("router/unrecognized-url-error",
       Error.call(this);
     }
 
-    UnrecognizedURLError.prototype = oCreate(Error);
+    UnrecognizedURLError.prototype = oCreate(Error.prototype);
 
     __exports__["default"] = UnrecognizedURLError;
   });
