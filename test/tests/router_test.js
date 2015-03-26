@@ -1628,6 +1628,15 @@ asyncTest("Error handling shouldn't trigger for transitions that are already abo
   flushBackburner();
 });
 
+test("Transitions to the same destination as the active transition just return the active transition", function() {
+  expect(1);
+
+  var transition0 = router.handleURL('/index');
+  var transition1 = router.handleURL('/index');
+  equal(transition0, transition1);
+  flushBackburner();
+});
+
 
 test("can redirect from error handler", function() {
 
