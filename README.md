@@ -645,9 +645,8 @@ router.map(function(match) {
 ```
 
 If there are multiple matches, `route-recognizer` will
-prefer routes with fewer dynamic segments, so
-`/posts/edit` will match in preference to `/posts/:id`
-if both match.
+prefer routes that are more specific, so `/posts/edit` will be preferred
+over, say, `/posts/:id`.
 
 ## Architecture / Contributing
 
