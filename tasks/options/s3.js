@@ -15,11 +15,10 @@ module.exports = {
   options: {
     bucket: 'routerjs.builds.emberjs.com',
     access: 'public-read',
-    key: '<%= env.S3_ACCESS_KEY_ID %>',
-    secret: '<%= env.S3_SECRET_ACCESS_KEY %>',
+    accessKeyId: '<%= env.S3_ACCESS_KEY_ID %>',
+    secretAccessKey: '<%= env.S3_SECRET_ACCESS_KEY %>',
   },
   dev: {
-    upload: s3Uploads
+    files: s3Uploads
   }
 };
-
