@@ -113,7 +113,7 @@ myHandlers.showPost = {
 
   // when coming in from `transitionTo`, convert an
   // object into parameters
-  serialize: function(object) {
+  serialize: function(post) {
     return { id: post.id };
   },
 
