@@ -18,6 +18,7 @@ module("The router", {
       });
       match("/posts", function(match) {
         match("/:id").to("showPost");
+        match("/:postId/:commentId").to("showComment");
         match("/on/:date").to("showPostsForDate");
         match("/admin/:id").to("admin", function(match) {
           match("/posts").to("adminPosts");
@@ -82,6 +83,12 @@ test("Mapping adds named routes to the end", function() {
 
   url = router.recognizer.generate("showAllPosts");
   equal(url, "/posts");
+
+  url = router.recognizer.generate("showComment", { postId: 1, commentId: 2 });
+  equal(url, "/posts/1/2");
+
+  url = router.generate("showComment", 1, 2);
+  equal(url, "/posts/1/2");
 });
 
 test("Handling an invalid URL returns a rejecting promise", function() {
