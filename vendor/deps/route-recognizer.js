@@ -448,7 +448,7 @@ define("route-recognizer",
         var pairs = queryString.split("&"), queryParams = {};
         for(var i=0; i < pairs.length; i++) {
           var pair      = pairs[i].split('='),
-              key       = decodeURIComponent(pair[0]),
+              key       = pair[0],
               keyLength = key.length,
               isArray = false,
               value;
@@ -463,12 +463,12 @@ define("route-recognizer",
                 queryParams[key] = [];
               }
             }
-            value = pair[1] ? decodeURIComponent(pair[1]) : '';
+            value = pair[1] ? pair[1] : '';
           }
           if (isArray) {
             queryParams[key].push(value);
           } else {
-            queryParams[key] = decodeURIComponent(value);
+            queryParams[key] = value;
           }
         }
         return queryParams;
