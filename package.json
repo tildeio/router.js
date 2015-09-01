@@ -40,7 +40,7 @@
     "prepublish": "grunt build"
   },
   "bugs": {
-    "url": "https://github.com/tildeio/rsvp.js/issues"
+    "url": "https://github.com/tildeio/router.js/issues"
   },
   "keywords": [
     "router",
