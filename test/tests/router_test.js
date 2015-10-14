@@ -609,8 +609,24 @@ test("replaceWith calls replaceURL", function() {
 
 test("applyIntent returns a tentative state based on a named transition", function() {
   transitionTo(router, '/posts');
-  var state = router.applyIntent('faq', []);
+
+  var id = 25,
+      contexts = [ id ],
+      queryParams = { test: 33 },
+      routeName = 'showPost',
+      state;
+
+  handlers = {};
+  handlers[routeName] = { test: 43 };
+
+  state = router.applyIntent(routeName, contexts, queryParams);
+
+  deepEqual(state.queryParams, queryParams);
+
   ok(state.handlerInfos.length);
+  equal(state.handlerInfos[0].name, routeName);
+  deepEqual(state.handlerInfos[0].handler, handlers[routeName]);
+  deepEqual(state.handlerInfos[0].params, { id: id + '' });
 });
 
 test("Moving to a new top-level route triggers exit callbacks", function() {
