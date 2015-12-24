@@ -1,0 +1,27 @@
+{
+  "name": "router.js",
+  "description": "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
+  "main": "router.js",
+  "authors": [
+    "Tilde",
+    "Inc."
+  ],
+  "license": "MIT",
+  "keywords": [
+    "router",
+    "route-recognizer",
+    "rsvp"
+  ],
+  "homepage": "https://github.com/tildeio/router.js",
+  "moduleType": [],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "route-recognizer": "~0.1.9"
+  }
+}
