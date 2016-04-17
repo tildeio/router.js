@@ -392,6 +392,13 @@ define("router/router",
       this.delegate = options.delegate || this.delegate;
       this.triggerEvent = options.triggerEvent || this.triggerEvent;
       this.log = options.log || this.log;
+      this.dslCallBacks = []; // NOTE: set by Ember
+      this.state = undefined;
+      this.activeTransition = undefined;
+      this._changedQueryParams = undefined;
+      this.oldState = undefined;
+      this.currentHandlerInfos = undefined;
+      this.state = undefined;
 
       this.recognizer = new RouteRecognizer();
       this.reset();
@@ -933,7 +940,8 @@ define("router/router",
             updatedContext: [],
             exited: [],
             entered: [],
-            unchanged: []
+            unchanged: [],
+            reset: undefined
           };
 
       var handlerChanged, contextChanged = false, i, l;
@@ -1511,10 +1519,6 @@ define("router/transition-state",
     }
 
     TransitionState.prototype = {
-      handlerInfos: null,
-      queryParams: null,
-      params: null,
-
       promiseLabel: function(label) {
         var targetName = '';
         forEach(this.handlerInfos, function(handlerInfo) {
@@ -1527,7 +1531,6 @@ define("router/transition-state",
       },
 
       resolve: function(shouldContinue, payload) {
-        var self = this;
         // First, calculate params for this state. This is useful
         // information to provide to the various route hooks.
         var params = this.params;
@@ -1644,6 +1647,15 @@ define("router/transition",
       this.data = this.intent && this.intent.data || {};
       this.resolvedModels = {};
       this.queryParams = {};
+      this.promise = undefined;
+      this.error = undefined;
+      this.params = undefined;
+      this.handlerInfos = undefined;
+      this.targetName = undefined;
+      this.pivotHandler = undefined;
+      this.sequence = undefined;
+      this.isAborted = undefined;
+      this.isActive = undefined;
 
       if (error) {
         this.promise = Promise.reject(error);
@@ -1697,10 +1709,8 @@ define("router/transition",
       targetName: null,
       urlMethod: 'update',
       intent: null,
-      params: null,
       pivotHandler: null,
       resolveIndex: 0,
-      handlerInfos: null,
       resolvedModels: null,
       isActive: true,
       state: null,
