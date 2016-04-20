@@ -3,8 +3,24 @@ import Router from "router";
 import { resolve, configure, reject, Promise } from "rsvp";
 
 var router, url, handlers, expectedUrl, actions;
+var scenarios = [
+  {
+    name: 'Sync Get Handler',
+    getHandler: function(name) {
+      return handlers[name] || (handlers[name] = {});
+    }
+  },
+  {
+    name: 'Async Get Handler',
+    getHandler: function(name) {
+      return Promise.resolve(handlers[name] || (handlers[name] = {}));
+    }
+  }
+];
 
-module("Query Params", {
+scenarios.forEach(function(scenario) {
+
+module("Query Params (" + scenario.name + ")", {
   setup: function() {
     handlers = {};
     expectedUrl = null;
@@ -23,9 +39,7 @@ function map(fn) {
   router = new Router();
   router.map(fn);
 
-  router.getHandler = function(name) {
-    return handlers[name] || (handlers[name] = {});
-  };
+  router.getHandler = scenario.getHandler;
 
   router.updateURL = function(newUrl) {
 
@@ -442,4 +456,6 @@ test("tests whether array query params to transitionTo are considered active", f
   ok(!router.isActive('index', { queryParams: {foo: ['1', '2', '3']}}), "Change Length");
   ok(!router.isActive('index', { queryParams: {foo: ['3', '4']}}), "Change Content");
   ok(!router.isActive('index', { queryParams: {foo: []}}), "Empty Array");
+});
+
 });
