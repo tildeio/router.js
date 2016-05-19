@@ -1158,6 +1158,32 @@ test("Date params aren't treated as string/number params", function() {
   equal(router.generate('showPostsForDate', new Date(1815, 5, 18)), "/posts/on/1815-5-18");
 });
 
+test("getSerializer takes precedence over handler.serialize", function() {
+  expect(2);
+
+  router.getSerializer = function() {
+    return function(date) {
+      ok(true, "getSerializer called");
+      return { date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate() };
+    };
+  };
+
+  handlers = {
+    showPostsForDate: {
+      serialize: function(date) {
+        ok(false, "serialize method shouldn't be called");
+        return {};
+      },
+
+      model: function(params) {
+        ok(false, "model shouldn't be called; the date is the provided model");
+      }
+    }
+  };
+
+  equal(router.generate('showPostsForDate', new Date(1815, 5, 18)), "/posts/on/1815-5-18");
+});
+
 test("params are known by a transition up front", function() {
   expect(2);
 

@@ -68,6 +68,8 @@ module("TransitionIntent", {
   }
 });
 
+function getSerializer() {}
+
 function getHandler(name) {
   if (handlers[name]) {
     return handlers[name];
@@ -208,7 +210,7 @@ test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empt
     contexts: [ article, comment ]
   });
 
-  var newState = intent.applyToState(state, recognizer, getHandler);
+  var newState = intent.applyToState(state, recognizer, getHandler, null, getSerializer);
   var handlerInfos = newState.handlerInfos;
 
   equal(handlerInfos.length, 2);
