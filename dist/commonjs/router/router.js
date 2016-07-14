@@ -17,13 +17,13 @@ var Transition = require("./transition").Transition;
 var TransitionAborted = require("./transition").TransitionAborted;
 var NamedTransitionIntent = require("./transition-intent/named-transition-intent")["default"];
 var URLTransitionIntent = require("./transition-intent/url-transition-intent")["default"];
-var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 
 var pop = Array.prototype.pop;
 
 function Router(_options) {
   var options = _options || {};
   this.getHandler = options.getHandler || this.getHandler;
+  this.getSerializer = options.getSerializer || this.getSerializer;
   this.updateURL = options.updateURL || this.updateURL;
   this.replaceURL = options.replaceURL || this.replaceURL;
   this.didTransition = options.didTransition || this.didTransition;
@@ -41,7 +41,7 @@ function getTransitionByIntent(intent, isIntermediate) {
   var oldState = wasTransitioning ? this.activeTransition.state : this.state;
   var newTransition;
 
-  var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate);
+  var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate, this.getSerializer);
   var queryParamChangelist = getChangelist(oldState.queryParams, newState.queryParams);
 
   if (handlerInfosEqual(newState.handlerInfos, oldState.handlerInfos)) {
@@ -55,7 +55,7 @@ function getTransitionByIntent(intent, isIntermediate) {
     }
 
     // No-op. No need to create a new transition.
-    return new Transition(this);
+    return this.activeTransition || new Transition(this);
   }
 
   if (isIntermediate) {
@@ -117,6 +117,8 @@ Router.prototype = {
 
   getHandler: function() {},
 
+  getSerializer: function() {},
+
   queryParamsTransition: function(changelist, wasTransitioning, oldState, newState) {
     var router = this;
 
@@ -174,6 +176,7 @@ Router.prototype = {
       });
     }
 
+    this.oldState = undefined;
     this.state = new TransitionState();
     this.currentHandlerInfos = null;
   },
@@ -288,7 +291,7 @@ Router.prototype = {
     // Construct a TransitionIntent with the provided params
     // and apply it to the present state of the router.
     var intent = new NamedTransitionIntent({ name: handlerName, contexts: suppliedParams });
-    var state = intent.applyToState(this.state, this.recognizer, this.getHandler);
+    var state = intent.applyToState(this.state, this.recognizer, this.getHandler, null, this.getSerializer);
     var params = {};
 
     for (var i = 0, len = state.handlerInfos.length; i < len; ++i) {
@@ -308,7 +311,7 @@ Router.prototype = {
     });
 
     var state = this.activeTransition && this.activeTransition.state || this.state;
-    return intent.applyToState(state, this.recognizer, this.getHandler);
+    return intent.applyToState(state, this.recognizer, this.getHandler, null, this.getSerializer);
   },
 
   isActiveIntent: function(handlerName, contexts, queryParams, _state) {
@@ -341,7 +344,7 @@ Router.prototype = {
       contexts: contexts
     });
 
-    var newState = intent.applyToHandlers(testState, recogHandlers, this.getHandler, targetHandler, true, true);
+    var newState = intent.applyToHandlers(testState, recogHandlers, this.getHandler, targetHandler, true, true, this.getSerializer);
 
     var handlersEqual = handlerInfosEqual(newState.handlerInfos, testState.handlerInfos);
     if (!queryParams || !handlersEqual) {
@@ -486,26 +489,35 @@ function setupContexts(router, newState, transition) {
   that may happen in enter/setup.
 */
 function handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, enter, transition) {
-
   var handler = handlerInfo.handler,
       context = handlerInfo.context;
 
-  if (enter) {
-    callHook(handler, 'enter', transition);
-  }
-  if (transition && transition.isAborted) {
-    throw new TransitionAborted();
+  function _handlerEnteredOrUpdated(handler) {
+    if (enter) {
+      callHook(handler, 'enter', transition);
+    }
+
+    if (transition && transition.isAborted) {
+      throw new TransitionAborted();
+    }
+
+    handler.context = context;
+    callHook(handler, 'contextDidChange');
+
+    callHook(handler, 'setup', context, transition);
+    if (transition && transition.isAborted) {
+      throw new TransitionAborted();
+    }
+
+    currentHandlerInfos.push(handlerInfo);
   }
 
-  handler.context = context;
-  callHook(handler, 'contextDidChange');
-
-  callHook(handler, 'setup', context, transition);
-  if (transition && transition.isAborted) {
-    throw new TransitionAborted();
+  // If the handler doesn't exist, it means we haven't resolved the handler promise yet
+  if (!handler) {
+    handlerInfo.handlerPromise = handlerInfo.handlerPromise.then(_handlerEnteredOrUpdated);
+  } else {
+    _handlerEnteredOrUpdated(handler);
   }
-
-  currentHandlerInfos.push(handlerInfo);
 
   return true;
 }

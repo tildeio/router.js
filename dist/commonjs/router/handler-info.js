@@ -4,10 +4,26 @@ var merge = require("./utils").merge;
 var serialize = require("./utils").serialize;
 var promiseLabel = require("./utils").promiseLabel;
 var applyHook = require("./utils").applyHook;
+var isPromise = require("./utils").isPromise;
 var Promise = require("rsvp/promise")["default"];
 
 function HandlerInfo(_props) {
   var props = _props || {};
+  var name = props.name;
+
+  // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
+  this.handlerPromise = Promise.resolve(props.handler);
+
+  // Wait until the 'handler' property has been updated when chaining to a handler
+  // that is a promise
+  if (isPromise(props.handler)) {
+    this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
+    props.handler = undefined;
+  } else if (props.handler) {
+    // Store the name of the handler on the handler for easy checks later
+    props.handler._handlerName = name;
+  }
+
   merge(this, props);
   this.initialize(props);
 }
@@ -41,22 +57,36 @@ HandlerInfo.prototype = {
     return this.params || {};
   },
 
+  updateHandler: function(handler) {
+    // Store the name of the handler on the handler for easy checks later
+    handler._handlerName = this.name;
+    return this.handler = handler;
+  },
+
   resolve: function(shouldContinue, payload) {
     var checkForAbort  = bind(this, this.checkForAbort,      shouldContinue),
         beforeModel    = bind(this, this.runBeforeModelHook, payload),
         model          = bind(this, this.getModel,           payload),
         afterModel     = bind(this, this.runAfterModelHook,  payload),
-        becomeResolved = bind(this, this.becomeResolved,     payload);
+        becomeResolved = bind(this, this.becomeResolved,     payload),
+        self = this;
 
-    return Promise.resolve(undefined, this.promiseLabel("Start handler"))
-           .then(checkForAbort, null, this.promiseLabel("Check for abort"))
-           .then(beforeModel, null, this.promiseLabel("Before model"))
-           .then(checkForAbort, null, this.promiseLabel("Check if aborted during 'beforeModel' hook"))
-           .then(model, null, this.promiseLabel("Model"))
-           .then(checkForAbort, null, this.promiseLabel("Check if aborted in 'model' hook"))
-           .then(afterModel, null, this.promiseLabel("After model"))
-           .then(checkForAbort, null, this.promiseLabel("Check if aborted in 'afterModel' hook"))
-           .then(becomeResolved, null, this.promiseLabel("Become resolved"));
+    return Promise.resolve(this.handlerPromise, this.promiseLabel("Start handler"))
+            .then(function(handler) {
+              // We nest this chain in case the handlerPromise has an error so that
+              // we don't have to bubble it through every step
+              return Promise.resolve(handler)
+                .then(checkForAbort, null, self.promiseLabel("Check for abort"))
+                .then(beforeModel, null, self.promiseLabel("Before model"))
+                .then(checkForAbort, null, self.promiseLabel("Check if aborted during 'beforeModel' hook"))
+                .then(model, null, self.promiseLabel("Model"))
+                .then(checkForAbort, null, self.promiseLabel("Check if aborted in 'model' hook"))
+                .then(afterModel, null, self.promiseLabel("After model"))
+                .then(checkForAbort, null, self.promiseLabel("Check if aborted in 'afterModel' hook"))
+                .then(becomeResolved, null, self.promiseLabel("Become resolved"));
+            }, function(error) {
+              throw error;
+            });
   },
 
   runBeforeModelHook: function(payload) {

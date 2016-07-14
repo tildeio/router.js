@@ -61,10 +61,26 @@ define("router/handler-info",
     var serialize = __dependency1__.serialize;
     var promiseLabel = __dependency1__.promiseLabel;
     var applyHook = __dependency1__.applyHook;
+    var isPromise = __dependency1__.isPromise;
     var Promise = __dependency2__["default"];
 
     function HandlerInfo(_props) {
       var props = _props || {};
+      var name = props.name;
+
+      // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
+      this.handlerPromise = Promise.resolve(props.handler);
+
+      // Wait until the 'handler' property has been updated when chaining to a handler
+      // that is a promise
+      if (isPromise(props.handler)) {
+        this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
+        props.handler = undefined;
+      } else if (props.handler) {
+        // Store the name of the handler on the handler for easy checks later
+        props.handler._handlerName = name;
+      }
+
       merge(this, props);
       this.initialize(props);
     }
@@ -98,22 +114,36 @@ define("router/handler-info",
         return this.params || {};
       },
 
+      updateHandler: function(handler) {
+        // Store the name of the handler on the handler for easy checks later
+        handler._handlerName = this.name;
+        return this.handler = handler;
+      },
+
       resolve: function(shouldContinue, payload) {
         var checkForAbort  = bind(this, this.checkForAbort,      shouldContinue),
             beforeModel    = bind(this, this.runBeforeModelHook, payload),
             model          = bind(this, this.getModel,           payload),
             afterModel     = bind(this, this.runAfterModelHook,  payload),
-            becomeResolved = bind(this, this.becomeResolved,     payload);
+            becomeResolved = bind(this, this.becomeResolved,     payload),
+            self = this;
 
-        return Promise.resolve(undefined, this.promiseLabel("Start handler"))
-               .then(checkForAbort, null, this.promiseLabel("Check for abort"))
-               .then(beforeModel, null, this.promiseLabel("Before model"))
-               .then(checkForAbort, null, this.promiseLabel("Check if aborted during 'beforeModel' hook"))
-               .then(model, null, this.promiseLabel("Model"))
-               .then(checkForAbort, null, this.promiseLabel("Check if aborted in 'model' hook"))
-               .then(afterModel, null, this.promiseLabel("After model"))
-               .then(checkForAbort, null, this.promiseLabel("Check if aborted in 'afterModel' hook"))
-               .then(becomeResolved, null, this.promiseLabel("Become resolved"));
+        return Promise.resolve(this.handlerPromise, this.promiseLabel("Start handler"))
+                .then(function(handler) {
+                  // We nest this chain in case the handlerPromise has an error so that
+                  // we don't have to bubble it through every step
+                  return Promise.resolve(handler)
+                    .then(checkForAbort, null, self.promiseLabel("Check for abort"))
+                    .then(beforeModel, null, self.promiseLabel("Before model"))
+                    .then(checkForAbort, null, self.promiseLabel("Check if aborted during 'beforeModel' hook"))
+                    .then(model, null, self.promiseLabel("Model"))
+                    .then(checkForAbort, null, self.promiseLabel("Check if aborted in 'model' hook"))
+                    .then(afterModel, null, self.promiseLabel("After model"))
+                    .then(checkForAbort, null, self.promiseLabel("Check if aborted in 'afterModel' hook"))
+                    .then(becomeResolved, null, self.promiseLabel("Become resolved"));
+                }, function(error) {
+                  throw error;
+                });
       },
 
       runBeforeModelHook: function(payload) {
@@ -317,7 +347,8 @@ define("router/handler-info/unresolved-handler-info-by-object",
       serialize: function(_model) {
         var model = _model || this.context,
             names = this.names,
-            handler = this.handler;
+            handler = this.handler,
+            serializer = this.serializer || (handler && handler.serialize);
 
         var object = {};
         if (isParam(model)) {
@@ -326,8 +357,8 @@ define("router/handler-info/unresolved-handler-info-by-object",
         }
 
         // Use custom serialize if it exists.
-        if (handler.serialize) {
-          return handler.serialize(model, names);
+        if (serializer) {
+          return serializer(model, names);
         }
 
         if (names.length !== 1) { return; }
@@ -380,8 +411,8 @@ define("router/handler-info/unresolved-handler-info-by-param",
     __exports__["default"] = UnresolvedHandlerInfoByParam;
   });
 define("router/router",
-  ["route-recognizer","rsvp/promise","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","./handler-info","exports"],
-  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __dependency8__, __exports__) {
+  ["route-recognizer","rsvp/promise","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","exports"],
+  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __exports__) {
     "use strict";
     var RouteRecognizer = __dependency1__["default"];
     var Promise = __dependency2__["default"];
@@ -401,13 +432,13 @@ define("router/router",
     var TransitionAborted = __dependency5__.TransitionAborted;
     var NamedTransitionIntent = __dependency6__["default"];
     var URLTransitionIntent = __dependency7__["default"];
-    var ResolvedHandlerInfo = __dependency8__.ResolvedHandlerInfo;
 
     var pop = Array.prototype.pop;
 
     function Router(_options) {
       var options = _options || {};
       this.getHandler = options.getHandler || this.getHandler;
+      this.getSerializer = options.getSerializer || this.getSerializer;
       this.updateURL = options.updateURL || this.updateURL;
       this.replaceURL = options.replaceURL || this.replaceURL;
       this.didTransition = options.didTransition || this.didTransition;
@@ -425,7 +456,7 @@ define("router/router",
       var oldState = wasTransitioning ? this.activeTransition.state : this.state;
       var newTransition;
 
-      var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate);
+      var newState = intent.applyToState(oldState, this.recognizer, this.getHandler, isIntermediate, this.getSerializer);
       var queryParamChangelist = getChangelist(oldState.queryParams, newState.queryParams);
 
       if (handlerInfosEqual(newState.handlerInfos, oldState.handlerInfos)) {
@@ -439,7 +470,7 @@ define("router/router",
         }
 
         // No-op. No need to create a new transition.
-        return new Transition(this);
+        return this.activeTransition || new Transition(this);
       }
 
       if (isIntermediate) {
@@ -501,6 +532,8 @@ define("router/router",
 
       getHandler: function() {},
 
+      getSerializer: function() {},
+
       queryParamsTransition: function(changelist, wasTransitioning, oldState, newState) {
         var router = this;
 
@@ -558,6 +591,7 @@ define("router/router",
           });
         }
 
+        this.oldState = undefined;
         this.state = new TransitionState();
         this.currentHandlerInfos = null;
       },
@@ -672,7 +706,7 @@ define("router/router",
         // Construct a TransitionIntent with the provided params
         // and apply it to the present state of the router.
         var intent = new NamedTransitionIntent({ name: handlerName, contexts: suppliedParams });
-        var state = intent.applyToState(this.state, this.recognizer, this.getHandler);
+        var state = intent.applyToState(this.state, this.recognizer, this.getHandler, null, this.getSerializer);
         var params = {};
 
         for (var i = 0, len = state.handlerInfos.length; i < len; ++i) {
@@ -692,7 +726,7 @@ define("router/router",
         });
 
         var state = this.activeTransition && this.activeTransition.state || this.state;
-        return intent.applyToState(state, this.recognizer, this.getHandler);
+        return intent.applyToState(state, this.recognizer, this.getHandler, null, this.getSerializer);
       },
 
       isActiveIntent: function(handlerName, contexts, queryParams, _state) {
@@ -725,7 +759,7 @@ define("router/router",
           contexts: contexts
         });
 
-        var newState = intent.applyToHandlers(testState, recogHandlers, this.getHandler, targetHandler, true, true);
+        var newState = intent.applyToHandlers(testState, recogHandlers, this.getHandler, targetHandler, true, true, this.getSerializer);
 
         var handlersEqual = handlerInfosEqual(newState.handlerInfos, testState.handlerInfos);
         if (!queryParams || !handlersEqual) {
@@ -870,26 +904,35 @@ define("router/router",
       that may happen in enter/setup.
     */
     function handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, enter, transition) {
-
       var handler = handlerInfo.handler,
           context = handlerInfo.context;
 
-      if (enter) {
-        callHook(handler, 'enter', transition);
-      }
-      if (transition && transition.isAborted) {
-        throw new TransitionAborted();
+      function _handlerEnteredOrUpdated(handler) {
+        if (enter) {
+          callHook(handler, 'enter', transition);
+        }
+
+        if (transition && transition.isAborted) {
+          throw new TransitionAborted();
+        }
+
+        handler.context = context;
+        callHook(handler, 'contextDidChange');
+
+        callHook(handler, 'setup', context, transition);
+        if (transition && transition.isAborted) {
+          throw new TransitionAborted();
+        }
+
+        currentHandlerInfos.push(handlerInfo);
       }
 
-      handler.context = context;
-      callHook(handler, 'contextDidChange');
-
-      callHook(handler, 'setup', context, transition);
-      if (transition && transition.isAborted) {
-        throw new TransitionAborted();
+      // If the handler doesn't exist, it means we haven't resolved the handler promise yet
+      if (!handler) {
+        handlerInfo.handlerPromise = handlerInfo.handlerPromise.then(_handlerEnteredOrUpdated);
+      } else {
+        _handlerEnteredOrUpdated(handler);
       }
-
-      currentHandlerInfos.push(handlerInfo);
 
       return true;
     }
@@ -1248,7 +1291,7 @@ define("router/transition-intent/named-transition-intent",
         this.queryParams = props.queryParams;
       },
 
-      applyToState: function(oldState, recognizer, getHandler, isIntermediate) {
+      applyToState: function(oldState, recognizer, getHandler, isIntermediate, getSerializer) {
 
         var partitionedArgs     = extractQueryParams([this.name].concat(this.contexts)),
           pureArgs              = partitionedArgs[0],
@@ -1257,10 +1300,10 @@ define("router/transition-intent/named-transition-intent",
 
         var targetRouteName = handlers[handlers.length-1].handler;
 
-        return this.applyToHandlers(oldState, handlers, getHandler, targetRouteName, isIntermediate);
+        return this.applyToHandlers(oldState, handlers, getHandler, targetRouteName, isIntermediate, null, getSerializer);
       },
 
-      applyToHandlers: function(oldState, handlers, getHandler, targetRouteName, isIntermediate, checkingIfActive) {
+      applyToHandlers: function(oldState, handlers, getHandler, targetRouteName, isIntermediate, checkingIfActive, getSerializer) {
 
         var i, len;
         var newState = new TransitionState();
@@ -1271,7 +1314,7 @@ define("router/transition-intent/named-transition-intent",
         // Pivot handlers are provided for refresh transitions
         if (this.pivotHandler) {
           for (i = 0, len = handlers.length; i < len; ++i) {
-            if (getHandler(handlers[i].handler) === this.pivotHandler) {
+            if (handlers[i].handler === this.pivotHandler._handlerName) {
               invalidateIndex = i;
               break;
             }
@@ -1292,7 +1335,8 @@ define("router/transition-intent/named-transition-intent",
             if (i >= invalidateIndex) {
               newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
             } else {
-              newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, handler, result.names, objects, oldHandlerInfo, targetRouteName, i);
+              var serializer = getSerializer(name);
+              newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, handler, result.names, objects, oldHandlerInfo, targetRouteName, i, serializer);
             }
           } else {
             // This route has no dynamic segment.
@@ -1350,7 +1394,7 @@ define("router/transition-intent/named-transition-intent",
         }
       },
 
-      getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i) {
+      getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i, serializer) {
 
         var numNames = names.length;
         var objectToUse;
@@ -1385,6 +1429,7 @@ define("router/transition-intent/named-transition-intent",
         return handlerInfoFactory('object', {
           name: name,
           handler: handler,
+          serializer: serializer,
           context: objectToUse,
           names: names
         });
@@ -1434,6 +1479,7 @@ define("router/transition-intent/url-transition-intent",
     var oCreate = __dependency4__.oCreate;
     var merge = __dependency4__.merge;
     var subclass = __dependency4__.subclass;
+    var isPromise = __dependency4__.isPromise;
     var UnrecognizedURLError = __dependency5__["default"];
 
     __exports__["default"] = subclass(TransitionIntent, {
@@ -1455,21 +1501,37 @@ define("router/transition-intent/url-transition-intent",
         }
 
         var statesDiffer = false;
+        var url = this.url;
+
+        // Checks if a handler is accessible by URL. If it is not, an error is thrown.
+        // For the case where the handler is loaded asynchronously, the error will be
+        // thrown once it is loaded.
+        function checkHandlerAccessibility(handler) {
+          if (handler.inaccessibleByURL) {
+            throw new UnrecognizedURLError(url);
+          }
+
+          return handler;
+        }
 
         for (i = 0, len = results.length; i < len; ++i) {
           var result = results[i];
           var name = result.handler;
           var handler = getHandler(name);
 
-          if (handler.inaccessibleByURL) {
-            throw new UnrecognizedURLError(this.url);
-          }
+          checkHandlerAccessibility(handler);
 
           var newHandlerInfo = handlerInfoFactory('param', {
             name: name,
             handler: handler,
             params: result.params
           });
+
+          // If the hanlder is being loaded asynchronously, check again if we can
+          // access it after it has resolved
+          if (isPromise(handler)) {
+            newHandlerInfo.handlerPromise = newHandlerInfo.handlerPromise.then(checkHandlerAccessibility);
+          }
 
           var oldHandlerInfo = oldState.handlerInfos[i];
           if (statesDiffer || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
@@ -1614,13 +1676,19 @@ define("router/transition",
     var promiseLabel = __dependency3__.promiseLabel;
 
     /**
-      @private
-
       A Transition is a thennable (a promise-like object) that represents
       an attempt to transition to another route. It can be aborted, either
       explicitly via `abort` or by attempting another transition while a
       previous one is still underway. An aborted transition can also
       be `retry()`d later.
+
+      @class Transition
+      @constructor
+      @param {Object} router
+      @param {Object} intent
+      @param {Object} state
+      @param {Object} error
+      @private
      */
     function Transition(router, intent, state, error) {
       var transition = this;
@@ -1706,31 +1774,33 @@ define("router/transition",
       },
 
       /**
-        @public
-
         The Transition's internal promise. Calling `.then` on this property
         is that same as calling `.then` on the Transition object itself, but
         this property is exposed for when you want to pass around a
         Transition's promise, but not the Transition object itself, since
         Transition object can be externally `abort`ed, while the promise
         cannot.
+
+        @property promise
+        @type {Object}
+        @public
        */
       promise: null,
 
       /**
-        @public
-
         Custom state can be stored on a Transition's `data` object.
         This can be useful for decorating a Transition within an earlier
         hook and shared with a later hook. Properties set on `data` will
         be copied to new transitions generated by calling `retry` on this
         transition.
+
+        @property data
+        @type {Object}
+        @public
        */
       data: null,
 
       /**
-        @public
-
         A standard promise hook that resolves if the transition
         succeeds and rejects if it fails/redirects/aborts.
 
@@ -1738,18 +1808,19 @@ define("router/transition",
         use in situations where you want to pass around a thennable,
         but not the Transition itself.
 
+        @method then
         @param {Function} onFulfilled
         @param {Function} onRejected
         @param {String} label optional string for labeling the promise.
         Useful for tooling.
         @return {Promise}
+        @public
        */
       then: function(onFulfilled, onRejected, label) {
         return this.promise.then(onFulfilled, onRejected, label);
       },
 
       /**
-        @public
 
         Forwards to the internal `promise` property which you can
         use in situations where you want to pass around a thennable,
@@ -1760,13 +1831,13 @@ define("router/transition",
         @param {String} label optional string for labeling the promise.
         Useful for tooling.
         @return {Promise}
+        @public
        */
       "catch": function(onRejection, label) {
         return this.promise["catch"](onRejection, label);
       },
 
       /**
-        @public
 
         Forwards to the internal `promise` property which you can
         use in situations where you want to pass around a thennable,
@@ -1777,16 +1848,19 @@ define("router/transition",
         @param {String} label optional string for labeling the promise.
         Useful for tooling.
         @return {Promise}
+        @public
        */
       "finally": function(callback, label) {
         return this.promise["finally"](callback, label);
       },
 
       /**
-        @public
-
         Aborts the Transition. Note you can also implicitly abort a transition
         by initiating another transition while a previous one is underway.
+
+        @method abort
+        @return {Transition} this transition
+        @public
        */
       abort: function() {
         if (this.isAborted) { return this; }
@@ -1799,11 +1873,14 @@ define("router/transition",
       },
 
       /**
-        @public
 
         Retries a previously-aborted transition (making sure to abort the
         transition if it's still active). Returns a new transition that
         represents the new attempt to transition.
+
+        @method retry
+        @return {Transition} new transition
+        @public
        */
       retry: function() {
         // TODO: add tests for merged state retry()s
@@ -1812,7 +1889,6 @@ define("router/transition",
       },
 
       /**
-        @public
 
         Sets the URL-changing method to be employed at the end of a
         successful transition. By default, a new Transition will just
@@ -1823,12 +1899,14 @@ define("router/transition",
         handleURL, since the URL has already changed before the
         transition took place).
 
+        @method method
         @param {String} method the type of URL-changing method to use
           at the end of a transition. Accepted values are 'replace',
           falsy values, or any other non-falsy value (which is
           interpreted as an updateURL transition).
 
         @return {Transition} this transition
+        @public
        */
       method: function(method) {
         this.urlMethod = method;
@@ -1836,7 +1914,6 @@ define("router/transition",
       },
 
       /**
-        @public
 
         Fires an event on the current list of resolved/resolving
         handlers within this transition. Useful for firing events
@@ -1844,8 +1921,10 @@ define("router/transition",
 
         Note: This method is also aliased as `send`
 
+        @method trigger
         @param {Boolean} [ignoreFailure=false] a boolean specifying whether unhandled events throw an error
         @param {String} name the name of the event to fire
+        @public
        */
       trigger: function (ignoreFailure) {
         var args = slice.call(arguments);
@@ -1859,16 +1938,16 @@ define("router/transition",
       },
 
       /**
-        @public
-
         Transitions are aborted and their promises rejected
         when redirects occur; this method returns a promise
         that will follow any redirects that occur and fulfill
         with the value fulfilled by any redirecting transitions
         that occur.
 
+        @method followRedirects
         @return {Promise} a promise that fulfills with the same
           value that the final redirecting transition fulfills with
+        @public
        */
       followRedirects: function() {
         var router = this.router;
@@ -1951,7 +2030,14 @@ define("router/utils",
 
     var isArray = _isArray;
     __exports__.isArray = isArray;
-    function merge(hash, other) {
+    /**
+      Determines if an object is Promise by checking if it is "thenable".
+    **/
+    function isPromise(obj) {
+      return ((typeof obj === 'object' && obj !== null) || typeof obj === 'function') && typeof obj.then === 'function';
+    }
+
+    __exports__.isPromise = isPromise;function merge(hash, other) {
       for (var prop in other) {
         if (other.hasOwnProperty(prop)) { hash[prop] = other[prop]; }
       }
@@ -2025,7 +2111,7 @@ define("router/utils",
 
 
     function forEach(array, callback) {
-      for (var i=0, l=array.length; i<l && false !== callback(array[i]); i++) { }
+      for (var i=0, l=array.length; i < l && false !== callback(array[i]); i++) { }
     }
 
     __exports__.forEach = forEach;function trigger(router, handlerInfos, ignoreFailure, args) {
@@ -2043,9 +2129,20 @@ define("router/utils",
 
       var eventWasHandled = false;
 
+      function delayedEvent(name, args, handler) {
+        handler.events[name].apply(handler, args);
+      }
+
       for (var i=handlerInfos.length-1; i>=0; i--) {
         var handlerInfo = handlerInfos[i],
             handler = handlerInfo.handler;
+
+        // If there is no handler, it means the handler hasn't resolved yet which
+        // means that we should trigger the event later when the handler is available
+        if (!handler) {
+          handlerInfo.handlerPromise.then(bind(null, delayedEvent, name, args));
+          continue;
+        }
 
         if (handler.events && handler.events[name]) {
           if (handler.events[name].apply(handler, args) === true) {
@@ -2056,7 +2153,11 @@ define("router/utils",
         }
       }
 
-      if (!eventWasHandled && !ignoreFailure) {
+      // In the case that we got an UnrecognizedURLError as an event with no handler,
+      // let it bubble up
+      if (name === 'error' && args[0].name === 'UnrecognizedURLError') {
+        throw args[0];
+      } else if (!eventWasHandled && !ignoreFailure) {
         throw new Error("Nothing handled the event '" + name + "'.");
       }
     }

@@ -12,7 +12,14 @@ if (!Array.isArray) {
 
 var isArray = _isArray;
 exports.isArray = isArray;
-function merge(hash, other) {
+/**
+  Determines if an object is Promise by checking if it is "thenable".
+**/
+function isPromise(obj) {
+  return ((typeof obj === 'object' && obj !== null) || typeof obj === 'function') && typeof obj.then === 'function';
+}
+
+exports.isPromise = isPromise;function merge(hash, other) {
   for (var prop in other) {
     if (other.hasOwnProperty(prop)) { hash[prop] = other[prop]; }
   }
@@ -86,7 +93,7 @@ exports.bind = bind;function isParam(object) {
 
 
 function forEach(array, callback) {
-  for (var i=0, l=array.length; i<l && false !== callback(array[i]); i++) { }
+  for (var i=0, l=array.length; i < l && false !== callback(array[i]); i++) { }
 }
 
 exports.forEach = forEach;function trigger(router, handlerInfos, ignoreFailure, args) {
@@ -104,9 +111,20 @@ exports.forEach = forEach;function trigger(router, handlerInfos, ignoreFailure, 
 
   var eventWasHandled = false;
 
+  function delayedEvent(name, args, handler) {
+    handler.events[name].apply(handler, args);
+  }
+
   for (var i=handlerInfos.length-1; i>=0; i--) {
     var handlerInfo = handlerInfos[i],
         handler = handlerInfo.handler;
+
+    // If there is no handler, it means the handler hasn't resolved yet which
+    // means that we should trigger the event later when the handler is available
+    if (!handler) {
+      handlerInfo.handlerPromise.then(bind(null, delayedEvent, name, args));
+      continue;
+    }
 
     if (handler.events && handler.events[name]) {
       if (handler.events[name].apply(handler, args) === true) {
@@ -117,7 +135,11 @@ exports.forEach = forEach;function trigger(router, handlerInfos, ignoreFailure, 
     }
   }
 
-  if (!eventWasHandled && !ignoreFailure) {
+  // In the case that we got an UnrecognizedURLError as an event with no handler,
+  // let it bubble up
+  if (name === 'error' && args[0].name === 'UnrecognizedURLError') {
+    throw args[0];
+  } else if (!eventWasHandled && !ignoreFailure) {
     throw new Error("Nothing handled the event '" + name + "'.");
   }
 }

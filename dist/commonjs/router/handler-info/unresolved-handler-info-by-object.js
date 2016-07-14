@@ -29,7 +29,8 @@ var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
   serialize: function(_model) {
     var model = _model || this.context,
         names = this.names,
-        handler = this.handler;
+        handler = this.handler,
+        serializer = this.serializer || (handler && handler.serialize);
 
     var object = {};
     if (isParam(model)) {
@@ -38,8 +39,8 @@ var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
     }
 
     // Use custom serialize if it exists.
-    if (handler.serialize) {
-      return handler.serialize(model, names);
+    if (serializer) {
+      return serializer(model, names);
     }
 
     if (names.length !== 1) { return; }

@@ -20,7 +20,7 @@ exports["default"] = subclass(TransitionIntent, {
     this.queryParams = props.queryParams;
   },
 
-  applyToState: function(oldState, recognizer, getHandler, isIntermediate) {
+  applyToState: function(oldState, recognizer, getHandler, isIntermediate, getSerializer) {
 
     var partitionedArgs     = extractQueryParams([this.name].concat(this.contexts)),
       pureArgs              = partitionedArgs[0],
@@ -29,10 +29,10 @@ exports["default"] = subclass(TransitionIntent, {
 
     var targetRouteName = handlers[handlers.length-1].handler;
 
-    return this.applyToHandlers(oldState, handlers, getHandler, targetRouteName, isIntermediate);
+    return this.applyToHandlers(oldState, handlers, getHandler, targetRouteName, isIntermediate, null, getSerializer);
   },
 
-  applyToHandlers: function(oldState, handlers, getHandler, targetRouteName, isIntermediate, checkingIfActive) {
+  applyToHandlers: function(oldState, handlers, getHandler, targetRouteName, isIntermediate, checkingIfActive, getSerializer) {
 
     var i, len;
     var newState = new TransitionState();
@@ -43,7 +43,7 @@ exports["default"] = subclass(TransitionIntent, {
     // Pivot handlers are provided for refresh transitions
     if (this.pivotHandler) {
       for (i = 0, len = handlers.length; i < len; ++i) {
-        if (getHandler(handlers[i].handler) === this.pivotHandler) {
+        if (handlers[i].handler === this.pivotHandler._handlerName) {
           invalidateIndex = i;
           break;
         }
@@ -64,7 +64,8 @@ exports["default"] = subclass(TransitionIntent, {
         if (i >= invalidateIndex) {
           newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
         } else {
-          newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, handler, result.names, objects, oldHandlerInfo, targetRouteName, i);
+          var serializer = getSerializer(name);
+          newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, handler, result.names, objects, oldHandlerInfo, targetRouteName, i, serializer);
         }
       } else {
         // This route has no dynamic segment.
@@ -122,7 +123,7 @@ exports["default"] = subclass(TransitionIntent, {
     }
   },
 
-  getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i) {
+  getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i, serializer) {
 
     var numNames = names.length;
     var objectToUse;
@@ -157,6 +158,7 @@ exports["default"] = subclass(TransitionIntent, {
     return handlerInfoFactory('object', {
       name: name,
       handler: handler,
+      serializer: serializer,
       context: objectToUse,
       names: names
     });

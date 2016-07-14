@@ -5,6 +5,7 @@ var handlerInfoFactory = require("../handler-info/factory")["default"];
 var oCreate = require("../utils").oCreate;
 var merge = require("../utils").merge;
 var subclass = require("../utils").subclass;
+var isPromise = require("../utils").isPromise;
 var UnrecognizedURLError = require("./../unrecognized-url-error")["default"];
 
 exports["default"] = subclass(TransitionIntent, {
@@ -26,21 +27,37 @@ exports["default"] = subclass(TransitionIntent, {
     }
 
     var statesDiffer = false;
+    var url = this.url;
+
+    // Checks if a handler is accessible by URL. If it is not, an error is thrown.
+    // For the case where the handler is loaded asynchronously, the error will be
+    // thrown once it is loaded.
+    function checkHandlerAccessibility(handler) {
+      if (handler.inaccessibleByURL) {
+        throw new UnrecognizedURLError(url);
+      }
+
+      return handler;
+    }
 
     for (i = 0, len = results.length; i < len; ++i) {
       var result = results[i];
       var name = result.handler;
       var handler = getHandler(name);
 
-      if (handler.inaccessibleByURL) {
-        throw new UnrecognizedURLError(this.url);
-      }
+      checkHandlerAccessibility(handler);
 
       var newHandlerInfo = handlerInfoFactory('param', {
         name: name,
         handler: handler,
         params: result.params
       });
+
+      // If the hanlder is being loaded asynchronously, check again if we can
+      // access it after it has resolved
+      if (isPromise(handler)) {
+        newHandlerInfo.handlerPromise = newHandlerInfo.handlerPromise.then(checkHandlerAccessibility);
+      }
 
       var oldHandlerInfo = oldState.handlerInfos[i];
       if (statesDiffer || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
