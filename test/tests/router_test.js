@@ -2,9 +2,34 @@ import { module, flushBackburner, transitionTo, transitionToWithAbort, shouldNot
 import Router from "router";
 import { resolve, configure, reject, Promise } from "rsvp";
 
-var router, url, handlers, expectedUrl, actions;
+var router, url, handlers, serializers, expectedUrl, actions;
 
-module("The router", {
+var scenarios = [
+  {
+    name: 'Sync Get Handler',
+    async: false,
+    getHandler: function(name) {
+      return handlers[name] || (handlers[name] = {});
+    },
+    getSerializer: function() {}
+  },
+  {
+    name: 'Async Get Handler',
+    async: true,
+    getHandler: function(name) {
+      // Treat 'loading' route transitions are synchronous
+      var handler = handlers[name] || (handlers[name] = {});
+      return name === 'loading' ? handler : Promise.resolve(handler);
+    },
+    getSerializer: function(name) {
+      return serializers && serializers[name];
+    }
+  }
+];
+
+scenarios.forEach(function(scenario) {
+
+module("The router (" + scenario.name + ")", {
   setup: function() {
     handlers = {};
     expectedUrl = null;
@@ -38,9 +63,9 @@ module("The router", {
 
 function map(fn) {
   router = new Router({
-    getHandler: function(name) {
-      return handlers[name] || (handlers[name] = {});
-    },
+    getHandler: scenario.getHandler,
+
+    getSerializer: scenario.getSerializer,
 
     updateURL: function(newUrl) {
       if (expectedUrl) {
@@ -322,7 +347,7 @@ test("A delegate provided to router.js is passed along to route-recognizer", fun
 
   router.getHandler = function(handler) {
     handlers.push(handler);
-    return {};
+    return scenario.async ? Promise.resolve({}) : {};
   };
 
   router.handleURL("/posts").then(function() {
@@ -1155,7 +1180,16 @@ test("Date params aren't treated as string/number params", function() {
     }
   };
 
-  equal(router.generate('showPostsForDate', new Date(1815, 5, 18)), "/posts/on/1815-5-18");
+  if (scenario.async) {
+    serializers = {
+      showPostsForDate: function(date) {
+        return { date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate() };
+      }
+    };
+  }
+
+  var result = router.generate('showPostsForDate', new Date(1815, 5, 18));
+  equal(result, "/posts/on/1815-5-18");
 });
 
 test("getSerializer takes precedence over handler.serialize", function() {
@@ -2805,7 +2839,26 @@ test("A successful transition calls the finally callback", function() {
   });
 });
 
-module("Multiple dynamic segments per route");
+if (scenario.async) {
+  test('getHandler is invoked synchronously when returning Promises', function() {
+    expect(2);
+
+    var count = 0;
+    var handlerCount = 2;
+
+    router.getHandler = function() {
+      count++;
+
+      return scenario.getHandler.apply(null, arguments).then(function() {
+        equal(count, handlerCount);
+      });
+    };
+
+    router.transitionTo("/posts/all");
+  });
+}
+
+module("Multiple dynamic segments per route (" + scenario.name + ")");
 
 test("Multiple string/number params are soaked up", function() {
   expect(3);
@@ -2832,7 +2885,7 @@ test("Multiple string/number params are soaked up", function() {
   transitionTo(router, 'bar', 'lol', 'no');
 });
 
-module("isActive", {
+module("isActive (" + scenario.name + ")", {
   setup: function() {
     handlers = {
       parent: {
@@ -2852,6 +2905,24 @@ module("isActive", {
         }
       }
     };
+
+    // When using an async getHandler serializers need to be loaded separately
+    if (scenario.async) {
+      serializers = {
+        parent: function(obj) {
+          return {
+            one: obj.one,
+            two: obj.two,
+          };
+        },
+        child: function(obj) {
+          return {
+            three: obj.three,
+            four: obj.four,
+          };
+        }
+      };
+    }
 
     map(function(match) {
       match("/:one/:two").to("parent", function(match) {
@@ -2930,7 +3001,7 @@ test("isActive supports multiple soaked up string/number params (mixed)", functi
   ok(!router.isActive('child', { one: 'e', two: 'b' }, 'd'));
 });
 
-module("Preservation of params between redirects", {
+module("Preservation of params between redirects (" + scenario.name + ")", {
   setup: function() {
     expectedUrl = null;
 
@@ -3114,7 +3185,7 @@ test("beforeModel shouldn't be refired with incorrect params during redirect", f
   transitionTo(router, 'peopleIndex', '1');
 });
 
-module("URL-less routes", {
+module("URL-less routes (" + scenario.name + ")", {
   setup: function() {
     handlers = {};
     expectedUrl = null;
@@ -3180,7 +3251,7 @@ test("Handling a URL on a route marked as inaccessible behaves like a failed url
   });
 });
 
-module("Intermediate transitions", {
+module("Intermediate transitions (" + scenario.name + ")", {
   setup: function() {
     handlers = {};
     expectedUrl = null;
@@ -3302,4 +3373,6 @@ test("synchronous transition errors can be detected synchronously", function() {
   };
 
   equal(transitionTo(router, '/').error.message, "boom!");
+});
+
 });
