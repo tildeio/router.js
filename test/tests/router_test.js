@@ -3,6 +3,7 @@ import Router from "router";
 import { resolve, configure, reject, Promise } from "rsvp";
 
 var router, url, handlers, serializers, expectedUrl, actions;
+var noop = function() {};
 
 var scenarios = [
   {
@@ -716,7 +717,7 @@ test("pivotHandler is exposed on Transition object", function() {
     return router.transitionTo('showPopularPosts');
   }).then(function() {
     return router.transitionTo('about');
-  }).then(start, shouldNotHappen);
+  });
 });
 
 asyncTest("transition.resolvedModels after redirects b/w routes", function() {
@@ -969,6 +970,7 @@ test("Moving to a sibling route only triggers exit callbacks on the current rout
 });
 
 test("events can be targeted at the current handler", function() {
+  expect(2);
 
   handlers = {
     showPost: {
@@ -979,7 +981,6 @@ test("events can be targeted at the current handler", function() {
       events: {
         expand: function() {
           equal(this, handlers.showPost, "The handler is the `this` for the event");
-          start();
         }
       }
     }
@@ -1603,9 +1604,7 @@ test("error handler gets called for errors in validation hooks", function() {
     delete handlers.index.afterModel;
     setupShouldBeEntered = true;
     return testStartup();
-  }).then(function(result) {
-    setTimeout(start, 200);
-  }, shouldNotHappen);
+  });
 });
 
 test("Errors shouldn't be handled after proceeding to next child route", function() {
@@ -1838,7 +1837,7 @@ test("Transition#method(null) prevents URLs from updating", function() {
   flushBackburner();
 });
 
-asyncTest("redirecting to self from enter hooks should no-op (and not infinite loop)", function() {
+test("redirecting to self from enter hooks should no-op (and not infinite loop)", function() {
   expect(1);
 
   var count = 0;
@@ -1857,10 +1856,6 @@ asyncTest("redirecting to self from enter hooks should no-op (and not infinite l
   };
 
   router.handleURL('/index');
-
-  // TODO: use start in .then() handler instead of setTimeout, but CLI
-  // test runner doesn't seem to like this.
-  setTimeout(start, 500);
 });
 
 test("redirecting to child handler from validation hooks should no-op (and not infinite loop)", function() {
@@ -1922,7 +1917,6 @@ test("transitionTo with named transition can be called at startup", function() {
 
   router.transitionTo('index').then(function() {
     ok(true, 'success handler called');
-    start();
   }, function(e) {
     ok(false, 'failure handle should not be called');
   });
@@ -1935,14 +1929,12 @@ test("transitionTo with URL transition can be called at startup", function() {
 
   router.transitionTo('/index').then(function() {
     ok(true, 'success handler called');
-    start();
   }, function(e) {
     ok(false, 'failure handle should not be called');
   });
 });
 
 test("transitions fire a didTransition event on the destination route", function() {
-
   expect(1);
 
   handlers = {
@@ -1956,7 +1948,7 @@ test("transitions fire a didTransition event on the destination route", function
   };
 
   router.handleURL('/index').then(function() {
-    router.transitionTo('about').then(start, shouldNotHappen);
+    router.transitionTo('about');
   }, shouldNotHappen);
 });
 
@@ -2004,12 +1996,11 @@ test("willTransition function fired with cancellable transition passed in", func
 
     return router.transitionTo('about').then(shouldNotHappen, function(e) {
       equal(e.name, 'TransitionAborted', 'reject object is a TransitionAborted');
-    }).then(start);
+    });
   });
 });
 
 test("transitions can be aborted in the willTransition event", function() {
-
   expect(3);
 
   handlers = {
@@ -2034,12 +2025,11 @@ test("transitions can be aborted in the willTransition event", function() {
   router.handleURL('/index').then(function() {
     return router.transitionTo('about').then(shouldNotHappen, function(e) {
       equal(e.name, 'TransitionAborted', 'reject object is a TransitionAborted');
-    }).then(start);
+    });
   });
 });
 
 test("transitions can redirected in the willTransition event", function() {
-
   expect(2);
 
   var destFlag = true;
@@ -2056,7 +2046,7 @@ test("transitions can redirected in the willTransition event", function() {
           // underway, else infinite loop.
           var dest = destFlag ? 'about' : 'faq';
           destFlag = !destFlag;
-          router.transitionTo(dest).then(start);
+          router.transitionTo(dest);
         }
       }
     },
@@ -2191,7 +2181,6 @@ function setupAuthenticatedExample() {
     about: {
       setup: function() {
         ok(isLoggedIn, 'about was entered only after user logged in');
-        start();
       }
     },
     adminPost: {
@@ -2201,7 +2190,6 @@ function setupAuthenticatedExample() {
       },
       setup: function(model) {
         equal(model, "adminPost", "adminPost was entered with correct model");
-        start();
       }
     }
   };
@@ -2245,7 +2233,8 @@ test("authenticated routes: starting on parameterized auth route", function() {
   router.trigger('logUserIn');
 });
 
-asyncTest("An instantly aborted transition fires no hooks", function() {
+test("An instantly aborted transition fires no hooks", function() {
+  expect(7);
 
   var hooksShouldBeCalled = false;
 
@@ -2258,9 +2247,6 @@ asyncTest("An instantly aborted transition fires no hooks", function() {
     about: {
       beforeModel: function() {
         ok(hooksShouldBeCalled, "about beforeModel hook should be called at this time");
-      },
-      setup: function() {
-        start();
       }
     }
   };
@@ -2286,7 +2272,9 @@ asyncTest("An instantly aborted transition fires no hooks", function() {
   });
 });
 
-asyncTest("a successful transition resolves with the target handler", function() {
+test("a successful transition resolves with the target handler", function() {
+  expect(2);
+
   // Note: this is extra convenient for Ember where you can all
   // .transitionTo right on the route.
 
@@ -2300,22 +2288,23 @@ asyncTest("a successful transition resolves with the target handler", function()
     return router.transitionTo('about');
   }, shouldNotHappen).then(function(result) {
     ok(result.borfAbout, "resolved to about handler");
-    start();
   });
 });
 
-asyncTest("transitions have a .promise property", function() {
+test("transitions have a .promise property", function() {
+  expect(2);
+
   router.handleURL('/index').promise.then(function(result) {
     var promise = router.transitionTo('about').abort().promise;
     ok(promise, "promise exists on aborted transitions");
     return promise;
   }, shouldNotHappen).then(shouldNotHappen, function(result) {
     ok(true, "failure handler called");
-    start();
   });
 });
 
-asyncTest("transitionTo will soak up resolved parent models of active transition", function() {
+test("transitionTo will soak up resolved parent models of active transition", function() {
+  expect(5);
 
   var admin = { id: 47 },
       adminPost = { id: 74 },
@@ -2352,7 +2341,6 @@ asyncTest("transitionTo will soak up resolved parent models of active transition
 
     setup: function(model) {
       equal(adminHandler.context, admin, "adminPostHandler receives resolved soaked promise from previous transition");
-      start();
     },
 
     model: function(params) {
@@ -2386,6 +2374,7 @@ asyncTest("transitionTo will soak up resolved parent models of active transition
 });
 
 test("transitionTo will soak up resolved all models of active transition, including present route's resolved model", function() {
+  expect(2);
 
   var modelCalled = 0,
       hasRedirected = false;
@@ -2406,7 +2395,7 @@ test("transitionTo will soak up resolved all models of active transition, includ
     redirect: function(resolvedModel, transition) {
       if (!hasRedirected) {
         hasRedirected = true;
-        router.transitionTo('postNew').then(start, shouldNotHappen);
+        router.transitionTo('postNew');
       }
     }
   };
@@ -2421,7 +2410,6 @@ test("transitionTo will soak up resolved all models of active transition, includ
 });
 
 test("can reference leaf '/' route by leaf or parent name", function() {
-
   var modelCalled = 0,
       hasRedirected = false;
 
@@ -2517,8 +2505,7 @@ test("String/number args in transitionTo are treated as url params", function() 
   }, shouldNotHappen);
 });
 
-asyncTest("Transitions returned from beforeModel/model/afterModel hooks aren't treated as pausing promises", function(){
-
+test("Transitions returned from beforeModel/model/afterModel hooks aren't treated as pausing promises", function(){
   expect(6);
 
   handlers = {
@@ -2555,8 +2542,6 @@ asyncTest("Transitions returned from beforeModel/model/afterModel hooks aren't t
   }).then(function(result) {
     delete handlers.index.afterModel;
     return testStartup();
-  }).then(function(result) {
-    start();
   });
 });
 
@@ -2685,7 +2670,7 @@ test("errors in enter/setup hooks fire `error`", function() {
   }).then(shouldNotHappen, function(reason) {
     equal(reason, "OMG SETUP", "setup's error was propagated");
     delete handlers.index.setup;
-  }).then(start, shouldNotHappen);
+  });
 });
 
 test("invalidating parent model with different string/numeric parameters invalidates children", function() {
