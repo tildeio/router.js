@@ -1,5 +1,4 @@
-import { module, stubbedHandlerInfoFactory } from "tests/test_helpers";
-import TransitionIntent from 'router/transition-intent';
+import { module } from "tests/test_helpers";
 import URLTransitionIntent from 'router/transition-intent/url-transition-intent';
 import NamedTransitionIntent from 'router/transition-intent/named-transition-intent';
 import TransitionState from 'router/transition-state';

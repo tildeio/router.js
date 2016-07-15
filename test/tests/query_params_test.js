@@ -1,8 +1,8 @@
-import { module, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen, shouldBeTransition } from "tests/test_helpers";
+import { module, flushBackburner, transitionTo } from "tests/test_helpers";
 import Router from "router";
-import { resolve, configure, reject, Promise } from "rsvp";
+import { Promise } from "rsvp";
 
-var router, url, handlers, expectedUrl, actions;
+var router, url, handlers, expectedUrl;
 var scenarios = [
   {
     name: 'Sync Get Handler',
@@ -49,16 +49,6 @@ function map(fn) {
 
     url = newUrl;
   };
-}
-
-function enableErrorHandlingDeferredActionQueue() {
-  actions = [];
-  configure('async', function(callback, promise) {
-    actions.push({
-      callback: callback,
-      promise: promise
-    });
-  });
 }
 
 function consumeAllFinalQueryParams(params, finalParams) {
@@ -150,7 +140,7 @@ test("transitioning between routes fires a queryParamsDidChange event", function
         return true;
       },
 
-      queryParamsDidChange: function(changed, all) {
+      queryParamsDidChange: function() {
         return true;
       }
     }
@@ -188,7 +178,7 @@ test("a handler can opt into a full-on transition by calling refresh", function(
       }
     },
     events: {
-      queryParamsDidChange: function(changed, all) {
+      queryParamsDidChange: function() {
         if (count === 0) {
           ok(false, "shouldn't fire on first trans");
         } else {
@@ -326,7 +316,7 @@ test("model hook receives queryParams", function() {
   expect(1);
 
   handlers.index = {
-    model: function(params, t) {
+    model: function(params) {
       deepEqual(params, { queryParams: { foo: '5' } });
     }
   };
@@ -340,7 +330,7 @@ test("can cause full transition by calling refresh within queryParamsDidChange",
 
   var modelCount = 0;
   handlers.index = {
-    model: function(params, t) {
+    model: function(params) {
       ++modelCount;
       if (modelCount === 1) {
         deepEqual(params, { queryParams: { foo: '5' } });

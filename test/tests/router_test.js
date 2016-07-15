@@ -1,9 +1,8 @@
-import { module, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen, shouldBeTransition } from "tests/test_helpers";
+import { module, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen } from "tests/test_helpers";
 import Router from "router";
-import { resolve, configure, reject, Promise } from "rsvp";
+import { reject, Promise } from "rsvp";
 
-var router, url, handlers, serializers, expectedUrl, actions;
-var noop = function() {};
+var router, url, handlers, serializers, expectedUrl;
 
 var scenarios = [
   {
@@ -78,28 +77,6 @@ function map(fn) {
   });
 
   router.map(fn);
-}
-
-function enableErrorHandlingDeferredActionQueue() {
-  actions = [];
-  configure('async', function(callback, promise) {
-    actions.push({
-      callback: callback,
-      promise: promise
-    });
-  });
-}
-
-function flush(expectedError) {
-  try {
-    while(actions.length) {
-      var action = actions.shift();
-      action.callback.call(action.promise, action.promise);
-    }
-  } catch(e) {
-    equal(e, expectedError, "exception thrown from hook wasn't swallowed");
-    actions = [];
-  }
 }
 
 test("Mapping adds named routes to the end", function() {
@@ -290,7 +267,7 @@ test("when transitioning to a new parent and child state, the parent's context s
 
   handlers = {
     post: {
-      model: function(params, transition) {
+      model: function() {
         return contexts.post;
       }
     },
@@ -502,33 +479,28 @@ test("handleURL: Handling a nested URL triggers each handler", function() {
 });
 
 test("it can handle direct transitions to named routes", function() {
-  var posts = [];
   var allPosts = { all: true };
   var popularPosts = { popular: true };
   var amazingPosts = { filter: "amazing" };
   var sadPosts = { filter: "sad" };
 
   var postIndexHandler = {
-    model: function(params) {
+    model: function() {
       return allPosts;
     },
 
-    serialize: function(object, params) {
+    serialize: function() {
       return {};
-    },
-
-    setup: function(object) {
-
     }
   };
 
   var showAllPostsHandler = {
-    model: function(params) {
+    model: function() {
       //ok(!params, 'params is falsy for non dynamic routes');
       return allPosts;
     },
 
-    serialize: function(object, params) {
+    serialize: function() {
       return {};
     },
 
@@ -538,11 +510,11 @@ test("it can handle direct transitions to named routes", function() {
   };
 
   var showPopularPostsHandler = {
-    model: function(params) {
+    model: function() {
       return popularPosts;
     },
 
-    serialize: function(object) {
+    serialize: function() {
       return {};
     },
 
@@ -625,7 +597,7 @@ test("replaceWith calls replaceURL", function() {
     replaceCount++;
   };
 
-  router.handleURL('/posts').then(function(handlerInfos) {
+  router.handleURL('/posts').then(function() {
     return router.replaceWith('about');
   }).then(function() {
     equal(updateCount, 0, "should not call updateURL");
@@ -648,7 +620,7 @@ test("Moving to a new top-level route triggers exit callbacks", function() {
 
   handlers = {
     showAllPosts: {
-      model: function(params) {
+      model: function() {
         return allPosts;
       },
 
@@ -664,7 +636,7 @@ test("Moving to a new top-level route triggers exit callbacks", function() {
     },
 
     showPost: {
-      model: function(params, resolvedModels) {
+      model: function(params) {
         return postsStore[params.id];
       },
 
@@ -728,12 +700,11 @@ asyncTest("transition.resolvedModels after redirects b/w routes", function() {
     });
   });
 
-  var app = { app: true },
-      redirect = true;
+  var app = { app: true };
 
   handlers = {
     application: {
-      model: function(params) {
+      model: function() {
         ok(true, "application#model");
         return app;
       }
@@ -762,7 +733,7 @@ test("transition.resolvedModels after redirects within the same route", function
 
   handlers = {
     admin: {
-      model: function(params) {
+      model: function() {
         ok(true, "admin#model");
         return admin;
       }
@@ -815,11 +786,9 @@ test("Moving to a sibling route only triggers exit callbacks on the current rout
   expect(8);
 
   var allPosts = { posts: "all" };
-  var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
-  var currentId;
 
   var showAllPostsHandler = {
-    model: function(params) {
+    model: function() {
       return allPosts;
     },
 
@@ -893,11 +862,9 @@ test("Moving to a sibling route only triggers exit callbacks on the current rout
   expect(7);
 
   var allPosts = { posts: "all" };
-  var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
-  var currentId;
 
   var showAllPostsHandler = {
-    model: function(params) {
+    model: function() {
       return allPosts;
     },
 
@@ -1096,7 +1063,7 @@ test("events can bubble up to a parent handler via `return true`", function() {
     }
   };
 
-  router.handleURL("/posts").then(function(result) {
+  router.handleURL("/posts").then(function() {
     router.trigger("expand");
   });
 
@@ -1161,7 +1128,7 @@ test("events only fire on the closest handler", function() {
   };
 
   var context1 = {}, context2 = {};
-  router.handleURL("/posts").then(function(result) {
+  router.handleURL("/posts").then(function() {
     router.trigger("expand", context1, context2);
   });
 });
@@ -1175,7 +1142,7 @@ test("Date params aren't treated as string/number params", function() {
         return { date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate() };
       },
 
-      model: function(params) {
+      model: function() {
         ok(false, "model shouldn't be called; the date is the provided model");
       }
     }
@@ -1205,12 +1172,12 @@ test("getSerializer takes precedence over handler.serialize", function() {
 
   handlers = {
     showPostsForDate: {
-      serialize: function(date) {
+      serialize: function() {
         ok(false, "serialize method shouldn't be called");
         return {};
       },
 
-      model: function(params) {
+      model: function() {
         ok(false, "model shouldn't be called; the date is the provided model");
       }
     }
@@ -1284,11 +1251,11 @@ test("tests whether arguments to transitionTo are considered active", function()
       };
 
   var adminHandler = {
-    serialize: function(object) {
+    serialize: function() {
       return { id: 47 };
     },
 
-    model: function(params) {
+    model: function() {
       return admin;
     }
   };
@@ -1298,7 +1265,7 @@ test("tests whether arguments to transitionTo are considered active", function()
       return { post_id: object.id };
     },
 
-    model: function(params) {
+    model: function() {
       return adminPost;
     }
   };
@@ -1354,7 +1321,7 @@ test("calling generate on a non-dynamic route does not blow away parent contexts
     }
   };
 
-  router.handleURL('/projects').then(function(result) {
+  router.handleURL('/projects').then(function() {
     equal(handlers.projects.context, projects, 'projects handler has correct context');
     router.generate('projectIndex');
     equal(handlers.projects.context, projects, 'projects handler retains correct context');
@@ -1533,7 +1500,7 @@ test("transitionTo with a promise pauses the transition until resolve, passes re
 
   transitionTo(router, '/index');
 
-  transitionTo(router, 'showPost', new Promise(function(resolve, reject) {
+  transitionTo(router, 'showPost', new Promise(function(resolve) {
     resolve({ id: 1 });
   }));
 });
@@ -1588,19 +1555,19 @@ test("error handler gets called for errors in validation hooks", function() {
     });
   }
 
-  testStartup().then(function(result) {
+  testStartup().then(function() {
     return testStartup();
-  }).then(function(result) {
+  }).then(function() {
     delete handlers.index.beforeModel;
     return testStartup();
-  }).then(function(result) {
+  }).then(function() {
     return testStartup();
-  }).then(function(result) {
+  }).then(function() {
     delete handlers.index.model;
     return testStartup();
-  }).then(function(result) {
+  }).then(function() {
     return testStartup();
-  }).then(function(result) {
+  }).then(function() {
     delete handlers.index.afterModel;
     setupShouldBeEntered = true;
     return testStartup();
@@ -1731,7 +1698,7 @@ test("can redirect from error handler", function() {
         }
       },
 
-      setup: function(context) {
+      setup: function() {
         ok(false, 'should not get here');
       }
     }
@@ -1749,8 +1716,6 @@ function assertAbort(e) {
 test("can redirect from setup/enter", function() {
   expect(5);
 
-  var count = 0;
-
   handlers = {
     index: {
       enter: function() {
@@ -1762,7 +1727,7 @@ test("can redirect from setup/enter", function() {
         router.transitionTo('/about').then(thirdAttempt, shouldNotHappen);
       },
       events: {
-        error: function(e) {
+        error: function() {
           ok(false, "redirects should not call error hook");
         }
       }
@@ -1824,7 +1789,7 @@ test("Transition#method(null) prevents URLs from updating", function() {
     }
   };
 
-  router.updateURL = function(newUrl) {
+  router.updateURL = function() {
     ok(false, "updateURL shouldn't have been called");
   };
 
@@ -1917,7 +1882,7 @@ test("transitionTo with named transition can be called at startup", function() {
 
   router.transitionTo('index').then(function() {
     ok(true, 'success handler called');
-  }, function(e) {
+  }, function() {
     ok(false, 'failure handle should not be called');
   });
 });
@@ -1929,7 +1894,7 @@ test("transitionTo with URL transition can be called at startup", function() {
 
   router.transitionTo('/index').then(function() {
     ok(true, 'success handler called');
-  }, function(e) {
+  }, function() {
     ok(false, 'failure handle should not be called');
   });
 });
@@ -1976,7 +1941,7 @@ test("willTransition function fired with handler infos passed in", function() {
   expect(2);
 
   router.handleURL("/about").then(function() {
-    router.willTransition = function(fromInfos, toInfos, transition) {
+    router.willTransition = function(fromInfos, toInfos) {
       equal(routePath(fromInfos), "about", "first argument should be the old handler infos");
       equal(routePath(toInfos), "postIndex.showPopularPosts", "second argument should be the new handler infos");
     };
@@ -2040,7 +2005,7 @@ test("transitions can redirected in the willTransition event", function() {
         ok(true, 'index setup called');
       },
       events: {
-        willTransition: function(transition) {
+        willTransition: function() {
           // Router code must be careful here not to refire
           // `willTransition` when a transition is already
           // underway, else infinite loop.
@@ -2072,7 +2037,6 @@ test("aborted transitions can be saved and later retried", function() {
   expect(8);
 
   var shouldPrevent = true,
-      lastTransitionEvent,
       transitionToAbout,
       lastTransition;
 
@@ -2104,7 +2068,7 @@ test("aborted transitions can be saved and later retried", function() {
   };
 
   router.handleURL('/index').then(function() {
-    router.transitionTo('about').then(shouldNotHappen, function(e) {
+    router.transitionTo('about').then(shouldNotHappen, function() {
       ok(true, 'transition was blocked');
       shouldPrevent = false;
       transitionToAbout = lastTransition;
@@ -2258,7 +2222,7 @@ test("An instantly aborted transition fires no hooks", function() {
     ok(true, "Failure handler called for /index");
     hooksShouldBeCalled = true;
     return router.transitionTo('index');
-  }).then(function(result) {
+  }).then(function() {
     ok(true, "Success handler called for index");
     hooksShouldBeCalled = false;
     return router.transitionTo('about').abort();
@@ -2294,11 +2258,11 @@ test("a successful transition resolves with the target handler", function() {
 test("transitions have a .promise property", function() {
   expect(2);
 
-  router.handleURL('/index').promise.then(function(result) {
+  router.handleURL('/index').promise.then(function() {
     var promise = router.transitionTo('about').abort().promise;
     ok(promise, "promise exists on aborted transitions");
     return promise;
-  }, shouldNotHappen).then(shouldNotHappen, function(result) {
+  }, shouldNotHappen).then(shouldNotHappen, function() {
     ok(true, "failure handler called");
   });
 });
@@ -2308,7 +2272,6 @@ test("transitionTo will soak up resolved parent models of active transition", fu
 
   var admin = { id: 47 },
       adminPost = { id: 74 },
-      adminPosts = [adminPost],
       lastAdminPromise,
       adminSetupShouldBeEntered = false;
 
@@ -2329,7 +2292,7 @@ test("transitionTo will soak up resolved parent models of active transition", fu
       return admin;
     },
 
-    setup: function(model) {
+    setup: function() {
       ok(adminSetupShouldBeEntered, "adminHandler's setup should be called at this time");
     }
   };
@@ -2339,11 +2302,11 @@ test("transitionTo will soak up resolved parent models of active transition", fu
       return { post_id: object.id };
     },
 
-    setup: function(model) {
+    setup: function() {
       equal(adminHandler.context, admin, "adminPostHandler receives resolved soaked promise from previous transition");
     },
 
-    model: function(params) {
+    model: function() {
       return adminPost;
     }
   };
@@ -2368,7 +2331,7 @@ test("transitionTo will soak up resolved parent models of active transition", fu
     adminPosts: adminPostsHandler
   };
 
-  router.transitionTo('index').then(function(result) {
+  router.transitionTo('index').then(function() {
     router.transitionTo('adminPosts', adminPromise()).then(shouldNotHappen, assertAbort);
   });
 });
@@ -2387,12 +2350,12 @@ test("transitionTo will soak up resolved all models of active transition, includ
   });
 
   var postHandler = {
-    model: function(params) {
+    model: function() {
       equal(modelCalled++, 0, "postHandler's model should only be called once");
       return { title: 'Hello world' };
     },
 
-    redirect: function(resolvedModel, transition) {
+    redirect: function() {
       if (!hasRedirected) {
         hasRedirected = true;
         router.transitionTo('postNew');
@@ -2410,9 +2373,6 @@ test("transitionTo will soak up resolved all models of active transition, includ
 });
 
 test("can reference leaf '/' route by leaf or parent name", function() {
-  var modelCalled = 0,
-      hasRedirected = false;
-
   map(function(match) {
     match("/").to('app', function(match) {
       match("/").to('index');
@@ -2533,13 +2493,13 @@ test("Transitions returned from beforeModel/model/afterModel hooks aren't treate
     return router.handleURL('/index');
   }
 
-  testStartup().then(function(result) {
+  testStartup().then(function() {
     delete handlers.index.beforeModel;
     return testStartup();
-  }).then(function(result) {
+  }).then(function() {
     delete handlers.index.model;
     return testStartup();
-  }).then(function(result) {
+  }).then(function() {
     delete handlers.index.afterModel;
     return testStartup();
   });
@@ -2742,7 +2702,7 @@ test("intents make use of previous transition state in case not enough contexts 
           router.transitionTo('login');
         }
       },
-      setup: function(obj) {
+      setup: function() {
         didFinish = true;
       }
     },
@@ -2774,7 +2734,7 @@ test("A failed transition calls the catch and finally callbacks", function() {
 
   handlers = {
     badRoute: {
-      beforeModel: function(transition) {
+      beforeModel: function() {
         return new Promise(function(resolve, reject) {
           reject("example reason");
         });
@@ -2795,12 +2755,12 @@ test("underscore-prefixed hooks are preferred over non-prefixed", function() {
 
   handlers = {
     showPost: {
-      _model: function(params) {
+      _model: function() {
         ok(true);
         return {};
       },
 
-      _setup: function(object) {
+      _setup: function() {
         ok(true);
       }
     }
@@ -2854,7 +2814,7 @@ test("Multiple string/number params are soaked up", function() {
 
   handlers = {
     bar: {
-      model: function(params) {
+      model: function() {
         return {};
       }
     },
@@ -3006,7 +2966,7 @@ module("Preservation of params between redirects (" + scenario.name + ")", {
           this.modelCount = this.modelCount ? this.modelCount + 1 : 1;
           return { id: params.foo_id };
         },
-        afterModel: function(_, transition) {
+        afterModel: function() {
           router.transitionTo('barIndex', '789');
         }
       },

@@ -1,11 +1,10 @@
 import { module, flushBackburner, stubbedHandlerInfoFactory } from "tests/test_helpers";
-import Router from "router";
 import TransitionState from 'router/transition-state';
 
 import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handler-info-by-object';
 import UnresolvedHandlerInfoByParam from 'router/handler-info/unresolved-handler-info-by-param';
 
-import { resolve, configure, reject } from "rsvp";
+import { resolve, reject } from "rsvp";
 
 module("TransitionState");
 
