@@ -1,24 +1,9 @@
 {
     "predef": [
-        "console",
-        "define",
-        "require",
-        "requireModule",
-        "equal",
-        "test",
-        "asyncTest",
-        "throws",
-        "deepEqual",
-        "start",
-        "stop",
-        "ok",
-        "strictEqual",
-        "module",
-        "QUnit",
-        "expect"
+        "QUnit"
     ],
 
-    "node" : true,
+    "node" : false,
     "browser" : true,
 
     "boss" : true,

@@ -1,4 +1,4 @@
-import { module, flushBackburner, transitionTo } from "tests/test_helpers";
+import { module, test, flushBackburner, transitionTo } from "tests/test_helpers";
 import Router from "router";
 import { Promise } from "rsvp";
 
@@ -21,11 +21,11 @@ var scenarios = [
 scenarios.forEach(function(scenario) {
 
 module("Query Params (" + scenario.name + ")", {
-  setup: function() {
+  setup: function(assert) {
     handlers = {};
     expectedUrl = null;
 
-    map(function(match) {
+    map(assert, function(match) {
       match("/index").to("index");
       match("/parent").to("parent", function(match) {
         match("/").to("parentIndex");
@@ -35,7 +35,7 @@ module("Query Params (" + scenario.name + ")", {
   }
 });
 
-function map(fn) {
+function map(assert, fn) {
   router = new Router();
   router.map(fn);
 
@@ -44,7 +44,7 @@ function map(fn) {
   router.updateURL = function(newUrl) {
 
     if (expectedUrl) {
-      equal(newUrl, expectedUrl, "The url is " + newUrl+ " as expected");
+      assert.equal(newUrl, expectedUrl, "The url is " + newUrl+ " as expected");
     }
 
     url = newUrl;
@@ -60,13 +60,13 @@ function consumeAllFinalQueryParams(params, finalParams) {
   return true;
 }
 
-test("a change in query params fires a queryParamsDidChange event", function() {
-  expect(7);
+test("a change in query params fires a queryParamsDidChange event", function(assert) {
+  assert.expect(7);
 
   var count = 0;
   handlers.index = {
     setup: function() {
-      equal(count, 0, "setup should be called exactly once since we're only changing query params after the first transition");
+      assert.equal(count, 0, "setup should be called exactly once since we're only changing query params after the first transition");
     },
     events: {
       finalizeQueryParamChange: consumeAllFinalQueryParams,
@@ -74,19 +74,19 @@ test("a change in query params fires a queryParamsDidChange event", function() {
       queryParamsDidChange: function(changed, all) {
         switch (count) {
           case 0:
-            ok(false, "shouldn't fire on first trans");
+            assert.ok(false, "shouldn't fire on first trans");
             break;
           case 1:
-            deepEqual(changed, { foo: '5' });
-            deepEqual(all,     { foo: '5' });
+            assert.deepEqual(changed, { foo: '5' });
+            assert.deepEqual(all,     { foo: '5' });
             break;
           case 2:
-            deepEqual(changed, { bar: '6' });
-            deepEqual(all,     { foo: '5', bar: '6' });
+            assert.deepEqual(changed, { bar: '6' });
+            assert.deepEqual(all,     { foo: '5', bar: '6' });
             break;
           case 3:
-            deepEqual(changed, { foo: '8', bar: '9' });
-            deepEqual(all,     { foo: '8', bar: '9' });
+            assert.deepEqual(changed, { foo: '8', bar: '9' });
+            assert.deepEqual(all,     { foo: '8', bar: '9' });
             break;
         }
       }
@@ -102,8 +102,8 @@ test("a change in query params fires a queryParamsDidChange event", function() {
   transitionTo(router, '/index?foo=8&bar=9');
 });
 
-test("transitioning between routes fires a queryParamsDidChange event", function() {
-  expect(8);
+test("transitioning between routes fires a queryParamsDidChange event", function(assert) {
+  assert.expect(8);
   var count = 0;
   handlers.parent = {
     events: {
@@ -111,23 +111,23 @@ test("transitioning between routes fires a queryParamsDidChange event", function
       queryParamsDidChange: function(changed, all) {
         switch (count) {
           case 0:
-            ok(false, "shouldn't fire on first trans");
+            assert.ok(false, "shouldn't fire on first trans");
             break;
           case 1:
-            deepEqual(changed, { foo: '5' });
-            deepEqual(all,     { foo: '5' });
+            assert.deepEqual(changed, { foo: '5' });
+            assert.deepEqual(all,     { foo: '5' });
             break;
           case 2:
-            deepEqual(changed, { bar: '6' });
-            deepEqual(all,     { foo: '5', bar: '6' });
+            assert.deepEqual(changed, { bar: '6' });
+            assert.deepEqual(all,     { foo: '5', bar: '6' });
             break;
           case 3:
-            deepEqual(changed, { foo: '8', bar: '9' });
-            deepEqual(all,     { foo: '8', bar: '9' });
+            assert.deepEqual(changed, { foo: '8', bar: '9' });
+            assert.deepEqual(all,     { foo: '8', bar: '9' });
             break;
           case 4:
-            deepEqual(changed, { foo: '10', bar: '11'});
-            deepEqual(all,     { foo: '10', bar: '11'});
+            assert.deepEqual(changed, { foo: '10', bar: '11'});
+            assert.deepEqual(all,     { foo: '10', bar: '11'});
         }
       }
     }
@@ -157,30 +157,30 @@ test("transitioning between routes fires a queryParamsDidChange event", function
 
 });
 
-test("a handler can opt into a full-on transition by calling refresh", function() {
-  expect(3);
+test("a handler can opt into a full-on transition by calling refresh", function(assert) {
+  assert.expect(3);
 
   var count = 0;
   handlers.index = {
     model: function() {
       switch (count) {
         case 0:
-          ok(true, "model called in initial transition");
+          assert.ok(true, "model called in initial transition");
           break;
         case 1:
-          ok(true, "model called during refresh");
+          assert.ok(true, "model called during refresh");
           break;
         case 2:
-          ok(true, "model called during refresh w 2 QPs");
+          assert.ok(true, "model called during refresh w 2 QPs");
           break;
         default:
-          ok(false, "shouldn't have been called for " + count);
+          assert.ok(false, "shouldn't have been called for " + count);
       }
     },
     events: {
       queryParamsDidChange: function() {
         if (count === 0) {
-          ok(false, "shouldn't fire on first trans");
+          assert.ok(false, "shouldn't fire on first trans");
         } else {
           router.refresh(this);
         }
@@ -197,30 +197,30 @@ test("a handler can opt into a full-on transition by calling refresh", function(
 });
 
 
-test("at the end of a query param change a finalizeQueryParamChange event is fired", function() {
-  expect(5);
+test("at the end of a query param change a finalizeQueryParamChange event is fired", function(assert) {
+  assert.expect(5);
 
   var eventHandled = false;
   var count = 0;
   handlers.index = {
     setup: function() {
-      ok(!eventHandled, "setup should happen before eventHandled");
+      assert.notOk(eventHandled, "setup should happen before eventHandled");
     },
     events: {
       finalizeQueryParamChange: function(all) {
         eventHandled = true;
         switch (count) {
           case 0:
-            deepEqual(all, {});
+            assert.deepEqual(all, {});
             break;
           case 1:
-            deepEqual(all, { foo: '5' });
+            assert.deepEqual(all, { foo: '5' });
             break;
           case 2:
-            deepEqual(all, { foo: '5', bar: '6' });
+            assert.deepEqual(all, { foo: '5', bar: '6' });
             break;
           case 3:
-            deepEqual(all, { foo: '8', bar: '9' });
+            assert.deepEqual(all, { foo: '8', bar: '9' });
             break;
         }
       }
@@ -236,22 +236,22 @@ test("at the end of a query param change a finalizeQueryParamChange event is fir
   transitionTo(router, '/index?foo=8&bar=9');
 });
 
-test("failing to consume QPs in finalize event tells the router it no longer has those params", function() {
-  expect(2);
+test("failing to consume QPs in finalize event tells the router it no longer has those params", function(assert) {
+  assert.expect(2);
 
   handlers.index = {
     setup: function() {
-      ok(true, "setup was entered");
+      assert.ok(true, "setup was entered");
     }
   };
 
   transitionTo(router, '/index?foo=8&bar=9');
 
-  deepEqual(router.state.queryParams, {});
+  assert.deepEqual(router.state.queryParams, {});
 });
 
-test("consuming QPs in finalize event tells the router those params are active", function() {
-  expect(1);
+test("consuming QPs in finalize event tells the router those params are active", function(assert) {
+  assert.expect(1);
 
   handlers.index = {
     events: {
@@ -262,11 +262,11 @@ test("consuming QPs in finalize event tells the router those params are active",
   };
 
   transitionTo(router, '/index?foo=8&bar=9');
-  deepEqual(router.state.queryParams, { foo: '8' });
+  assert.deepEqual(router.state.queryParams, { foo: '8' });
 });
 
-test("can hide query params from URL if they're marked as visible=false in finalizeQueryParamChange", function() {
-  expect(2);
+test("can hide query params from URL if they're marked as visible=false in finalizeQueryParamChange", function(assert) {
+  assert.expect(2);
 
   handlers.index = {
     events: {
@@ -279,11 +279,11 @@ test("can hide query params from URL if they're marked as visible=false in final
 
   expectedUrl = '/index?bar=9';
   transitionTo(router, '/index?foo=8&bar=9');
-  deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
+  assert.deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
 });
 
-test("transitionTo() works with single query param arg", function() {
-  expect(2);
+test("transitionTo() works with single query param arg", function(assert) {
+  assert.expect(2);
 
   handlers.index = {
     events: {
@@ -295,47 +295,47 @@ test("transitionTo() works with single query param arg", function() {
   };
 
   transitionTo(router, '/index?bar=9&foo=8');
-  deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
+  assert.deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
 
   expectedUrl = '/index?foo=123';
   transitionTo(router, { queryParams: { foo: '123' }});
 });
 
-test("handleURL will NOT follow up with a replace URL if query params are already in sync", function() {
-  expect(0);
+test("handleURL will NOT follow up with a replace URL if query params are already in sync", function(assert) {
+  assert.expect(0);
 
   router.replaceURL = function(url) {
-    ok(false, "query params are in sync, this replaceURL shouldn't happen: " + url);
+    assert.ok(false, "query params are in sync, this replaceURL shouldn't happen: " + url);
   };
 
   router.handleURL('/index');
 });
 
-test("model hook receives queryParams", function() {
+test("model hook receives queryParams", function(assert) {
 
-  expect(1);
+  assert.expect(1);
 
   handlers.index = {
     model: function(params) {
-      deepEqual(params, { queryParams: { foo: '5' } });
+      assert.deepEqual(params, { queryParams: { foo: '5' } });
     }
   };
 
   transitionTo(router, '/index?foo=5');
 });
 
-test("can cause full transition by calling refresh within queryParamsDidChange", function() {
+test("can cause full transition by calling refresh within queryParamsDidChange", function(assert) {
 
-  expect(5);
+  assert.expect(5);
 
   var modelCount = 0;
   handlers.index = {
     model: function(params) {
       ++modelCount;
       if (modelCount === 1) {
-        deepEqual(params, { queryParams: { foo: '5' } });
+        assert.deepEqual(params, { queryParams: { foo: '5' } });
       } else if (modelCount === 2) {
-        deepEqual(params, { queryParams: { foo: '6' } });
+        assert.deepEqual(params, { queryParams: { foo: '6' } });
       }
     },
     events: {
@@ -345,22 +345,22 @@ test("can cause full transition by calling refresh within queryParamsDidChange",
     }
   };
 
-  equal(modelCount, 0);
+  assert.equal(modelCount, 0);
   transitionTo(router, '/index?foo=5');
-  equal(modelCount, 1);
+  assert.equal(modelCount, 1);
   transitionTo(router, '/index?foo=6');
-  equal(modelCount, 2);
+  assert.equal(modelCount, 2);
 });
 
-test("can retry a query-params refresh", function() {
+test("can retry a query-params refresh", function(assert) {
   var causeRedirect = false;
 
-  map(function(match) {
+  map(assert, function(match) {
     match("/index").to("index");
     match("/login").to("login");
   });
 
-  expect(11);
+  assert.expect(11);
 
   var redirect = false;
   var indexTransition;
@@ -372,11 +372,11 @@ test("can retry a query-params refresh", function() {
       }
     },
     setup: function() {
-      ok(true, "index#setup");
+      assert.ok(true, "index#setup");
     },
     events: {
       queryParamsDidChange: function() {
-        ok(true, "index#queryParamsDidChange");
+        assert.ok(true, "index#queryParamsDidChange");
         redirect = causeRedirect;
         router.refresh(this);
       },
@@ -389,7 +389,7 @@ test("can retry a query-params refresh", function() {
 
   handlers.login = {
     setup: function() {
-      ok(true, "login#setup");
+      assert.ok(true, "login#setup");
     }
   };
 
@@ -401,13 +401,13 @@ test("can retry a query-params refresh", function() {
   flushBackburner();
   causeRedirect = false;
   redirect = false;
-  ok(indexTransition, "index transition was saved");
+  assert.ok(indexTransition, "index transition was saved");
   indexTransition.retry();
   expectedUrl = '/index?foo=def';
 });
 
-test("tests whether query params to transitionTo are considered active", function() {
-  expect(6);
+test("tests whether query params to transitionTo are considered active", function(assert) {
+  assert.expect(6);
 
   handlers.index = {
     events: {
@@ -419,16 +419,16 @@ test("tests whether query params to transitionTo are considered active", functio
   };
 
   transitionTo(router, '/index?foo=8&bar=9');
-  deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
-  ok(router.isActive('index', { queryParams: {foo: '8', bar: '9' }}), "The index handler is active");
-  ok(router.isActive('index', { queryParams: {foo: 8, bar: 9 }}), "Works when property is number");
-  ok(!router.isActive('index', { queryParams: {foo: '9'}}), "Only supply one changed query param");
-  ok(!router.isActive('index', { queryParams: {foo: '8', bar: '10', baz: '11' }}), "A new query param was added");
-  ok(!router.isActive('index', { queryParams: {foo: '8', bar: '11', }}), "A query param changed");
+  assert.deepEqual(router.state.queryParams, { foo: '8', bar: '9' });
+  assert.ok(router.isActive('index', { queryParams: {foo: '8', bar: '9' }}), "The index handler is active");
+  assert.ok(router.isActive('index', { queryParams: {foo: 8, bar: 9 }}), "Works when property is number");
+  assert.notOk(router.isActive('index', { queryParams: {foo: '9'}}), "Only supply one changed query param");
+  assert.notOk(router.isActive('index', { queryParams: {foo: '8', bar: '10', baz: '11' }}), "A new query param was added");
+  assert.notOk(router.isActive('index', { queryParams: {foo: '8', bar: '11', }}), "A query param changed");
 });
 
-test("tests whether array query params to transitionTo are considered active", function() {
-  expect(7);
+test("tests whether array query params to transitionTo are considered active", function(assert) {
+  assert.expect(7);
 
   handlers.index = {
     events: {
@@ -439,13 +439,13 @@ test("tests whether array query params to transitionTo are considered active", f
   };
 
   transitionTo(router, '/index?foo[]=1&foo[]=2');
-  deepEqual(router.state.queryParams, { foo: ['1', '2']});
-  ok(router.isActive('index', { queryParams: {foo: ['1', '2'] }}), "The index handler is active");
-  ok(router.isActive('index', { queryParams: {foo: [1, 2] }}), "Works when array has numeric elements");
-  ok(!router.isActive('index', { queryParams: {foo: ['2', '1']}}), "Change order");
-  ok(!router.isActive('index', { queryParams: {foo: ['1', '2', '3']}}), "Change Length");
-  ok(!router.isActive('index', { queryParams: {foo: ['3', '4']}}), "Change Content");
-  ok(!router.isActive('index', { queryParams: {foo: []}}), "Empty Array");
+  assert.deepEqual(router.state.queryParams, { foo: ['1', '2']});
+  assert.ok(router.isActive('index', { queryParams: {foo: ['1', '2'] }}), "The index handler is active");
+  assert.ok(router.isActive('index', { queryParams: {foo: [1, 2] }}), "Works when array has numeric elements");
+  assert.notOk(router.isActive('index', { queryParams: {foo: ['2', '1']}}), "Change order");
+  assert.notOk(router.isActive('index', { queryParams: {foo: ['1', '2', '3']}}), "Change Length");
+  assert.notOk(router.isActive('index', { queryParams: {foo: ['3', '4']}}), "Change Content");
+  assert.notOk(router.isActive('index', { queryParams: {foo: []}}), "Empty Array");
 });
 
 });
