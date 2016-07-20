@@ -31,6 +31,13 @@ function Router(_options) {
   this.delegate = options.delegate || this.delegate;
   this.triggerEvent = options.triggerEvent || this.triggerEvent;
   this.log = options.log || this.log;
+  this.dslCallBacks = []; // NOTE: set by Ember
+  this.state = undefined;
+  this.activeTransition = undefined;
+  this._changedQueryParams = undefined;
+  this.oldState = undefined;
+  this.currentHandlerInfos = undefined;
+  this.state = undefined;
 
   this.recognizer = new RouteRecognizer();
   this.reset();
@@ -572,7 +579,8 @@ function partitionHandlers(oldState, newState) {
         updatedContext: [],
         exited: [],
         entered: [],
-        unchanged: []
+        unchanged: [],
+        reset: undefined
       };
 
   var handlerChanged, contextChanged = false, i, l;

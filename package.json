@@ -36,6 +36,7 @@
   },
   "scripts": {
     "test": "grunt test",
+    "start": "grunt server",
     "lint": "jshint lib",
     "prepublish": "grunt build"
   },

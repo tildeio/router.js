@@ -12,10 +12,6 @@ function TransitionState(other) {
 }
 
 TransitionState.prototype = {
-  handlerInfos: null,
-  queryParams: null,
-  params: null,
-
   promiseLabel: function(label) {
     var targetName = '';
     forEach(this.handlerInfos, function(handlerInfo) {
@@ -28,7 +24,6 @@ TransitionState.prototype = {
   },
 
   resolve: function(shouldContinue, payload) {
-    var self = this;
     // First, calculate params for this state. This is useful
     // information to provide to the various route hooks.
     var params = this.params;
