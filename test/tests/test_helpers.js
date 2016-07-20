@@ -1,5 +1,5 @@
 import { Backburner } from "backburner";
-import { resolve, configure, reject, Promise } from "rsvp";
+import { resolve, configure } from "rsvp";
 import { oCreate } from 'router/utils';
 
 var slice = Array.prototype.slice;

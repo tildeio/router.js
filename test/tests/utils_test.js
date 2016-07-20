@@ -3,7 +3,6 @@ import { getChangelist, callHook } from 'router/utils';
 module("utils");
 
 test("getChangelist", function() {
-
   var result = getChangelist({}, { foo: '123' });
   deepEqual(result, { all: { foo: '123' }, changed: { foo: '123' }, removed: {} });
 
@@ -24,7 +23,7 @@ test("callHook invokes optional methods, preferring underscored versions", funct
   expect(8);
 
   var obj = {
-    a: function(a, b, c) {
+    a: function(a, b) {
       equal(a, 1);
       equal(b, 2);
       equal(this, obj);

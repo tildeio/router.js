@@ -1,5 +1,4 @@
 import { module, stubbedHandlerInfoFactory } from "tests/test_helpers";
-import Router from "router";
 
 import HandlerInfo from 'router/handler-info';
 
@@ -7,8 +6,8 @@ import ResolvedHandlerInfo from 'router/handler-info/resolved-handler-info';
 import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handler-info-by-object';
 import UnresolvedHandlerInfoByParam from 'router/handler-info/unresolved-handler-info-by-param';
 
-import { resolve, reject, Promise } from "rsvp";
-import { subclass, merge } from 'router/utils';
+import { resolve, reject } from "rsvp";
+import { subclass } from 'router/utils';
 
 function noop() {}
 
