@@ -112,7 +112,7 @@ test("URLTransitionIntent can be applied to an empty state", function() {
   equal(handlerInfos.length, 2);
   ok(!handlerInfos[0].isResolved, "generated state consists of unresolved handler info, 1");
   ok(!handlerInfos[1].isResolved, "generated state consists of unresolved handler info, 2");
-  return Promise.all([
+  Promise.all([
     assertHandlerEquals(handlerInfos[0], handlers.foo),
     assertHandlerEquals(handlerInfos[1], handlers.bar)
   ]);
@@ -141,7 +141,7 @@ test("URLTransitionIntent applied to single unresolved URL handlerInfo", functio
   equal(handlerInfos.length, 2);
   equal(handlerInfos[0], startingHandlerInfo, "The starting foo handlerInfo wasn't overridden because the new one wasn't any different");
   ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  return assertHandlerEquals(handlerInfos[1], handlers.bar);
+  assertHandlerEquals(handlerInfos[1], handlers.bar);
 });
 
 test("URLTransitionIntent applied to an already-resolved handlerInfo", function() {
@@ -163,7 +163,7 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo", function(
   equal(handlerInfos.length, 2);
   equal(handlerInfos[0], startingHandlerInfo, "The starting foo resolved handlerInfo wasn't overridden because the new one wasn't any different");
   ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  return assertHandlerEquals(handlerInfos[1], handlers.bar);
+  assertHandlerEquals(handlerInfos[1], handlers.bar);
 });
 
 test("URLTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function() {
@@ -187,7 +187,7 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo (non-empty 
   equal(handlerInfos.length, 2);
   ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo was overridden because the new had different params");
   ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  return assertHandlerEquals(handlerInfos[1], handlers.comments);
+  assertHandlerEquals(handlerInfos[1], handlers.comments);
 });
 
 test("URLTransitionIntent applied to an already-resolved handlerInfo of different route", function() {
@@ -209,7 +209,7 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo of differen
   equal(handlerInfos.length, 2);
   ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo gets overridden because the new one has a different name");
   ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  return assertHandlerEquals(handlerInfos[1], handlers.bar);
+  assertHandlerEquals(handlerInfos[1], handlers.bar);
 });
 
 test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function() {
@@ -240,7 +240,7 @@ test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empt
   equal(handlerInfos[0].context, article);
   ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByObject, "generated state consists of UnresolvedHandlerInfoByObject, 2");
   equal(handlerInfos[1].context, comment);
-  return assertHandlerEquals(handlerInfos[1], handlers.comments);
+  assertHandlerEquals(handlerInfos[1], handlers.comments);
 });
 
 });
