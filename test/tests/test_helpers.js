@@ -16,6 +16,8 @@ function flushBackburner() {
   bb.begin();
 }
 
+var test = QUnit.test;
+
 function module(name, options) {
   options = options || {};
   QUnit.module(name, {
@@ -24,14 +26,14 @@ function module(name, options) {
       bb.begin();
 
       if (options.setup) {
-        options.setup();
+        options.setup.apply(this, arguments);
       }
     },
     teardown: function() {
       bb.end();
 
       if (options.teardown) {
-        options.teardown();
+        options.teardown.apply(this, arguments);
       }
     }
   });
@@ -47,23 +49,20 @@ function transitionTo(router) {
   return result;
 }
 
-function transitionToWithAbort(router) {
-  var args = slice.call(arguments, 1);
+function transitionToWithAbort(assert, router) {
+  var args = slice.call(arguments, 2);
   router.transitionTo.apply(router, args).then(shouldNotHappen, function(reason) {
-    equal(reason.name, "TransitionAborted", "transition was redirected/aborted");
+    assert.equal(reason.name, "TransitionAborted", "transition was redirected/aborted");
   });
   flushBackburner();
 }
 
-function shouldNotHappen(error) {
-  console.error(error.stack);
-  ok(false, "this .then handler should not be called");
+function shouldNotHappen(assert) {
+  return function _shouldNotHappen(error) {
+    console.error(error.stack); // jshint ignore:line
+    assert.ok(false, "this .then handler should not be called");
+  };
 }
-
-function shouldBeTransition (object) {
-  ok(object.toString().match(/Transition \(sequence \d+\)/), "Object should be transition");
-}
-
 
 function stubbedHandlerInfoFactory(name, props) {
   var obj = oCreate(props);
@@ -73,11 +72,11 @@ function stubbedHandlerInfoFactory(name, props) {
 
 module("backburner sanity test");
 
-test("backburnerized testing works as expected", function() {
-  expect(1);
+test("backburnerized testing works as expected", function(assert) {
+  assert.expect(1);
   resolve("hello").then(function(word) {
-    equal(word, "hello", "backburner flush in teardown resolved this promise");
+    assert.equal(word, "hello", "backburner flush in teardown resolved this promise");
   });
 });
 
-export { module, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen, shouldBeTransition, stubbedHandlerInfoFactory };
+export { module, test, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen, stubbedHandlerInfoFactory };

@@ -1,4 +1,4 @@
-import { module } from "tests/test_helpers";
+import { module, test } from "tests/test_helpers";
 import URLTransitionIntent from 'router/transition-intent/url-transition-intent';
 import NamedTransitionIntent from 'router/transition-intent/named-transition-intent';
 import TransitionState from 'router/transition-state';
@@ -33,13 +33,13 @@ scenarios.forEach(function(scenario) {
 
 // Asserts that a handler from a handlerInfo equals an expected valued.
 // Returns a promise during async scenarios to wait until the handler is ready.
-function assertHandlerEquals(handlerInfo, expected) {
+function assertHandlerEquals(assert, handlerInfo, expected) {
   if (!scenario.async) {
-    return equal(handlerInfo.handler, expected);
+    return assert.equal(handlerInfo.handler, expected);
   } else {
-    equal(handlerInfo.handler, undefined);
+    assert.equal(handlerInfo.handler, undefined);
     return handlerInfo.handlerPromise.then(function(handler) {
-      equal(handler, expected);
+      assert.equal(handler, expected);
     });
   }
 }
@@ -102,22 +102,22 @@ module("TransitionIntent (" + scenario.name + ")", {
   }
 });
 
-test("URLTransitionIntent can be applied to an empty state", function() {
+test("URLTransitionIntent can be applied to an empty state", function(assert) {
   var state = new TransitionState();
   var intent = new URLTransitionIntent({ url: '/foo/bar' });
   var newState = intent.applyToState(state, recognizer, scenario.getHandler);
   var handlerInfos = newState.handlerInfos;
 
-  equal(handlerInfos.length, 2);
-  ok(!handlerInfos[0].isResolved, "generated state consists of unresolved handler info, 1");
-  ok(!handlerInfos[1].isResolved, "generated state consists of unresolved handler info, 2");
+  assert.equal(handlerInfos.length, 2);
+  assert.notOk(handlerInfos[0].isResolved, "generated state consists of unresolved handler info, 1");
+  assert.notOk(handlerInfos[1].isResolved, "generated state consists of unresolved handler info, 2");
   Promise.all([
-    assertHandlerEquals(handlerInfos[0], handlers.foo),
-    assertHandlerEquals(handlerInfos[1], handlers.bar)
+    assertHandlerEquals(assert, handlerInfos[0], handlers.foo),
+    assertHandlerEquals(assert, handlerInfos[1], handlers.bar)
   ]);
 });
 
-test("URLTransitionIntent applied to single unresolved URL handlerInfo", function() {
+test("URLTransitionIntent applied to single unresolved URL handlerInfo", function(assert) {
   var state = new TransitionState();
 
   var startingHandlerInfo = new UnresolvedHandlerInfoByParam({
@@ -137,13 +137,13 @@ test("URLTransitionIntent applied to single unresolved URL handlerInfo", functio
   var newState = intent.applyToState(state, recognizer, scenario.getHandler);
   var handlerInfos = newState.handlerInfos;
 
-  equal(handlerInfos.length, 2);
-  equal(handlerInfos[0], startingHandlerInfo, "The starting foo handlerInfo wasn't overridden because the new one wasn't any different");
-  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  assertHandlerEquals(handlerInfos[1], handlers.bar);
+  assert.equal(handlerInfos.length, 2);
+  assert.equal(handlerInfos[0], startingHandlerInfo, "The starting foo handlerInfo wasn't overridden because the new one wasn't any different");
+  assert.ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
 });
 
-test("URLTransitionIntent applied to an already-resolved handlerInfo", function() {
+test("URLTransitionIntent applied to an already-resolved handlerInfo", function(assert) {
   var state = new TransitionState();
 
   var startingHandlerInfo = new ResolvedHandlerInfo({
@@ -159,13 +159,13 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo", function(
   var newState = intent.applyToState(state, recognizer, scenario.getHandler);
   var handlerInfos = newState.handlerInfos;
 
-  equal(handlerInfos.length, 2);
-  equal(handlerInfos[0], startingHandlerInfo, "The starting foo resolved handlerInfo wasn't overridden because the new one wasn't any different");
-  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  assertHandlerEquals(handlerInfos[1], handlers.bar);
+  assert.equal(handlerInfos.length, 2);
+  assert.equal(handlerInfos[0], startingHandlerInfo, "The starting foo resolved handlerInfo wasn't overridden because the new one wasn't any different");
+  assert.ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
 });
 
-test("URLTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function() {
+test("URLTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function(assert) {
   var state = new TransitionState();
 
   var article = {};
@@ -183,13 +183,13 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo (non-empty 
   var newState = intent.applyToState(state, recognizer, scenario.getHandler);
   var handlerInfos = newState.handlerInfos;
 
-  equal(handlerInfos.length, 2);
-  ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo was overridden because the new had different params");
-  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  assertHandlerEquals(handlerInfos[1], handlers.comments);
+  assert.equal(handlerInfos.length, 2);
+  assert.ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo was overridden because the new had different params");
+  assert.ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  assertHandlerEquals(assert, handlerInfos[1], handlers.comments);
 });
 
-test("URLTransitionIntent applied to an already-resolved handlerInfo of different route", function() {
+test("URLTransitionIntent applied to an already-resolved handlerInfo of different route", function(assert) {
   var state = new TransitionState();
 
   var startingHandlerInfo = new ResolvedHandlerInfo({
@@ -205,13 +205,13 @@ test("URLTransitionIntent applied to an already-resolved handlerInfo of differen
   var newState = intent.applyToState(state, recognizer, scenario.getHandler);
   var handlerInfos = newState.handlerInfos;
 
-  equal(handlerInfos.length, 2);
-  ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo gets overridden because the new one has a different name");
-  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
-  assertHandlerEquals(handlerInfos[1], handlers.bar);
+  assert.equal(handlerInfos.length, 2);
+  assert.ok(handlerInfos[0] !== startingHandlerInfo, "The starting foo resolved handlerInfo gets overridden because the new one has a different name");
+  assert.ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByParam, "generated state consists of UnresolvedHandlerInfoByParam, 2");
+  assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
 });
 
-test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function() {
+test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empty params)", function(assert) {
   var state = new TransitionState();
 
   var article = {};
@@ -234,12 +234,12 @@ test("NamedTransitionIntent applied to an already-resolved handlerInfo (non-empt
   var newState = intent.applyToState(state, recognizer, scenario.getHandler, null, scenario.getSerializer);
   var handlerInfos = newState.handlerInfos;
 
-  equal(handlerInfos.length, 2);
-  equal(handlerInfos[0], startingHandlerInfo);
-  equal(handlerInfos[0].context, article);
-  ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByObject, "generated state consists of UnresolvedHandlerInfoByObject, 2");
-  equal(handlerInfos[1].context, comment);
-  assertHandlerEquals(handlerInfos[1], handlers.comments);
+  assert.equal(handlerInfos.length, 2);
+  assert.equal(handlerInfos[0], startingHandlerInfo);
+  assert.equal(handlerInfos[0].context, article);
+  assert.ok(handlerInfos[1] instanceof UnresolvedHandlerInfoByObject, "generated state consists of UnresolvedHandlerInfoByObject, 2");
+  assert.equal(handlerInfos[1].context, comment);
+  assertHandlerEquals(assert, handlerInfos[1], handlers.comments);
 });
 
 });

@@ -1,4 +1,4 @@
-import { module, flushBackburner, stubbedHandlerInfoFactory } from "tests/test_helpers";
+import { module, test, flushBackburner, stubbedHandlerInfoFactory } from "tests/test_helpers";
 import TransitionState from 'router/transition-state';
 
 import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handler-info-by-object';
@@ -8,14 +8,13 @@ import { resolve, reject } from "rsvp";
 
 module("TransitionState");
 
-test("it starts off with default state", function() {
+test("it starts off with default state", function(assert) {
   var state = new TransitionState();
-  deepEqual(state.handlerInfos, [], "it has an array of handlerInfos");
+  assert.deepEqual(state.handlerInfos, [], "it has an array of handlerInfos");
 });
 
-test("#resolve delegates to handleInfo objects' resolve()", function() {
-
-  expect(8);
+test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
+  assert.expect(8);
 
   var state = new TransitionState();
 
@@ -27,7 +26,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
     {
       resolve: function(shouldContinue) {
         ++counter;
-        equal(counter, 1);
+        assert.equal(counter, 1);
         shouldContinue();
         return resolve(resolvedHandlerInfos[0]);
       }
@@ -35,7 +34,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
     {
       resolve: function(shouldContinue) {
         ++counter;
-        equal(counter, 2);
+        assert.equal(counter, 2);
         shouldContinue();
         return resolve(resolvedHandlerInfos[1]);
       }
@@ -43,18 +42,17 @@ test("#resolve delegates to handleInfo objects' resolve()", function() {
   ];
 
   function keepGoing() {
-    ok(true, "continuation function was called");
+    assert.ok(true, "continuation function was called");
   }
 
   state.resolve(keepGoing).then(function(result) {
-    ok(!result.error);
-    deepEqual(result.state.handlerInfos, resolvedHandlerInfos);
+    assert.notOk(result.error);
+    assert.deepEqual(result.state.handlerInfos, resolvedHandlerInfos);
   });
 });
 
-test("State resolution can be halted", function() {
-
-  expect(2);
+test("State resolution can be halted", function(assert) {
+  assert.expect(2);
 
   var state = new TransitionState();
 
@@ -66,7 +64,7 @@ test("State resolution can be halted", function() {
     },
     {
       resolve: function() {
-        ok(false, "I should not be entered because we threw an error in shouldContinue");
+        assert.ok(false, "I should not be entered because we threw an error in shouldContinue");
       }
     }
   ];
@@ -76,17 +74,16 @@ test("State resolution can be halted", function() {
   }
 
   state.resolve(keepGoing).catch(function(reason) {
-    equal(reason.error, "NOPE");
-    ok(reason.wasAborted, "state resolution was correctly marked as aborted");
+    assert.equal(reason.error, "NOPE");
+    assert.ok(reason.wasAborted, "state resolution was correctly marked as aborted");
   });
 
   flushBackburner();
 });
 
 
-test("Integration w/ HandlerInfos", function() {
-
-  expect(5);
+test("Integration w/ HandlerInfos", function(assert) {
+  assert.expect(5);
 
   var state = new TransitionState();
 
@@ -100,8 +97,8 @@ test("Integration w/ HandlerInfos", function() {
       params: { foo_id: '123' },
       handler: {
         model: function(params, payload) {
-          equal(payload, transition);
-          equal(params.foo_id, '123', "foo#model received expected params");
+          assert.equal(payload, transition);
+          assert.equal(params.foo_id, '123', "foo#model received expected params");
           return resolve(fooModel);
         }
       },
@@ -124,11 +121,11 @@ test("Integration w/ HandlerInfos", function() {
       models.push(result.state.handlerInfos[i].context);
     }
 
-    ok(!result.error);
-    equal(models[0], fooModel);
-    equal(models[1], barModel);
+    assert.notOk(result.error);
+    assert.equal(models[0], fooModel);
+    assert.equal(models[1], barModel);
   }).catch(function(error){
-    ok(false, "Caught error: "+error);
+    assert.ok(false, "Caught error: "+error);
   });
 });
 
