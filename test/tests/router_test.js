@@ -2596,6 +2596,21 @@ test("Generate works w queryparams", function(assert) {
   assert.equal(router.generate('index', { queryParams: { foo: '123', bar: '456' } }), '/index?bar=456&foo=123', "just index");
 });
 
+if (scenario.async) {
+  test("Generate does not invoke getHandler", function(assert) {
+    var originalGetHandler = router.getHandler;
+    router.getHandler = function() {
+      assert.ok(false, 'getHandler should not be called');
+    };
+
+    assert.equal(router.generate('index'), '/index', "just index");
+    assert.equal(router.generate('index', { queryParams: { foo: '123' } }), '/index?foo=123', "just index");
+    assert.equal(router.generate('index', { queryParams: { foo: '123', bar: '456' } }), '/index?bar=456&foo=123', "just index");
+
+    router.getHandler = originalGetHandler;
+  });
+}
+
 test("errors in enter/setup hooks fire `error`", function(assert) {
   assert.expect(4);
 
