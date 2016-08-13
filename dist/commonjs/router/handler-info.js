@@ -1,27 +1,34 @@
 "use strict";
 var bind = require("./utils").bind;
 var merge = require("./utils").merge;
-var serialize = require("./utils").serialize;
 var promiseLabel = require("./utils").promiseLabel;
 var applyHook = require("./utils").applyHook;
 var isPromise = require("./utils").isPromise;
 var Promise = require("rsvp/promise")["default"];
 
+var DEFAULT_HANDLER = Object.freeze({});
+
 function HandlerInfo(_props) {
   var props = _props || {};
-  var name = props.name;
 
-  // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
-  this.handlerPromise = Promise.resolve(props.handler);
+  // Set a default handler to ensure consistent object shape
+  this._handler = DEFAULT_HANDLER;
 
-  // Wait until the 'handler' property has been updated when chaining to a handler
-  // that is a promise
-  if (isPromise(props.handler)) {
-    this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
-    props.handler = undefined;
-  } else if (props.handler) {
-    // Store the name of the handler on the handler for easy checks later
-    props.handler._handlerName = name;
+  if (props.handler) {
+    var name = props.name;
+
+    // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
+    this.handlerPromise = Promise.resolve(props.handler);
+
+    // Wait until the 'handler' property has been updated when chaining to a handler
+    // that is a promise
+    if (isPromise(props.handler)) {
+      this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
+      props.handler = undefined;
+    } else if (props.handler) {
+      // Store the name of the handler on the handler for easy checks later
+      props.handler._handlerName = name;
+    }
   }
 
   merge(this, props);
@@ -30,7 +37,58 @@ function HandlerInfo(_props) {
 
 HandlerInfo.prototype = {
   name: null,
-  handler: null,
+
+  getHandler: function() {},
+
+  fetchHandler: function() {
+    var handler = this.getHandler(this.name);
+
+    // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
+    this.handlerPromise = Promise.resolve(handler);
+
+    // Wait until the 'handler' property has been updated when chaining to a handler
+    // that is a promise
+    if (isPromise(handler)) {
+      this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
+    } else if (handler) {
+      // Store the name of the handler on the handler for easy checks later
+      handler._handlerName = this.name;
+      return this.handler = handler;
+    }
+
+    return this.handler = undefined;
+  },
+
+  get handler() {
+    // _handler could be set to either a handler object or undefined, so we
+    // compare against a default reference to know when it's been set
+    if (this._handler !== DEFAULT_HANDLER) {
+      return this._handler;
+    }
+
+    return this.fetchHandler();
+  },
+
+  set handler(handler) {
+    return this._handler = handler;
+  },
+
+  _handlerPromise: undefined,
+
+  get handlerPromise() {
+    if (this._handlerPromise) {
+      return this._handlerPromise;
+    }
+
+    this.fetchHandler();
+
+    return this._handlerPromise;
+  },
+
+  set handlerPromise(handlerPromise) {
+    return this._handlerPromise = handlerPromise;
+  },
+
   params: null,
   context: null,
 

@@ -1,6 +1,5 @@
 "use strict";
 var Promise = require("rsvp/promise")["default"];
-var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 var trigger = require("./utils").trigger;
 var slice = require("./utils").slice;
 var log = require("./utils").log;

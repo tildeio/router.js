@@ -1,11 +1,10 @@
 "use strict";
-var ResolvedHandlerInfo = require("./handler-info").ResolvedHandlerInfo;
 var forEach = require("./utils").forEach;
 var promiseLabel = require("./utils").promiseLabel;
 var callHook = require("./utils").callHook;
 var Promise = require("rsvp/promise")["default"];
 
-function TransitionState(other) {
+function TransitionState() {
   this.handlerInfos = [];
   this.queryParams = {};
   this.params = {};

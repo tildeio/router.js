@@ -2,10 +2,8 @@
 var TransitionIntent = require("../transition-intent")["default"];
 var TransitionState = require("../transition-state")["default"];
 var handlerInfoFactory = require("../handler-info/factory")["default"];
-var oCreate = require("../utils").oCreate;
 var merge = require("../utils").merge;
 var subclass = require("../utils").subclass;
-var isPromise = require("../utils").isPromise;
 var UnrecognizedURLError = require("./../unrecognized-url-error")["default"];
 
 exports["default"] = subclass(TransitionIntent, {
@@ -19,7 +17,6 @@ exports["default"] = subclass(TransitionIntent, {
     var newState = new TransitionState();
 
     var results = recognizer.recognize(this.url),
-        queryParams = {},
         i, len;
 
     if (!results) {
@@ -33,7 +30,7 @@ exports["default"] = subclass(TransitionIntent, {
     // For the case where the handler is loaded asynchronously, the error will be
     // thrown once it is loaded.
     function checkHandlerAccessibility(handler) {
-      if (handler.inaccessibleByURL) {
+      if (handler && handler.inaccessibleByURL) {
         throw new UnrecognizedURLError(url);
       }
 
@@ -43,19 +40,18 @@ exports["default"] = subclass(TransitionIntent, {
     for (i = 0, len = results.length; i < len; ++i) {
       var result = results[i];
       var name = result.handler;
-      var handler = getHandler(name);
-
-      checkHandlerAccessibility(handler);
-
       var newHandlerInfo = handlerInfoFactory('param', {
         name: name,
-        handler: handler,
+        getHandler: getHandler,
         params: result.params
       });
+      var handler = newHandlerInfo.handler;
 
-      // If the hanlder is being loaded asynchronously, check again if we can
-      // access it after it has resolved
-      if (isPromise(handler)) {
+      if (handler) {
+        checkHandlerAccessibility(handler);
+      } else {
+        // If the hanlder is being loaded asynchronously, check if we can
+        // access it after it has resolved
         newHandlerInfo.handlerPromise = newHandlerInfo.handlerPromise.then(checkHandlerAccessibility);
       }
 

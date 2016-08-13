@@ -1,8 +1,6 @@
 "use strict";
 var HandlerInfo = require("../handler-info")["default"];
-var merge = require("router/utils").merge;
 var subclass = require("router/utils").subclass;
-var promiseLabel = require("router/utils").promiseLabel;
 var isParam = require("router/utils").isParam;
 var Promise = require("rsvp/promise")["default"];
 
@@ -29,8 +27,7 @@ var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
   serialize: function(_model) {
     var model = _model || this.context,
         names = this.names,
-        handler = this.handler,
-        serializer = this.serializer || (handler && handler.serialize);
+        serializer = this.serializer || (this.handler && this.handler.serialize);
 
     var object = {};
     if (isParam(model)) {

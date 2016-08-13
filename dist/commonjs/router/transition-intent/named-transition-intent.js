@@ -24,7 +24,6 @@ exports["default"] = subclass(TransitionIntent, {
 
     var partitionedArgs     = extractQueryParams([this.name].concat(this.contexts)),
       pureArgs              = partitionedArgs[0],
-      queryParams           = partitionedArgs[1],
       handlers              = recognizer.handlersFor(pureArgs[0]);
 
     var targetRouteName = handlers[handlers.length-1].handler;
@@ -50,29 +49,26 @@ exports["default"] = subclass(TransitionIntent, {
       }
     }
 
-    var pivotHandlerFound = !this.pivotHandler;
-
     for (i = handlers.length - 1; i >= 0; --i) {
       var result = handlers[i];
       var name = result.handler;
-      var handler = getHandler(name);
 
       var oldHandlerInfo = oldState.handlerInfos[i];
       var newHandlerInfo = null;
 
       if (result.names.length > 0) {
         if (i >= invalidateIndex) {
-          newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
+          newHandlerInfo = this.createParamHandlerInfo(name, getHandler, result.names, objects, oldHandlerInfo);
         } else {
           var serializer = getSerializer(name);
-          newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, handler, result.names, objects, oldHandlerInfo, targetRouteName, i, serializer);
+          newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, getHandler, result.names, objects, oldHandlerInfo, targetRouteName, i, serializer);
         }
       } else {
         // This route has no dynamic segment.
         // Therefore treat as a param-based handlerInfo
         // with empty params. This will cause the `model`
         // hook to be called with empty params, which is desirable.
-        newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
+        newHandlerInfo = this.createParamHandlerInfo(name, getHandler, result.names, objects, oldHandlerInfo);
       }
 
       if (checkingIfActive) {
@@ -119,20 +115,18 @@ exports["default"] = subclass(TransitionIntent, {
   invalidateChildren: function(handlerInfos, invalidateIndex) {
     for (var i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
       var handlerInfo = handlerInfos[i];
-      handlerInfos[i] = handlerInfos[i].getUnresolved();
+      handlerInfos[i] = handlerInfo.getUnresolved();
     }
   },
 
-  getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i, serializer) {
-
-    var numNames = names.length;
+  getHandlerInfoForDynamicSegment: function(name, getHandler, names, objects, oldHandlerInfo, targetRouteName, i, serializer) {
     var objectToUse;
     if (objects.length > 0) {
 
       // Use the objects provided for this transition.
       objectToUse = objects[objects.length - 1];
       if (isParam(objectToUse)) {
-        return this.createParamHandlerInfo(name, handler, names, objects, oldHandlerInfo);
+        return this.createParamHandlerInfo(name, getHandler, names, objects, oldHandlerInfo);
       } else {
         objects.pop();
       }
@@ -157,14 +151,14 @@ exports["default"] = subclass(TransitionIntent, {
 
     return handlerInfoFactory('object', {
       name: name,
-      handler: handler,
+      getHandler: getHandler,
       serializer: serializer,
       context: objectToUse,
       names: names
     });
   },
 
-  createParamHandlerInfo: function(name, handler, names, objects, oldHandlerInfo) {
+  createParamHandlerInfo: function(name, getHandler, names, objects, oldHandlerInfo) {
     var params = {};
 
     // Soak up all the provided string/numbers
@@ -192,7 +186,7 @@ exports["default"] = subclass(TransitionIntent, {
 
     return handlerInfoFactory('param', {
       name: name,
-      handler: handler,
+      getHandler: getHandler,
       params: params
     });
   }

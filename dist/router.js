@@ -58,27 +58,34 @@ define("router/handler-info",
     "use strict";
     var bind = __dependency1__.bind;
     var merge = __dependency1__.merge;
-    var serialize = __dependency1__.serialize;
     var promiseLabel = __dependency1__.promiseLabel;
     var applyHook = __dependency1__.applyHook;
     var isPromise = __dependency1__.isPromise;
     var Promise = __dependency2__["default"];
 
+    var DEFAULT_HANDLER = Object.freeze({});
+
     function HandlerInfo(_props) {
       var props = _props || {};
-      var name = props.name;
 
-      // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
-      this.handlerPromise = Promise.resolve(props.handler);
+      // Set a default handler to ensure consistent object shape
+      this._handler = DEFAULT_HANDLER;
 
-      // Wait until the 'handler' property has been updated when chaining to a handler
-      // that is a promise
-      if (isPromise(props.handler)) {
-        this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
-        props.handler = undefined;
-      } else if (props.handler) {
-        // Store the name of the handler on the handler for easy checks later
-        props.handler._handlerName = name;
+      if (props.handler) {
+        var name = props.name;
+
+        // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
+        this.handlerPromise = Promise.resolve(props.handler);
+
+        // Wait until the 'handler' property has been updated when chaining to a handler
+        // that is a promise
+        if (isPromise(props.handler)) {
+          this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
+          props.handler = undefined;
+        } else if (props.handler) {
+          // Store the name of the handler on the handler for easy checks later
+          props.handler._handlerName = name;
+        }
       }
 
       merge(this, props);
@@ -87,7 +94,58 @@ define("router/handler-info",
 
     HandlerInfo.prototype = {
       name: null,
-      handler: null,
+
+      getHandler: function() {},
+
+      fetchHandler: function() {
+        var handler = this.getHandler(this.name);
+
+        // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
+        this.handlerPromise = Promise.resolve(handler);
+
+        // Wait until the 'handler' property has been updated when chaining to a handler
+        // that is a promise
+        if (isPromise(handler)) {
+          this.handlerPromise = this.handlerPromise.then(bind(this, this.updateHandler));
+        } else if (handler) {
+          // Store the name of the handler on the handler for easy checks later
+          handler._handlerName = this.name;
+          return this.handler = handler;
+        }
+
+        return this.handler = undefined;
+      },
+
+      get handler() {
+        // _handler could be set to either a handler object or undefined, so we
+        // compare against a default reference to know when it's been set
+        if (this._handler !== DEFAULT_HANDLER) {
+          return this._handler;
+        }
+
+        return this.fetchHandler();
+      },
+
+      set handler(handler) {
+        return this._handler = handler;
+      },
+
+      _handlerPromise: undefined,
+
+      get handlerPromise() {
+        if (this._handlerPromise) {
+          return this._handlerPromise;
+        }
+
+        this.fetchHandler();
+
+        return this._handlerPromise;
+      },
+
+      set handlerPromise(handlerPromise) {
+        return this._handlerPromise = handlerPromise;
+      },
+
       params: null,
       context: null,
 
@@ -288,7 +346,6 @@ define("router/handler-info/resolved-handler-info",
     "use strict";
     var HandlerInfo = __dependency1__["default"];
     var subclass = __dependency2__.subclass;
-    var promiseLabel = __dependency2__.promiseLabel;
     var Promise = __dependency3__["default"];
 
     var ResolvedHandlerInfo = subclass(HandlerInfo, {
@@ -318,9 +375,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
-    var merge = __dependency2__.merge;
     var subclass = __dependency2__.subclass;
-    var promiseLabel = __dependency2__.promiseLabel;
     var isParam = __dependency2__.isParam;
     var Promise = __dependency3__["default"];
 
@@ -347,8 +402,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
       serialize: function(_model) {
         var model = _model || this.context,
             names = this.names,
-            handler = this.handler,
-            serializer = this.serializer || (handler && handler.serialize);
+            serializer = this.serializer || (this.handler && this.handler.serialize);
 
         var object = {};
         if (isParam(model)) {
@@ -384,7 +438,6 @@ define("router/handler-info/unresolved-handler-info-by-param",
     var resolveHook = __dependency2__.resolveHook;
     var merge = __dependency2__.merge;
     var subclass = __dependency2__.subclass;
-    var promiseLabel = __dependency2__.promiseLabel;
 
     // Generated by URL transitions and non-dynamic route segments in named Transitions.
     var UnresolvedHandlerInfoByParam = subclass (HandlerInfo, {
@@ -421,7 +474,6 @@ define("router/router",
     var slice = __dependency3__.slice;
     var forEach = __dependency3__.forEach;
     var merge = __dependency3__.merge;
-    var serialize = __dependency3__.serialize;
     var extractQueryParams = __dependency3__.extractQueryParams;
     var getChangelist = __dependency3__.getChangelist;
     var promiseLabel = __dependency3__.promiseLabel;
@@ -577,7 +629,7 @@ define("router/router",
       // NOTE: this doesn't really belong here, but here
       // it shall remain until our ES6 transpiler can
       // handle cyclical deps.
-      transitionByIntent: function(intent, isIntermediate) {
+      transitionByIntent: function(intent/*, isIntermediate*/) {
         try {
           return getTransitionByIntent.apply(this, arguments);
         } catch(e) {
@@ -654,11 +706,11 @@ define("router/router",
 
         @param {String} name the name of the route
       */
-      transitionTo: function(name) {
+      transitionTo: function(/*name*/) {
         return doTransition(this, arguments);
       },
 
-      intermediateTransitionTo: function(name) {
+      intermediateTransitionTo: function(/*name*/) {
         return doTransition(this, arguments, true);
       },
 
@@ -690,7 +742,7 @@ define("router/router",
 
         @param {String} name the name of the route
       */
-      replaceWith: function(name) {
+      replaceWith: function(/*name*/) {
         return doTransition(this, arguments).method('replace');
       },
 
@@ -739,7 +791,7 @@ define("router/router",
       isActiveIntent: function(handlerName, contexts, queryParams, _state) {
         var state = _state || this.state,
             targetHandlerInfos = state.handlerInfos,
-            found = false, names, object, handlerInfo, handlerObj, i, len;
+            handlerInfo, len;
 
         if (!targetHandlerInfos.length) { return false; }
 
@@ -793,7 +845,7 @@ define("router/router",
         return this.isActiveIntent(handlerName, partitionedArgs[0], partitionedArgs[1]);
       },
 
-      trigger: function(name) {
+      trigger: function(/*name*/) {
         var args = slice.call(arguments);
         trigger(this, this.currentHandlerInfos, false, args);
       },
@@ -1028,7 +1080,7 @@ define("router/router",
       return handlers;
     }
 
-    function updateURL(transition, state, inputUrl) {
+    function updateURL(transition, state/*, inputUrl*/) {
       var urlMethod = transition.urlMethod;
 
       if (!urlMethod) {
@@ -1072,8 +1124,7 @@ define("router/router",
         log(transition.router, transition.sequence, "Resolved all models on destination route; finalizing transition.");
 
         var router = transition.router,
-            handlerInfos = newState.handlerInfos,
-            seq = transition.sequence;
+            handlerInfos = newState.handlerInfos;
 
         // Run all the necessary enter/setup/exit hooks
         setupContexts(router, newState, transition);
@@ -1255,11 +1306,9 @@ define("router/router",
     __exports__["default"] = Router;
   });
 define("router/transition-intent",
-  ["./utils","exports"],
-  function(__dependency1__, __exports__) {
+  ["exports"],
+  function(__exports__) {
     "use strict";
-    var merge = __dependency1__.merge;
-
     function TransitionIntent(props) {
       this.initialize(props);
 
@@ -1303,7 +1352,6 @@ define("router/transition-intent/named-transition-intent",
 
         var partitionedArgs     = extractQueryParams([this.name].concat(this.contexts)),
           pureArgs              = partitionedArgs[0],
-          queryParams           = partitionedArgs[1],
           handlers              = recognizer.handlersFor(pureArgs[0]);
 
         var targetRouteName = handlers[handlers.length-1].handler;
@@ -1329,29 +1377,26 @@ define("router/transition-intent/named-transition-intent",
           }
         }
 
-        var pivotHandlerFound = !this.pivotHandler;
-
         for (i = handlers.length - 1; i >= 0; --i) {
           var result = handlers[i];
           var name = result.handler;
-          var handler = getHandler(name);
 
           var oldHandlerInfo = oldState.handlerInfos[i];
           var newHandlerInfo = null;
 
           if (result.names.length > 0) {
             if (i >= invalidateIndex) {
-              newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
+              newHandlerInfo = this.createParamHandlerInfo(name, getHandler, result.names, objects, oldHandlerInfo);
             } else {
               var serializer = getSerializer(name);
-              newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, handler, result.names, objects, oldHandlerInfo, targetRouteName, i, serializer);
+              newHandlerInfo = this.getHandlerInfoForDynamicSegment(name, getHandler, result.names, objects, oldHandlerInfo, targetRouteName, i, serializer);
             }
           } else {
             // This route has no dynamic segment.
             // Therefore treat as a param-based handlerInfo
             // with empty params. This will cause the `model`
             // hook to be called with empty params, which is desirable.
-            newHandlerInfo = this.createParamHandlerInfo(name, handler, result.names, objects, oldHandlerInfo);
+            newHandlerInfo = this.createParamHandlerInfo(name, getHandler, result.names, objects, oldHandlerInfo);
           }
 
           if (checkingIfActive) {
@@ -1398,20 +1443,18 @@ define("router/transition-intent/named-transition-intent",
       invalidateChildren: function(handlerInfos, invalidateIndex) {
         for (var i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
           var handlerInfo = handlerInfos[i];
-          handlerInfos[i] = handlerInfos[i].getUnresolved();
+          handlerInfos[i] = handlerInfo.getUnresolved();
         }
       },
 
-      getHandlerInfoForDynamicSegment: function(name, handler, names, objects, oldHandlerInfo, targetRouteName, i, serializer) {
-
-        var numNames = names.length;
+      getHandlerInfoForDynamicSegment: function(name, getHandler, names, objects, oldHandlerInfo, targetRouteName, i, serializer) {
         var objectToUse;
         if (objects.length > 0) {
 
           // Use the objects provided for this transition.
           objectToUse = objects[objects.length - 1];
           if (isParam(objectToUse)) {
-            return this.createParamHandlerInfo(name, handler, names, objects, oldHandlerInfo);
+            return this.createParamHandlerInfo(name, getHandler, names, objects, oldHandlerInfo);
           } else {
             objects.pop();
           }
@@ -1436,14 +1479,14 @@ define("router/transition-intent/named-transition-intent",
 
         return handlerInfoFactory('object', {
           name: name,
-          handler: handler,
+          getHandler: getHandler,
           serializer: serializer,
           context: objectToUse,
           names: names
         });
       },
 
-      createParamHandlerInfo: function(name, handler, names, objects, oldHandlerInfo) {
+      createParamHandlerInfo: function(name, getHandler, names, objects, oldHandlerInfo) {
         var params = {};
 
         // Soak up all the provided string/numbers
@@ -1471,7 +1514,7 @@ define("router/transition-intent/named-transition-intent",
 
         return handlerInfoFactory('param', {
           name: name,
-          handler: handler,
+          getHandler: getHandler,
           params: params
         });
       }
@@ -1484,10 +1527,8 @@ define("router/transition-intent/url-transition-intent",
     var TransitionIntent = __dependency1__["default"];
     var TransitionState = __dependency2__["default"];
     var handlerInfoFactory = __dependency3__["default"];
-    var oCreate = __dependency4__.oCreate;
     var merge = __dependency4__.merge;
     var subclass = __dependency4__.subclass;
-    var isPromise = __dependency4__.isPromise;
     var UnrecognizedURLError = __dependency5__["default"];
 
     __exports__["default"] = subclass(TransitionIntent, {
@@ -1501,7 +1542,6 @@ define("router/transition-intent/url-transition-intent",
         var newState = new TransitionState();
 
         var results = recognizer.recognize(this.url),
-            queryParams = {},
             i, len;
 
         if (!results) {
@@ -1515,7 +1555,7 @@ define("router/transition-intent/url-transition-intent",
         // For the case where the handler is loaded asynchronously, the error will be
         // thrown once it is loaded.
         function checkHandlerAccessibility(handler) {
-          if (handler.inaccessibleByURL) {
+          if (handler && handler.inaccessibleByURL) {
             throw new UnrecognizedURLError(url);
           }
 
@@ -1525,19 +1565,18 @@ define("router/transition-intent/url-transition-intent",
         for (i = 0, len = results.length; i < len; ++i) {
           var result = results[i];
           var name = result.handler;
-          var handler = getHandler(name);
-
-          checkHandlerAccessibility(handler);
-
           var newHandlerInfo = handlerInfoFactory('param', {
             name: name,
-            handler: handler,
+            getHandler: getHandler,
             params: result.params
           });
+          var handler = newHandlerInfo.handler;
 
-          // If the hanlder is being loaded asynchronously, check again if we can
-          // access it after it has resolved
-          if (isPromise(handler)) {
+          if (handler) {
+            checkHandlerAccessibility(handler);
+          } else {
+            // If the hanlder is being loaded asynchronously, check if we can
+            // access it after it has resolved
             newHandlerInfo.handlerPromise = newHandlerInfo.handlerPromise.then(checkHandlerAccessibility);
           }
 
@@ -1557,16 +1596,15 @@ define("router/transition-intent/url-transition-intent",
     });
   });
 define("router/transition-state",
-  ["./handler-info","./utils","rsvp/promise","exports"],
-  function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
+  ["./utils","rsvp/promise","exports"],
+  function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
-    var ResolvedHandlerInfo = __dependency1__.ResolvedHandlerInfo;
-    var forEach = __dependency2__.forEach;
-    var promiseLabel = __dependency2__.promiseLabel;
-    var callHook = __dependency2__.callHook;
-    var Promise = __dependency3__["default"];
+    var forEach = __dependency1__.forEach;
+    var promiseLabel = __dependency1__.promiseLabel;
+    var callHook = __dependency1__.callHook;
+    var Promise = __dependency2__["default"];
 
-    function TransitionState(other) {
+    function TransitionState() {
       this.handlerInfos = [];
       this.queryParams = {};
       this.params = {};
@@ -1668,15 +1706,14 @@ define("router/transition-state",
     __exports__["default"] = TransitionState;
   });
 define("router/transition",
-  ["rsvp/promise","./handler-info","./utils","exports"],
-  function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
+  ["rsvp/promise","./utils","exports"],
+  function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var Promise = __dependency1__["default"];
-    var ResolvedHandlerInfo = __dependency2__.ResolvedHandlerInfo;
-    var trigger = __dependency3__.trigger;
-    var slice = __dependency3__.slice;
-    var log = __dependency3__.log;
-    var promiseLabel = __dependency3__.promiseLabel;
+    var trigger = __dependency2__.trigger;
+    var slice = __dependency2__.slice;
+    var log = __dependency2__.log;
+    var promiseLabel = __dependency2__.promiseLabel;
 
     /**
       A Transition is a thennable (a promise-like object) that represents

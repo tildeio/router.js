@@ -6,7 +6,6 @@ var log = require("./utils").log;
 var slice = require("./utils").slice;
 var forEach = require("./utils").forEach;
 var merge = require("./utils").merge;
-var serialize = require("./utils").serialize;
 var extractQueryParams = require("./utils").extractQueryParams;
 var getChangelist = require("./utils").getChangelist;
 var promiseLabel = require("./utils").promiseLabel;
@@ -162,7 +161,7 @@ Router.prototype = {
   // NOTE: this doesn't really belong here, but here
   // it shall remain until our ES6 transpiler can
   // handle cyclical deps.
-  transitionByIntent: function(intent, isIntermediate) {
+  transitionByIntent: function(intent/*, isIntermediate*/) {
     try {
       return getTransitionByIntent.apply(this, arguments);
     } catch(e) {
@@ -239,11 +238,11 @@ Router.prototype = {
 
     @param {String} name the name of the route
   */
-  transitionTo: function(name) {
+  transitionTo: function(/*name*/) {
     return doTransition(this, arguments);
   },
 
-  intermediateTransitionTo: function(name) {
+  intermediateTransitionTo: function(/*name*/) {
     return doTransition(this, arguments, true);
   },
 
@@ -275,7 +274,7 @@ Router.prototype = {
 
     @param {String} name the name of the route
   */
-  replaceWith: function(name) {
+  replaceWith: function(/*name*/) {
     return doTransition(this, arguments).method('replace');
   },
 
@@ -324,7 +323,7 @@ Router.prototype = {
   isActiveIntent: function(handlerName, contexts, queryParams, _state) {
     var state = _state || this.state,
         targetHandlerInfos = state.handlerInfos,
-        found = false, names, object, handlerInfo, handlerObj, i, len;
+        handlerInfo, len;
 
     if (!targetHandlerInfos.length) { return false; }
 
@@ -378,7 +377,7 @@ Router.prototype = {
     return this.isActiveIntent(handlerName, partitionedArgs[0], partitionedArgs[1]);
   },
 
-  trigger: function(name) {
+  trigger: function(/*name*/) {
     var args = slice.call(arguments);
     trigger(this, this.currentHandlerInfos, false, args);
   },
@@ -613,7 +612,7 @@ function partitionHandlers(oldState, newState) {
   return handlers;
 }
 
-function updateURL(transition, state, inputUrl) {
+function updateURL(transition, state/*, inputUrl*/) {
   var urlMethod = transition.urlMethod;
 
   if (!urlMethod) {
@@ -657,8 +656,7 @@ function finalizeTransition(transition, newState) {
     log(transition.router, transition.sequence, "Resolved all models on destination route; finalizing transition.");
 
     var router = transition.router,
-        handlerInfos = newState.handlerInfos,
-        seq = transition.sequence;
+        handlerInfos = newState.handlerInfos;
 
     // Run all the necessary enter/setup/exit hooks
     setupContexts(router, newState, transition);
