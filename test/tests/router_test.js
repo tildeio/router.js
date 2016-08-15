@@ -660,6 +660,98 @@ test("Moving to a new top-level route triggers exit callbacks", function(assert)
   }, shouldNotHappen(assert));
 });
 
+test("Transition#isExiting is correct when moving between sibling routes", function(assert) {
+  assert.expect(9);
+
+  var index = {
+    setup: function(_, transition) {
+      assert.ok(!transition.isExiting(index), "setup index (handler)");
+      assert.ok(!transition.isExiting("index"), "setup index (string)");
+    },
+    exit: function(transition) {
+      assert.ok(transition.isExiting(index), "exit index (handler)");
+      assert.ok(transition.isExiting("index"), "exit index (string)");
+    }
+  };
+  var about = {
+    setup: function(_, transition) {
+      assert.ok(transition.isExiting(index), "setup about exits index (handler)");
+      assert.ok(transition.isExiting("index"), "setup about exits index (string)");
+
+      assert.ok(!transition.isExiting(about), "setup about (handler)");
+      assert.ok(!transition.isExiting("about"), "setup about (string)");
+    },
+    exit: function() {
+      assert.ok(false, 'Should not exit "about"');
+    }
+  };
+  handlers = {
+    index: index,
+    about: about
+  };
+
+  router.handleURL("/index").then(function() {
+    return router.transitionTo('about');
+  }, shouldNotHappen(assert)).then(function() {
+    assert.ok(true, 'handles both transitions');
+  }, shouldNotHappen(assert));
+});
+
+test("Transition#isExiting is correct when moving between nested routes", function(assert) {
+  assert.expect(15);
+
+  var postIndex = {
+    setup: function(_, transition) {
+      assert.ok(!transition.isExiting(postIndex), "setup postIndex (handler)");
+      assert.ok(!transition.isExiting("postIndex"), "setup postIndex (string)");
+    },
+    exit: function() {
+      assert.ok(false, 'Should not exit "postIndex"');
+    }
+  };
+  var showAllPosts = {
+    setup: function(_, transition) {
+      assert.ok(!transition.isExiting(postIndex), "setup showAllPosts does not exit postIndex (handler)");
+      assert.ok(!transition.isExiting("postIndex"), "setup showAllPosts does not exit postIndex (string)");
+
+      assert.ok(!transition.isExiting(showAllPosts), "setup showAllPosts (handler)");
+      assert.ok(!transition.isExiting("showAllPosts"), "setup showAllPosts (string)");
+    },
+    exit: function(transition) {
+      assert.ok(transition.isExiting(showAllPosts), "exit showAllPosts (handler)");
+      assert.ok(transition.isExiting("showAllPosts"), "exit showAllPosts (string)");
+
+      assert.ok(!transition.isExiting(postIndex), "exit showAllPosts does not exit postIndex (handler)");
+      assert.ok(!transition.isExiting("postIndex"), "exit showAllPosts does not exit postIndex (string)");
+    }
+  };
+  var showPopularPosts = {
+    setup: function(_, transition) {
+      assert.ok(transition.isExiting(showAllPosts), "setup showPopularPosts exits showAllPosts (handler)");
+      assert.ok(transition.isExiting("showAllPosts"), "setup showPopularPosts exits showAllPosts (string)");
+
+      assert.ok(!transition.isExiting(showPopularPosts), "setup showPopularPosts (handler)");
+      assert.ok(!transition.isExiting("showPopularPosts"), "setup showPopularPosts (string)");
+    },
+    exit: function() {
+      assert.ok(false, 'Should not exit "showPopularPosts"');
+    }
+  };
+  handlers = {
+    postIndex: postIndex,
+    showAllPosts: showAllPosts,
+    showPopularPosts: showPopularPosts
+  };
+
+  router.handleURL("/posts").then(function() {
+    return router.transitionTo('showAllPosts');
+  }, shouldNotHappen(assert)).then(function() {
+    return router.transitionTo('showPopularPosts');
+  }, shouldNotHappen(assert)).then(function() {
+    assert.ok(true, 'handles all routes');
+  }, shouldNotHappen(assert));
+});
+
 test("pivotHandler is exposed on Transition object", function(assert) {
   assert.expect(3);
 
@@ -3335,5 +3427,6 @@ test("synchronous transition errors can be detected synchronously", function(ass
 
   assert.equal(transitionTo(router, '/').error.message, "boom!");
 });
+
 
 });
