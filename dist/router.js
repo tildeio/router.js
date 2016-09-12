@@ -118,20 +118,6 @@ define("router/handler-info",
 
       _handlerPromise: undefined,
 
-      get handlerPromise() {
-        if (this._handlerPromise) {
-          return this._handlerPromise;
-        }
-
-        this.fetchHandler();
-
-        return this._handlerPromise;
-      },
-
-      set handlerPromise(handlerPromise) {
-        return this._handlerPromise = handlerPromise;
-      },
-
       params: null,
       context: null,
 
@@ -295,6 +281,21 @@ define("router/handler-info",
       }
     });
 
+    Object.defineProperty(HandlerInfo.prototype, 'handlerPromise', {
+      get: function() {
+        if (this._handlerPromise) {
+          return this._handlerPromise;
+        }
+
+        this.fetchHandler();
+
+        return this._handlerPromise;
+      },
+
+      set: function(handlerPromise) {
+        return this._handlerPromise = handlerPromise;
+      }
+    });
 
     function paramsMatch(a, b) {
       if ((!a) ^ (!b)) {
@@ -1748,8 +1749,8 @@ define("router/transition",
       this.targetName = undefined;
       this.pivotHandler = undefined;
       this.sequence = undefined;
-      this.isAborted = undefined;
-      this.isActive = undefined;
+      this.isAborted = false;
+      this.isActive = true;
 
       if (error) {
         this.promise = Promise.reject(error);
@@ -1806,7 +1807,6 @@ define("router/transition",
       pivotHandler: null,
       resolveIndex: 0,
       resolvedModels: null,
-      isActive: true,
       state: null,
       queryParamsOnly: false,
 

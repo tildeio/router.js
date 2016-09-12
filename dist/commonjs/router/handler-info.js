@@ -61,20 +61,6 @@ HandlerInfo.prototype = {
 
   _handlerPromise: undefined,
 
-  get handlerPromise() {
-    if (this._handlerPromise) {
-      return this._handlerPromise;
-    }
-
-    this.fetchHandler();
-
-    return this._handlerPromise;
-  },
-
-  set handlerPromise(handlerPromise) {
-    return this._handlerPromise = handlerPromise;
-  },
-
   params: null,
   context: null,
 
@@ -238,6 +224,21 @@ Object.defineProperty(HandlerInfo.prototype, 'handler', {
   }
 });
 
+Object.defineProperty(HandlerInfo.prototype, 'handlerPromise', {
+  get: function() {
+    if (this._handlerPromise) {
+      return this._handlerPromise;
+    }
+
+    this.fetchHandler();
+
+    return this._handlerPromise;
+  },
+
+  set: function(handlerPromise) {
+    return this._handlerPromise = handlerPromise;
+  }
+});
 
 function paramsMatch(a, b) {
   if ((!a) ^ (!b)) {
