@@ -2800,6 +2800,42 @@ test("A successful transition calls the finally callback", function(assert) {
   });
 });
 
+test("transition sets isActive by default", function(assert) {
+  assert.expect(2);
+
+  map(assert, function(match) {
+    match("/").to("application", function(match) {
+      match("/example").to("exampleRoute");
+    });
+  });
+
+
+  var transition = router.handleURL("/example");
+
+  assert.equal(transition.isActive, true);
+  assert.equal(transition.isAborted, false);
+});
+
+test("transition sets isActive to false when aborted", function(assert) {
+  assert.expect(4);
+
+  map(assert, function(match) {
+    match("/").to("application", function(match) {
+      match("/example").to("exampleRoute");
+    });
+  });
+
+  var transition = router.handleURL("/example");
+
+  assert.equal(transition.isActive, true, 'precond');
+  assert.equal(transition.isAborted, false, 'precond');
+
+  transition.abort();
+
+  assert.equal(transition.isActive, false, 'isActive should be false after abort');
+  assert.equal(transition.isAborted, true, 'isAborted is set to true after abort');
+});
+
 if (scenario.async) {
   test('getHandler is invoked synchronously when returning Promises', function(assert) {
     assert.expect(2);
