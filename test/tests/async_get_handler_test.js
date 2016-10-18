@@ -18,15 +18,6 @@ QUnit.module('Async Get Handler', {
       });
     });
 
-    var testEnvironment = this;
-    this.router.getHandler = function(name) {
-      return new Promise(function(resolve) {
-        setTimeout(function() {
-          var handlers = testEnvironment.handlers;
-          resolve(handlers[name] || (handlers[name] = {}));
-        }, 1);
-      });
-    };
     this.router.updateURL = function() {};
   },
 
@@ -36,6 +27,16 @@ QUnit.module('Async Get Handler', {
 });
 
 QUnit.asyncTest('can transition to lazily-resolved routes', function(assert) {
+  var testEnvironment = this;
+  this.router.getHandler = function(name) {
+    return new Promise(function(resolve) {
+      setTimeout(function() {
+        var handlers = testEnvironment.handlers;
+        resolve(handlers[name] || (handlers[name] = {}));
+      }, 1);
+    });
+  };
+
   var fooCalled = false;
   var fooBarCalled = false;
 
@@ -54,4 +55,41 @@ QUnit.asyncTest('can transition to lazily-resolved routes', function(assert) {
 
   assert.ok(!fooCalled, 'foo is not called synchronously');
   assert.ok(!fooBarCalled, 'fooBar is not called synchronously');
+});
+
+QUnit.asyncTest('calls hooks of lazily-resolved routes in order', function(assert) {
+  var operations = [];
+
+  var testEnvironment = this;
+  this.router.getHandler = function(name) {
+    operations.push('get handler ' + name);
+    return new Promise(function(resolve) {
+      var timeoutLength = name === 'foo' ? 100 : 1;
+      setTimeout(function() {
+        var handlers = testEnvironment.handlers;
+        operations.push('resolved ' + name);
+        resolve(handlers[name] || (handlers[name] = {}));
+      }, timeoutLength);
+    });
+  };
+
+
+  this.handlers.foo = {
+    model: function() { operations.push('model foo'); }
+  };
+  this.handlers.fooBar = {
+    model: function() { operations.push('model fooBar'); }
+  };
+
+  this.router.transitionTo('/foo/bar').then(function() {
+    assert.deepEqual(operations, [
+      'get handler foo',
+      'get handler fooBar',
+      'resolved fooBar',
+      'resolved foo',
+      'model foo',
+      'model fooBar'
+    ], 'order of operations is correct');
+    QUnit.start();
+  });
 });
