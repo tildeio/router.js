@@ -157,6 +157,61 @@ test("transitioning between routes fires a queryParamsDidChange event", function
 
 });
 
+
+test("Refreshing the route when changing only query params should correctly set queryParamsOnly", function(assert) {
+  assert.expect(10);
+
+  var initialTransition = true;
+
+  handlers.index = {
+    events: {
+      finalizeQueryParamChange: function(params, finalParams, transition) {
+        if (initialTransition) {
+          assert.notOk(transition.queryParamsOnly, 'should not be query params only transition');
+          initialTransition = false;
+        } else {
+          assert.ok(transition.queryParamsOnly, 'should be query params only transition');
+        }
+      },
+
+      queryParamsDidChange: function() {
+        router.refresh();
+      }
+    }
+  };
+
+  handlers.child = {
+    events: {
+      finalizeQueryParamChange: function(params, finalParams, transition) {
+        assert.notOk(transition.queryParamsOnly, 'should be normal transition');
+        return true;
+      },
+    }
+  };
+
+  var transition = transitionTo(router, '/index');
+  assert.notOk(transition.queryParamsOnly, "Initial transition is not query params only transition");
+
+  transition = transitionTo(router, '/index?foo=123');
+
+  assert.ok(transition.queryParamsOnly, "Second transition with updateURL intent is query params only");
+
+  transition = router.replaceWith('/index?foo=456');
+  flushBackburner();
+
+  assert.ok(transition.queryParamsOnly, "Third transition with replaceURL intent is query params only");
+
+
+  transition = transitionTo(router, '/parent/child?foo=789');
+  assert.notOk(transition.queryParamsOnly, "Fourth transition with transtionTo intent is not query params only");
+
+  transition = transitionTo(router, '/parent/child?foo=901');
+  assert.ok(transition.queryParamsOnly, "Firth transition with transtionTo intent is query params only");
+
+  transition = transitionTo(router, '/index?foo=123');
+  assert.notOk(transition.queryParamsOnly, "Firth transition with transtionTo intent is not query params only");
+});
+
 test("a handler can opt into a full-on transition by calling refresh", function(assert) {
   assert.expect(3);
 
