@@ -3327,6 +3327,660 @@ test("intermediateTransitionTo() forces an immediate intermediate transition tha
   counterAt(7, "original transition promise resolves");
 });
 
+
+test("Calling transitionTo during initial transition in validation hook should use replaceURL", function(assert) {
+  assert.expect(4);
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+  });
+
+  var fooModelCount = 0, barModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(false, "The url was not correctly replaced on initial transition");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(true, "The url was replaced correctly on initial transition");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.transitionTo('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler
+  };
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/bar');
+  assert.equal(fooModelCount, 1);
+  assert.equal(barModelCount, 1);
+});
+
+test("Calling transitionTo during initial transition in validation hook with multiple redirects should use replaceURL", function(assert) {
+  assert.expect(5);
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+    match("/baz").to('baz');
+  });
+
+  var fooModelCount = 0, barModelCount = 0, bazModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(false, "The url was not correctly replaced on initial transition");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(true, "The url was replaced correctly on initial transition");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.transitionTo('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+      router.transitionTo('/baz');
+    }
+  };
+
+  var bazHandler = {
+    model: function() {
+      bazModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler,
+    baz: bazHandler
+  };
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/baz');
+  assert.equal(fooModelCount, 1);
+  assert.equal(barModelCount, 1);
+  assert.equal(bazModelCount, 1);
+});
+
+test("Calling transitionTo after initial transition in validation hook should use updateUrl", function(assert) {
+  assert.expect(8);
+
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+  });
+
+  var fooModelCount = 0, barModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(true, "updateURL should be used");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(false, "replaceURL should not be used");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.transitionTo('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler
+  };
+
+  transitionTo(router, '/bar');
+
+  assert.equal(url, '/bar');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+  assert.equal(fooModelCount, 0, 'Foo model should not be called');
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/bar');
+  assert.equal(barModelCount, 2, 'Bar model should be called twice');
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+});
+
+test("Calling transitionTo after initial transition in validation hook with multiple redirects should use updateUrl", function(assert) {
+  assert.expect(10);
+
+  map(assert, function(match) {
+    match('/foo').to('foo');
+    match('/bar').to('bar');
+    match('/baz').to('baz');
+  });
+
+  var fooModelCount = 0, barModelCount = 0, bazModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(true, "updateURL should be used");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(false, "replaceURL should not be used");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.transitionTo('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+      router.transitionTo('/baz');
+    }
+  };
+
+  var bazHandler = {
+    model: function() {
+      bazModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler,
+    baz: bazHandler
+  };
+
+  transitionTo(router, '/baz');
+
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 1, 'Baz model should be called once');
+  assert.equal(fooModelCount, 0, 'Foo model should not be called');
+  assert.equal(barModelCount, 0, 'Bar model should not be called');
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 2, 'Baz model should be called twice');
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+});
+
+
+test("Calling replaceWith during initial transition in validation hook should use replaceURL", function(assert) {
+  assert.expect(4);
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+  });
+
+  var fooModelCount = 0, barModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(false, "The url was not correctly replaced on initial transition");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(true, "The url was replaced correctly on initial transition");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.replaceWith('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler
+  };
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/bar');
+  assert.equal(fooModelCount, 1);
+  assert.equal(barModelCount, 1);
+});
+
+test("Calling replaceWith during initial transition in validation hook with multiple redirects should use replaceURL", function(assert) {
+  assert.expect(5);
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+    match("/baz").to('baz');
+  });
+
+  var fooModelCount = 0, barModelCount = 0, bazModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(false, "The url was not correctly replaced on initial transition");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(true, "The url was replaced correctly on initial transition");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.replaceWith('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+      router.replaceWith('/baz');
+    }
+  };
+
+  var bazHandler = {
+    model: function() {
+      bazModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler,
+    baz: bazHandler
+  };
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/baz');
+  assert.equal(fooModelCount, 1, 'should call foo model once');
+  assert.equal(barModelCount, 1, 'should call bar model once');
+  assert.equal(bazModelCount, 1, 'should call baz model once');
+});
+
+
+test("Calling replaceWith after initial transition in validation hook should use updateUrl", function(assert) {
+  assert.expect(8);
+
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+  });
+
+  var fooModelCount = 0, barModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(true, "updateURL should be used");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(false, "replaceURL should not be used");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.replaceWith('/bar');
+    }
+  };
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler
+  };
+
+  transitionTo(router, '/bar');
+
+  assert.equal(url, '/bar');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+  assert.equal(fooModelCount, 0, 'Foo model should not be called');
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/bar');
+  assert.equal(barModelCount, 2, 'Bar model should be called twice');
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+});
+
+test("Calling replaceWith after initial transition in validation hook with multiple redirects should use updateUrl", function(assert) {
+  assert.expect(10);
+
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+    match("/baz").to('baz');
+  });
+
+  var fooModelCount = 0, barModelCount = 0, bazModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(true, "updateURL should be used");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(false, "replaceURL should not be used");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.replaceWith('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+      router.replaceWith('/baz');
+    }
+  };
+
+  var bazHandler = {
+    model: function() {
+      bazModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler,
+    baz: bazHandler
+  };
+
+  transitionTo(router, '/baz');
+
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 1, 'Bar model should be called once');
+  assert.equal(fooModelCount, 0, 'Foo model should not be called');
+  assert.equal(barModelCount, 0, 'Baz model should not be called');
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 2, 'Baz model should be called twice');
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+});
+
+
+test("Mixing multiple types of redirect during initial transition should work", function(assert) {
+  assert.expect(10);
+
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+    match("/baz").to('baz');
+  });
+
+  var fooModelCount = 0, barModelCount = 0, bazModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(true, "updateURL should be used");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(false, "replaceURL should not be used");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.replaceWith('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+      router.transitionTo('/baz');
+    }
+  };
+
+  var bazHandler = {
+    model: function() {
+      bazModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler,
+    baz: bazHandler
+  };
+
+  transitionTo(router, '/baz');
+
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 1, 'Bar model should be called once');
+  assert.equal(fooModelCount, 0, 'Foo model should not be called');
+  assert.equal(barModelCount, 0, 'Baz model should not be called');
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 2, 'Baz model should be called twice');
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+});
+
+test("Mixing multiple types of redirects after initial transition should work", function(assert) {
+  assert.expect(12);
+
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+    match("/baz").to('baz');
+  });
+
+  var fooModelCount = 0, barModelCount = 0, bazModelCount = 0, updateUrlCount = 0, replaceUrlCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    updateUrlCount++;
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    replaceUrlCount++;
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+      router.replaceWith('/bar');
+    }
+  };
+
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+      router.transitionTo('/baz');
+    }
+  };
+
+  var bazHandler = {
+    model: function() {
+      bazModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler,
+    baz: bazHandler
+  };
+
+  transitionTo(router, '/baz');
+  // actually replaceURL probably makes more sense here, but it's an initial
+  // transition to a route that the page loaded on, so it's a no-op and doesn't
+  // cause a problem
+  assert.equal(replaceUrlCount, 0, 'replaceURL should not be used');
+  assert.equal(updateUrlCount, 1, 'updateURL should be used for initial transition');
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 1, 'Baz model should be called once');
+  assert.equal(fooModelCount, 0, 'Foo model should not be called');
+  assert.equal(barModelCount, 0, 'Bar model should not be called');
+
+  transitionTo(router, '/foo');
+
+  assert.equal(replaceUrlCount, 0, 'replaceURL should not be used');
+  assert.equal(updateUrlCount, 2, 'updateURL should be used for subsequent transition');
+  assert.equal(url, '/baz');
+  assert.equal(bazModelCount, 2, 'Baz model should be called twice');
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+});
+
+
+test("Calling replaceWith after initial transition outside validation hook should use replaceURL", function(assert) {
+  assert.expect(7);
+
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+  });
+
+  var fooModelCount = 0, barModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.equal(updateUrl, '/foo', "incorrect url for updateURL");
+  };
+
+  router.replaceURL = function(replaceUrl) {
+    url = replaceUrl;
+    assert.equal(replaceUrl, '/bar', "incorrect url for replaceURL");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+    }
+  };
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler
+  };
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/foo', "failed initial transition");
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 0, 'Bar model should not be called');
+
+  router.replaceWith('/bar');
+  flushBackburner();
+
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+});
+
+test("Calling transitionTo after initial transition outside validation hook should use updateUrl", function(assert) {
+  assert.expect(7);
+
+  map(assert, function(match) {
+    match("/foo").to('foo');
+    match("/bar").to('bar');
+  });
+
+  var fooModelCount = 0, barModelCount = 0;
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(true, "updateURL is used");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(false, "replaceURL should not be used");
+  };
+
+  var fooHandler = {
+    model: function() {
+      fooModelCount++;
+    }
+  };
+  var barHandler = {
+    model: function() {
+      barModelCount++;
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+    bar: barHandler
+  };
+
+  transitionTo(router, '/foo');
+
+  assert.equal(url, '/foo', "failed initial transition");
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 0, 'Bar model should not be called');
+
+  transitionTo(router, '/bar');
+
+  assert.equal(fooModelCount, 1, 'Foo model should be called once');
+  assert.equal(barModelCount, 1, 'Bar model should be called once');
+});
+
+
 test("transitioning to the same route with different context should not reenter the route", function(assert) {
   map(assert, function(match) {
     match("/project/:project_id").to('project');
