@@ -1,5 +1,5 @@
 "use strict";
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 var trigger = require("./utils").trigger;
 var slice = require("./utils").slice;
 var log = require("./utils").log;
@@ -20,7 +20,7 @@ var promiseLabel = require("./utils").promiseLabel;
   @param {Object} error
   @private
  */
-function Transition(router, intent, state, error) {
+function Transition(router, intent, state, error, previousTransition) {
   var transition = this;
   this.state = state || router.state;
   this.intent = intent;
@@ -44,6 +44,18 @@ function Transition(router, intent, state, error) {
     return;
   }
 
+  // if you're doing multiple redirects, need the new transition to know if it
+  // is actually part of the first transition or not. Any further redirects
+  // in the initial transition also need to know if they are part of the
+  // initial transition
+  this.isCausedByAbortingTransition = !!previousTransition;
+  this.isCausedByInitialTransition = (
+    previousTransition && (
+      previousTransition.isCausedByInitialTransition ||
+      previousTransition.sequence === 0
+    )
+  );
+
   if (state) {
     this.params = state.params;
     this.queryParams = state.queryParams;
@@ -62,16 +74,9 @@ function Transition(router, intent, state, error) {
       this.pivotHandler = handlerInfo.handler;
     }
 
-    this.sequence = Transition.currentSequence++;
-    this.promise = state.resolve(checkForAbort, this)['catch'](function(result) {
-      if (result.wasAborted || transition.isAborted) {
-        return Promise.reject(logAbort(transition));
-      } else {
-        transition.trigger('error', result.error, transition, result.handlerWithError);
-        transition.abort();
-        return Promise.reject(result.error);
-      }
-    }, promiseLabel('Handle Abort'));
+    this.sequence = router.currentSequence++;
+    this.promise = state.resolve(checkForAbort, this)['catch'](
+      catchHandlerForTransition(transition), promiseLabel('Handle Abort'));
   } else {
     this.promise = Promise.resolve(this.state);
     this.params = {};
@@ -84,7 +89,18 @@ function Transition(router, intent, state, error) {
   }
 }
 
-Transition.currentSequence = 0;
+function catchHandlerForTransition(transition) {
+  return function(result) {
+    if (result.wasAborted || transition.isAborted) {
+      return Promise.reject(logAbort(transition));
+    } else {
+      transition.trigger('error', result.error, transition, result.handlerWithError);
+      transition.abort();
+      return Promise.reject(result.error);
+    }
+  };
+}
+
 
 Transition.prototype = {
   targetName: null,

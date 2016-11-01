@@ -1,5 +1,5 @@
 define("router/handler-info",
-  ["./utils","rsvp/promise","exports"],
+  ["./utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var bind = __dependency1__.bind;
@@ -7,7 +7,7 @@ define("router/handler-info",
     var promiseLabel = __dependency1__.promiseLabel;
     var applyHook = __dependency1__.applyHook;
     var isPromise = __dependency1__.isPromise;
-    var Promise = __dependency2__["default"];
+    var Promise = __dependency2__.Promise;
 
     var DEFAULT_HANDLER = Object.freeze({});
 
@@ -268,7 +268,7 @@ define("router/handler-info",
     __exports__["default"] = HandlerInfo;
   });
 define("router/handler-info/factory",
-  ["router/handler-info/resolved-handler-info","router/handler-info/unresolved-handler-info-by-object","router/handler-info/unresolved-handler-info-by-param","exports"],
+  ["./resolved-handler-info","./unresolved-handler-info-by-object","./unresolved-handler-info-by-param","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var ResolvedHandlerInfo = __dependency1__["default"];
@@ -291,12 +291,12 @@ define("router/handler-info/factory",
     __exports__["default"] = handlerInfoFactory;
   });
 define("router/handler-info/resolved-handler-info",
-  ["../handler-info","router/utils","rsvp/promise","exports"],
+  ["../handler-info","../utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
     var subclass = __dependency2__.subclass;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     var ResolvedHandlerInfo = subclass(HandlerInfo, {
       resolve: function(shouldContinue, payload) {
@@ -321,13 +321,13 @@ define("router/handler-info/resolved-handler-info",
     __exports__["default"] = ResolvedHandlerInfo;
   });
 define("router/handler-info/unresolved-handler-info-by-object",
-  ["../handler-info","router/utils","rsvp/promise","exports"],
+  ["../handler-info","../utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
     var subclass = __dependency2__.subclass;
     var isParam = __dependency2__.isParam;
-    var Promise = __dependency3__["default"];
+    var Promise = __dependency3__.Promise;
 
     var UnresolvedHandlerInfoByObject = subclass(HandlerInfo, {
       getModel: function(payload) {
@@ -381,7 +381,7 @@ define("router/handler-info/unresolved-handler-info-by-object",
     __exports__["default"] = UnresolvedHandlerInfoByObject;
   });
 define("router/handler-info/unresolved-handler-info-by-param",
-  ["../handler-info","router/utils","exports"],
+  ["../handler-info","../utils","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var HandlerInfo = __dependency1__["default"];
@@ -414,11 +414,11 @@ define("router/handler-info/unresolved-handler-info-by-param",
     __exports__["default"] = UnresolvedHandlerInfoByParam;
   });
 define("router/router",
-  ["route-recognizer","rsvp/promise","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","exports"],
+  ["route-recognizer","rsvp","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __exports__) {
     "use strict";
     var RouteRecognizer = __dependency1__["default"];
-    var Promise = __dependency2__["default"];
+    var Promise = __dependency2__.Promise;
     var trigger = __dependency3__.trigger;
     var log = __dependency3__.log;
     var slice = __dependency3__.slice;
@@ -455,6 +455,7 @@ define("router/router",
       this.oldState = undefined;
       this.currentHandlerInfos = undefined;
       this.state = undefined;
+      this.currentSequence = 0;
 
       this.recognizer = new RouteRecognizer();
       this.reset();
@@ -488,7 +489,7 @@ define("router/router",
       }
 
       // Create a new transition to the destination route.
-      newTransition = new Transition(this, intent, newState);
+      newTransition = new Transition(this, intent, newState, undefined, this.activeTransition);
 
       // Abort and usurp any previously active transition.
       if (this.activeTransition) {
@@ -1054,7 +1055,27 @@ define("router/router",
         params.queryParams = transition._visibleQueryParams || state.queryParams;
         var url = router.recognizer.generate(handlerName, params);
 
-        if (urlMethod === 'replace') {
+        // transitions during the initial transition must always use replaceURL.
+        // When the app boots, you are at a url, e.g. /foo. If some handler
+        // redirects to bar as part of the initial transition, you don't want to
+        // add a history entry for /foo. If you do, pressing back will immediately
+        // hit the redirect again and take you back to /bar, thus killing the back
+        // button
+        var initial = transition.isCausedByInitialTransition;
+
+        // say you are at / and you click a link to route /foo. In /foo's
+        // handler, the transition is aborted using replacewith('/bar').
+        // Because the current url is still /, the history entry for / is
+        // removed from the history. Clicking back will take you to the page
+        // you were on before /, which is often not even the app, thus killing
+        // the back button. That's why updateURL is always correct for an
+        // aborting transition that's not the initial transition
+        var replaceAndNotAborting = (
+          urlMethod === 'replace' &&
+          !transition.isCausedByAbortingTransition
+        );
+
+        if (initial || replaceAndNotAborting) {
           router.replaceURL(url);
         } else {
           router.updateURL(url);
@@ -1471,7 +1492,7 @@ define("router/transition-intent/named-transition-intent",
     });
   });
 define("router/transition-intent/url-transition-intent",
-  ["../transition-intent","../transition-state","../handler-info/factory","../utils","./../unrecognized-url-error","exports"],
+  ["../transition-intent","../transition-state","../handler-info/factory","../utils","../unrecognized-url-error","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __exports__) {
     "use strict";
     var TransitionIntent = __dependency1__["default"];
@@ -1546,13 +1567,13 @@ define("router/transition-intent/url-transition-intent",
     });
   });
 define("router/transition-state",
-  ["./utils","rsvp/promise","exports"],
+  ["./utils","rsvp","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var forEach = __dependency1__.forEach;
     var promiseLabel = __dependency1__.promiseLabel;
     var callHook = __dependency1__.callHook;
-    var Promise = __dependency2__["default"];
+    var Promise = __dependency2__.Promise;
 
     function TransitionState() {
       this.handlerInfos = [];
@@ -1656,10 +1677,10 @@ define("router/transition-state",
     __exports__["default"] = TransitionState;
   });
 define("router/transition",
-  ["rsvp/promise","./utils","exports"],
+  ["rsvp","./utils","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
-    var Promise = __dependency1__["default"];
+    var Promise = __dependency1__.Promise;
     var trigger = __dependency2__.trigger;
     var slice = __dependency2__.slice;
     var log = __dependency2__.log;
@@ -1680,7 +1701,7 @@ define("router/transition",
       @param {Object} error
       @private
      */
-    function Transition(router, intent, state, error) {
+    function Transition(router, intent, state, error, previousTransition) {
       var transition = this;
       this.state = state || router.state;
       this.intent = intent;
@@ -1704,6 +1725,18 @@ define("router/transition",
         return;
       }
 
+      // if you're doing multiple redirects, need the new transition to know if it
+      // is actually part of the first transition or not. Any further redirects
+      // in the initial transition also need to know if they are part of the
+      // initial transition
+      this.isCausedByAbortingTransition = !!previousTransition;
+      this.isCausedByInitialTransition = (
+        previousTransition && (
+          previousTransition.isCausedByInitialTransition ||
+          previousTransition.sequence === 0
+        )
+      );
+
       if (state) {
         this.params = state.params;
         this.queryParams = state.queryParams;
@@ -1722,16 +1755,9 @@ define("router/transition",
           this.pivotHandler = handlerInfo.handler;
         }
 
-        this.sequence = Transition.currentSequence++;
-        this.promise = state.resolve(checkForAbort, this)['catch'](function(result) {
-          if (result.wasAborted || transition.isAborted) {
-            return Promise.reject(logAbort(transition));
-          } else {
-            transition.trigger('error', result.error, transition, result.handlerWithError);
-            transition.abort();
-            return Promise.reject(result.error);
-          }
-        }, promiseLabel('Handle Abort'));
+        this.sequence = router.currentSequence++;
+        this.promise = state.resolve(checkForAbort, this)['catch'](
+          catchHandlerForTransition(transition), promiseLabel('Handle Abort'));
       } else {
         this.promise = Promise.resolve(this.state);
         this.params = {};
@@ -1744,7 +1770,18 @@ define("router/transition",
       }
     }
 
-    Transition.currentSequence = 0;
+    function catchHandlerForTransition(transition) {
+      return function(result) {
+        if (result.wasAborted || transition.isAborted) {
+          return Promise.reject(logAbort(transition));
+        } else {
+          transition.trigger('error', result.error, transition, result.handlerWithError);
+          transition.abort();
+          return Promise.reject(result.error);
+        }
+      };
+    }
+
 
     Transition.prototype = {
       targetName: null,

@@ -4,7 +4,7 @@ var TransitionState = require("../transition-state")["default"];
 var handlerInfoFactory = require("../handler-info/factory")["default"];
 var merge = require("../utils").merge;
 var subclass = require("../utils").subclass;
-var UnrecognizedURLError = require("./../unrecognized-url-error")["default"];
+var UnrecognizedURLError = require("../unrecognized-url-error")["default"];
 
 exports["default"] = subclass(TransitionIntent, {
   url: null,

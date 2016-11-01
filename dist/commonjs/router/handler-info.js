@@ -4,7 +4,7 @@ var merge = require("./utils").merge;
 var promiseLabel = require("./utils").promiseLabel;
 var applyHook = require("./utils").applyHook;
 var isPromise = require("./utils").isPromise;
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 
 var DEFAULT_HANDLER = Object.freeze({});
 

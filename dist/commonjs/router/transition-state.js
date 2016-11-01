@@ -2,7 +2,7 @@
 var forEach = require("./utils").forEach;
 var promiseLabel = require("./utils").promiseLabel;
 var callHook = require("./utils").callHook;
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 
 function TransitionState() {
   this.handlerInfos = [];

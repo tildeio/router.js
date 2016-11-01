@@ -1,6 +1,6 @@
 "use strict";
 var RouteRecognizer = require("route-recognizer")["default"];
-var Promise = require("rsvp/promise")["default"];
+var Promise = require("rsvp").Promise;
 var trigger = require("./utils").trigger;
 var log = require("./utils").log;
 var slice = require("./utils").slice;
@@ -37,6 +37,7 @@ function Router(_options) {
   this.oldState = undefined;
   this.currentHandlerInfos = undefined;
   this.state = undefined;
+  this.currentSequence = 0;
 
   this.recognizer = new RouteRecognizer();
   this.reset();
@@ -70,7 +71,7 @@ function getTransitionByIntent(intent, isIntermediate) {
   }
 
   // Create a new transition to the destination route.
-  newTransition = new Transition(this, intent, newState);
+  newTransition = new Transition(this, intent, newState, undefined, this.activeTransition);
 
   // Abort and usurp any previously active transition.
   if (this.activeTransition) {
@@ -636,7 +637,27 @@ function updateURL(transition, state/*, inputUrl*/) {
     params.queryParams = transition._visibleQueryParams || state.queryParams;
     var url = router.recognizer.generate(handlerName, params);
 
-    if (urlMethod === 'replace') {
+    // transitions during the initial transition must always use replaceURL.
+    // When the app boots, you are at a url, e.g. /foo. If some handler
+    // redirects to bar as part of the initial transition, you don't want to
+    // add a history entry for /foo. If you do, pressing back will immediately
+    // hit the redirect again and take you back to /bar, thus killing the back
+    // button
+    var initial = transition.isCausedByInitialTransition;
+
+    // say you are at / and you click a link to route /foo. In /foo's
+    // handler, the transition is aborted using replacewith('/bar').
+    // Because the current url is still /, the history entry for / is
+    // removed from the history. Clicking back will take you to the page
+    // you were on before /, which is often not even the app, thus killing
+    // the back button. That's why updateURL is always correct for an
+    // aborting transition that's not the initial transition
+    var replaceAndNotAborting = (
+      urlMethod === 'replace' &&
+      !transition.isCausedByAbortingTransition
+    );
+
+    if (initial || replaceAndNotAborting) {
       router.replaceURL(url);
     } else {
       router.updateURL(url);
