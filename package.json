@@ -1,10 +1,11 @@
 {
-  "name": "router",
+  "name": "router_js",
   "namespace": "Router",
   "version": "1.2.1",
   "description": "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
   "author": "Tilde, Inc.",
   "license": "MIT",
+  "main": "dist/router.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/tildeio/router.js.git"
