@@ -2296,10 +2296,13 @@ define("router/utils",
     __exports__.applyHook = applyHook;
   });
 define("router",
-  ["./router/router","exports"],
-  function(__dependency1__, __exports__) {
+  ["./router/router","./router/transition","exports"],
+  function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
     var Router = __dependency1__["default"];
+    var Transition = __dependency2__.Transition;
 
     __exports__["default"] = Router;
+
+    __exports__.Transition = Transition;
   });
