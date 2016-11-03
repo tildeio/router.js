@@ -414,7 +414,8 @@ makes it easier to change patterns higher up. In this
 case, changing `/posts` to `/pages` would be easier
 in the second example than the first.
 
-Both work identically, so do whichever you prefer.
+Both recognize the same sets of URLs but only the nested
+ones invoke the hooks in the ancestor routes too.
 
 ## Events
 
