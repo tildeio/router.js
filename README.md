@@ -140,6 +140,11 @@ router.updateURL = function(url) {
 };
 ```
 
+Some example libraries include:
+
+- [history.js](https://github.com/browserstate/history.js/)
+- [location-bar](https://github.com/KidkArolis/location-bar)
+
 ## Always In Sync
 
 No matter whether you go to a handler via a URL change
