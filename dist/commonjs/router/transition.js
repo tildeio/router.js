@@ -4,6 +4,7 @@ var trigger = require("./utils").trigger;
 var slice = require("./utils").slice;
 var log = require("./utils").log;
 var promiseLabel = require("./utils").promiseLabel;
+var TransitionAbortedError = require("./transition-aborted-error")["default"];
 
 /**
   A Transition is a thennable (a promise-like object) that represents
@@ -329,18 +330,13 @@ Transition.prototype.send = Transition.prototype.trigger;
 /**
   @private
 
-  Logs and returns a TransitionAborted error.
+  Logs and returns an instance of TransitionAbortedError.
  */
 function logAbort(transition) {
   log(transition.router, transition.sequence, "detected abort.");
-  return new TransitionAborted();
-}
-
-function TransitionAborted(message) {
-  this.message = (message || "TransitionAborted");
-  this.name = "TransitionAborted";
+  return new TransitionAbortedError();
 }
 
 exports.Transition = Transition;
 exports.logAbort = logAbort;
-exports.TransitionAborted = TransitionAborted;
+exports.TransitionAbortedError = TransitionAbortedError;

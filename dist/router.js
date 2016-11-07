@@ -468,8 +468,8 @@ define("router/handler-info/unresolved-handler-info-by-param",
     __exports__["default"] = UnresolvedHandlerInfoByParam;
   });
 define("router/router",
-  ["route-recognizer","rsvp","./utils","./transition-state","./transition","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","exports"],
-  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __exports__) {
+  ["route-recognizer","rsvp","./utils","./transition-state","./transition","./transition-aborted-error","./transition-intent/named-transition-intent","./transition-intent/url-transition-intent","exports"],
+  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __dependency8__, __exports__) {
     "use strict";
     var RouteRecognizer = __dependency1__["default"];
     var Promise = __dependency2__.Promise;
@@ -485,9 +485,9 @@ define("router/router",
     var TransitionState = __dependency4__["default"];
     var logAbort = __dependency5__.logAbort;
     var Transition = __dependency5__.Transition;
-    var TransitionAborted = __dependency5__.TransitionAborted;
-    var NamedTransitionIntent = __dependency6__["default"];
-    var URLTransitionIntent = __dependency7__["default"];
+    var TransitionAbortedError = __dependency6__["default"];
+    var NamedTransitionIntent = __dependency7__["default"];
+    var URLTransitionIntent = __dependency8__["default"];
 
     var pop = Array.prototype.pop;
 
@@ -977,7 +977,7 @@ define("router/router",
         }
 
         if (transition && transition.isAborted) {
-          throw new TransitionAborted();
+          throw new TransitionAbortedError();
         }
 
         handler.context = context;
@@ -985,7 +985,7 @@ define("router/router",
 
         callHook(handler, 'setup', context, transition);
         if (transition && transition.isAborted) {
-          throw new TransitionAborted();
+          throw new TransitionAbortedError();
         }
 
         currentHandlerInfos.push(handlerInfo);
@@ -1177,7 +1177,7 @@ define("router/router",
         // Resolve with the final handler.
         return handlerInfos[handlerInfos.length - 1].handler;
       } catch(e) {
-        if (!((e instanceof TransitionAborted))) {
+        if (!((e instanceof TransitionAbortedError))) {
           //var erroneousHandler = handlerInfos.pop();
           var infos = transition.state.handlerInfos;
           transition.trigger(true, 'error', e, transition, infos[infos.length-1].handler);
@@ -1329,6 +1329,38 @@ define("router/router",
     }
 
     __exports__["default"] = Router;
+  });
+define("router/transition-aborted-error",
+  ["./utils","exports"],
+  function(__dependency1__, __exports__) {
+    "use strict";
+    var oCreate = __dependency1__.oCreate;
+
+    function TransitionAbortedError(message) {
+      if (!(this instanceof TransitionAbortedError)) {
+        return new TransitionAbortedError(message);
+      }
+
+      var error = Error.call(this, message);
+
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(this, TransitionAbortedError);
+      } else {
+        this.stack = error.stack;
+      }
+
+      this.description = error.description;
+      this.fileName = error.fileName;
+      this.lineNumber = error.lineNumber;
+      this.message = error.message || 'TransitionAborted';
+      this.name = 'TransitionAborted';
+      this.number = error.number;
+      this.code = error.code;
+    }
+
+    TransitionAbortedError.prototype = oCreate(Error.prototype);
+
+    __exports__["default"] = TransitionAbortedError;
   });
 define("router/transition-intent",
   ["exports"],
@@ -1731,14 +1763,15 @@ define("router/transition-state",
     __exports__["default"] = TransitionState;
   });
 define("router/transition",
-  ["rsvp","./utils","exports"],
-  function(__dependency1__, __dependency2__, __exports__) {
+  ["rsvp","./utils","./transition-aborted-error","exports"],
+  function(__dependency1__, __dependency2__, __dependency3__, __exports__) {
     "use strict";
     var Promise = __dependency1__.Promise;
     var trigger = __dependency2__.trigger;
     var slice = __dependency2__.slice;
     var log = __dependency2__.log;
     var promiseLabel = __dependency2__.promiseLabel;
+    var TransitionAbortedError = __dependency3__["default"];
 
     /**
       A Transition is a thennable (a promise-like object) that represents
@@ -2064,21 +2097,16 @@ define("router/transition",
     /**
       @private
 
-      Logs and returns a TransitionAborted error.
+      Logs and returns an instance of TransitionAbortedError.
      */
     function logAbort(transition) {
       log(transition.router, transition.sequence, "detected abort.");
-      return new TransitionAborted();
-    }
-
-    function TransitionAborted(message) {
-      this.message = (message || "TransitionAborted");
-      this.name = "TransitionAborted";
+      return new TransitionAbortedError();
     }
 
     __exports__.Transition = Transition;
     __exports__.logAbort = logAbort;
-    __exports__.TransitionAborted = TransitionAborted;
+    __exports__.TransitionAbortedError = TransitionAbortedError;
   });
 define("router/unrecognized-url-error",
   ["./utils","exports"],
@@ -2086,14 +2114,26 @@ define("router/unrecognized-url-error",
     "use strict";
     var oCreate = __dependency1__.oCreate;
 
-    /**
-      Promise reject reasons passed to promise rejection
-      handlers for failed transitions.
-     */
     function UnrecognizedURLError(message) {
-      this.message = (message || "UnrecognizedURLError");
-      this.name = "UnrecognizedURLError";
-      Error.call(this);
+      if (!(this instanceof UnrecognizedURLError)) {
+        return new UnrecognizedURLError(message);
+      }
+
+      var error = Error.call(this, message);
+
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(this, UnrecognizedURLError);
+      } else {
+        this.stack = error.stack;
+      }
+
+      this.description = error.description;
+      this.fileName = error.fileName;
+      this.lineNumber = error.lineNumber;
+      this.message = error.message || 'UnrecognizedURL';
+      this.name = 'UnrecognizedURLError';
+      this.number = error.number;
+      this.code = error.code;
     }
 
     UnrecognizedURLError.prototype = oCreate(Error.prototype);

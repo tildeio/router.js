@@ -13,7 +13,7 @@ var callHook = require("./utils").callHook;
 var TransitionState = require("./transition-state")["default"];
 var logAbort = require("./transition").logAbort;
 var Transition = require("./transition").Transition;
-var TransitionAborted = require("./transition").TransitionAborted;
+var TransitionAbortedError = require("./transition-aborted-error")["default"];
 var NamedTransitionIntent = require("./transition-intent/named-transition-intent")["default"];
 var URLTransitionIntent = require("./transition-intent/url-transition-intent")["default"];
 
@@ -505,7 +505,7 @@ function handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, enter, transi
     }
 
     if (transition && transition.isAborted) {
-      throw new TransitionAborted();
+      throw new TransitionAbortedError();
     }
 
     handler.context = context;
@@ -513,7 +513,7 @@ function handlerEnteredOrUpdated(currentHandlerInfos, handlerInfo, enter, transi
 
     callHook(handler, 'setup', context, transition);
     if (transition && transition.isAborted) {
-      throw new TransitionAborted();
+      throw new TransitionAbortedError();
     }
 
     currentHandlerInfos.push(handlerInfo);
@@ -705,7 +705,7 @@ function finalizeTransition(transition, newState) {
     // Resolve with the final handler.
     return handlerInfos[handlerInfos.length - 1].handler;
   } catch(e) {
-    if (!((e instanceof TransitionAborted))) {
+    if (!((e instanceof TransitionAbortedError))) {
       //var erroneousHandler = handlerInfos.pop();
       var infos = transition.state.handlerInfos;
       transition.trigger(true, 'error', e, transition, infos[infos.length-1].handler);
