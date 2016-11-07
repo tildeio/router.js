@@ -1,6 +1,7 @@
 import { Backburner } from "backburner";
 import { resolve, configure } from "rsvp";
 import { oCreate } from 'router/utils';
+import TransitionAbortedError from 'router/transition-aborted-error';
 
 var slice = Array.prototype.slice;
 
@@ -39,6 +40,11 @@ function module(name, options) {
   });
 }
 
+function assertAbort(assert) {
+  return function _assertAbort(e) {
+    assert.ok(e instanceof TransitionAbortedError, 'transition was redirected/aborted');
+  };
+}
 
 // Helper method that performs a transition and flushes
 // the backburner queue. Helpful for when you want to write
@@ -51,9 +57,7 @@ function transitionTo(router) {
 
 function transitionToWithAbort(assert, router) {
   var args = slice.call(arguments, 2);
-  router.transitionTo.apply(router, args).then(shouldNotHappen, function(reason) {
-    assert.equal(reason.name, "TransitionAborted", "transition was redirected/aborted");
-  });
+  router.transitionTo.apply(router, args).then(shouldNotHappen, assertAbort(assert));
   flushBackburner();
 }
 
@@ -79,4 +83,13 @@ test("backburnerized testing works as expected", function(assert) {
   });
 });
 
-export { module, test, flushBackburner, transitionTo, transitionToWithAbort, shouldNotHappen, stubbedHandlerInfoFactory };
+export {
+  module,
+  test,
+  flushBackburner,
+  transitionTo,
+  transitionToWithAbort,
+  shouldNotHappen,
+  stubbedHandlerInfoFactory,
+  assertAbort
+};

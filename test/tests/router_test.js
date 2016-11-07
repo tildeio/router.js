@@ -1,4 +1,12 @@
-import { module, test, flushBackburner, transitionTo, transitionToWithAbort,  shouldNotHappen } from "tests/test_helpers";
+import {
+  module,
+  test,
+  flushBackburner,
+  transitionTo,
+  transitionToWithAbort,
+  shouldNotHappen,
+  assertAbort
+} from 'tests/test_helpers';
 import Router from "router";
 import { reject, Promise } from "rsvp";
 
@@ -1715,12 +1723,6 @@ test("can redirect from error handler", function(assert) {
   });
 });
 
-function assertAbort(assert) {
-  return function _assertAbort(e) {
-    assert.equal(e.name, "TransitionAborted", "transition was aborted");
-  };
-}
-
 test("can redirect from setup/enter", function(assert) {
   assert.expect(5);
 
@@ -1967,9 +1969,7 @@ test("willTransition function fired with cancellable transition passed in", func
       transition.abort();
     };
 
-    return router.transitionTo('about').then(shouldNotHappen(assert), function(e) {
-      assert.equal(e.name, 'TransitionAborted', 'reject object is a TransitionAborted');
-    });
+    return router.transitionTo('about').then(shouldNotHappen(assert), assertAbort(assert));
   });
 });
 
@@ -1996,9 +1996,7 @@ test("transitions can be aborted in the willTransition event", function(assert) 
   };
 
   router.handleURL('/index').then(function() {
-    return router.transitionTo('about').then(shouldNotHappen(assert), function(e) {
-      assert.equal(e.name, 'TransitionAborted', 'reject object is a TransitionAborted');
-    });
+    return router.transitionTo('about').then(shouldNotHappen(assert), assertAbort(assert));
   });
 });
 
