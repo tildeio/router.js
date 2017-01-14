@@ -3985,6 +3985,64 @@ test("Calling transitionTo after initial transition outside validation hook shou
   assert.equal(barModelCount, 1, 'Bar model should be called once');
 });
 
+test("Calling replaceWith after initial transition to change queryParams should use replaceURL", function(assert) {
+  assert.expect(2);
+  map(assert, function(match) {
+    match("/foo").to('foo');
+  });
+
+  var fooHandler = {
+    queryParams: {
+      fooParam: {
+        refreshModel: true,
+        replace: true
+      }
+    },
+    model: function() {
+    },
+    events: {
+      /* Similar implementation to what is seen in Ember's Routes. 
+         Checks for changed queryParams and checks if the changed queryParam has the "refreshModel" setting
+         If it does, it refreshes the route.
+       */
+      queryParamsDidChange: function(changed, totalPresent, removed) {
+        let qpMap = fooHandler.queryParams;
+
+        let totalChanged = Object.keys(changed).concat(Object.keys(removed));
+        for (let i = 0; i < totalChanged.length; ++i) {
+          let qp = qpMap[totalChanged[i]];
+          if (qp && qp.refreshModel === true) {
+            router.refresh();
+          }
+        }
+
+        return true;
+      }
+    }
+  };
+
+  handlers = {
+    foo: fooHandler,
+  };
+
+  transitionTo(router, '/foo');
+
+  router.updateURL = function(updateUrl) {
+    url = updateUrl;
+    assert.ok(false, "The url was updated rather than replaced");
+  };
+
+  router.replaceURL = function(replaceURL) {
+    url = replaceURL;
+    assert.ok(true, "The url was replaced correctly on queryParamOnly transition");
+  };
+
+  // This replaceWith should result in going to the same route with a replaceURL but instead an updateURL happens.
+  router.replaceWith('/foo?fooParam=123');
+
+  assert.equal(url, '/foo');
+});
+
 
 test("transitioning to the same route with different context should not reenter the route", function(assert) {
   map(assert, function(match) {
