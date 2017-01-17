@@ -529,6 +529,7 @@ define("router/router",
         if (queryParamChangelist) {
           newTransition = this.queryParamsTransition(queryParamChangelist, wasTransitioning, oldState, newState);
           if (newTransition) {
+            newTransition.queryParamsOnly = true;
             return newTransition;
           }
         }
@@ -544,6 +545,12 @@ define("router/router",
 
       // Create a new transition to the destination route.
       newTransition = new Transition(this, intent, newState, undefined, this.activeTransition);
+
+      // transition is to same route with same params, only query params differ.
+      // not caught above probably because refresh() has been used
+      if (  handlerInfosSameExceptQueryParams(newState.handlerInfos, oldState.handlerInfos ) ) {
+        newTransition.queryParamsOnly = true;
+      }
 
       // Abort and usurp any previously active transition.
       if (this.activeTransition) {
@@ -1252,6 +1259,50 @@ define("router/router",
         }
       }
       return true;
+    }
+
+    function handlerInfosSameExceptQueryParams(handlerInfos, otherHandlerInfos) {
+      if (handlerInfos.length !== otherHandlerInfos.length) {
+        return false;
+      }
+
+      for (var i = 0, len = handlerInfos.length; i < len; ++i) {
+        if (handlerInfos[i].name !== otherHandlerInfos[i].name) {
+          return false;
+        }
+
+        if (!paramsEqual(handlerInfos[i].params, otherHandlerInfos[i].params)) {
+          return false;
+        }
+      }
+      return true;
+
+    }
+
+    function paramsEqual(params, otherParams) {
+      if (!params && !otherParams) {
+        return true;
+      } else if (!params && !!otherParams || !!params && !otherParams) {
+        // one is falsy but other is not;
+        return false;
+      }
+      var keys        = Object.keys(params);
+      var otherKeys   = Object.keys(otherParams);
+
+      if (keys.length !== otherKeys.length) {
+        return false;
+      }
+
+      for (var i = 0, len = keys.length; i < len; ++i) {
+        var key = keys[i];
+
+        if ( params[key] !== otherParams[key] ) {
+          return false;
+        }
+      }
+
+      return true;
+
     }
 
     function finalizeQueryParamChange(router, resolvedHandlers, newQueryParams, transition) {
