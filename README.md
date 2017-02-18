@@ -22,6 +22,10 @@ You can find them on the [builds page][builds-page].
 **Note**: The S3 files are provided for developer convenience, but you should
 not use the S3 URLs to host `router.js` in production.
 
+## NPM
+
+To install using npm, run the following command: `npm install --save router_js rsvp route-recognizer`
+
 ## Usage
 
 Create a new router:

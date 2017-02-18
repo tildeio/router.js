@@ -31,7 +31,9 @@
     "grunt-contrib-qunit": "^1.2.0",
     "grunt-s3": "~0.2.0-alpha.2",
     "load-grunt-config": "~0.5.0",
-    "load-grunt-tasks": "~0.2.0"
+    "load-grunt-tasks": "~0.2.0",
+    "route-recognizer": "^0.3.1",
+    "rsvp": "^3.3.3"
   },
   "scripts": {
     "test": "grunt test",
@@ -45,5 +47,9 @@
     "router",
     "route-recognizer",
     "rsvp"
-  ]
+  ],
+  "peerDependencies": {
+    "route-recognizer": "^0.3.0",
+    "rsvp": "^3.0.0"
+  }
 }
