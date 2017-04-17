@@ -159,9 +159,21 @@ test("transitioning between routes fires a queryParamsDidChange event", function
 
 
 test("Refreshing the route when changing only query params should correctly set queryParamsOnly", function(assert) {
-  assert.expect(10);
+  assert.expect(16);
 
   var initialTransition = true;
+
+  var expectReplace;
+
+  router.updateURL = function(newUrl) {
+    assert.notOk(expectReplace, "Expected replace but update was called");
+    url = newUrl;
+  };
+
+  router.replaceURL = function(newUrl) {
+    assert.ok(expectReplace, "Replace was called but update was expected");
+    url = newUrl;
+  };
 
   handlers.index = {
     events: {
@@ -189,6 +201,8 @@ test("Refreshing the route when changing only query params should correctly set 
     }
   };
 
+  expectReplace = false;
+
   var transition = transitionTo(router, '/index');
   assert.notOk(transition.queryParamsOnly, "Initial transition is not query params only transition");
 
@@ -196,11 +210,12 @@ test("Refreshing the route when changing only query params should correctly set 
 
   assert.ok(transition.queryParamsOnly, "Second transition with updateURL intent is query params only");
 
+  expectReplace = true;
   transition = router.replaceWith('/index?foo=456');
   flushBackburner();
 
   assert.ok(transition.queryParamsOnly, "Third transition with replaceURL intent is query params only");
-
+  expectReplace = false;
 
   transition = transitionTo(router, '/parent/child?foo=789');
   assert.notOk(transition.queryParamsOnly, "Fourth transition with transtionTo intent is not query params only");
