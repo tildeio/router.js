@@ -727,7 +727,8 @@ define("router/router",
       },
 
       refresh: function(pivotHandler) {
-        var state = this.activeTransition ? this.activeTransition.state : this.state;
+        var previousTransition = this.activeTransition;
+        var state = previousTransition ? previousTransition.state : this.state;
         var handlerInfos = state.handlerInfos;
         var params = {};
         for (var i = 0, len = handlerInfos.length; i < len; ++i) {
@@ -743,7 +744,14 @@ define("router/router",
           queryParams: this._changedQueryParams || state.queryParams || {}
         });
 
-        return this.transitionByIntent(intent, false);
+        var newTransition = this.transitionByIntent(intent, false);
+
+        // if the previous transition is a replace transition, that needs to be preserved
+        if (previousTransition && previousTransition.urlMethod === 'replace') {
+          newTransition.method(previousTransition.urlMethod);
+        }
+
+        return newTransition;
       },
 
       /**
@@ -1136,7 +1144,15 @@ define("router/router",
           !transition.isCausedByAbortingTransition
         );
 
-        if (initial || replaceAndNotAborting) {
+        // because calling refresh causes an aborted transition, this needs to be
+        // special cased - if the initial transition is a replace transition, the
+        // urlMethod should be honored here.
+        var isQueryParamsRefreshTransition = (
+          transition.queryParamsOnly &&
+          urlMethod === 'replace'
+        );
+
+        if (initial || replaceAndNotAborting || isQueryParamsRefreshTransition) {
           router.replaceURL(url);
         } else {
           router.updateURL(url);
@@ -2056,7 +2072,9 @@ define("router/transition",
       retry: function() {
         // TODO: add tests for merged state retry()s
         this.abort();
-        return this.router.transitionByIntent(this.intent, false);
+        var newTransition = this.router.transitionByIntent(this.intent, false);
+        newTransition.method(this.urlMethod);
+        return newTransition;
       },
 
       /**

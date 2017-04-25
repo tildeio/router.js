@@ -238,7 +238,9 @@ Transition.prototype = {
   retry: function() {
     // TODO: add tests for merged state retry()s
     this.abort();
-    return this.router.transitionByIntent(this.intent, false);
+    var newTransition = this.router.transitionByIntent(this.intent, false);
+    newTransition.method(this.urlMethod);
+    return newTransition;
   },
 
   /**
