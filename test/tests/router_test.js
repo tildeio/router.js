@@ -2040,11 +2040,12 @@ test("transitions can redirected in the willTransition event", function(assert) 
 
 test("aborted transitions can be saved and later retried", function(assert) {
 
-  assert.expect(8);
+  assert.expect(9);
 
   var shouldPrevent = true,
       transitionToAbout,
-      lastTransition;
+      lastTransition,
+      retryTransition;
 
   handlers = {
     index: {
@@ -2078,6 +2079,58 @@ test("aborted transitions can be saved and later retried", function(assert) {
       assert.ok(true, 'transition was blocked');
       shouldPrevent = false;
       transitionToAbout = lastTransition;
+      retryTransition = transitionToAbout.retry();
+      assert.equal(retryTransition.urlMethod, 'update');
+      return retryTransition;
+    }).then(function() {
+      assert.ok(true, 'transition succeeded via .retry()');
+    }, shouldNotHappen(assert));
+  });
+});
+
+test("if an aborted transition is retried, it preserves the urlMethod of the original one", function(assert) {
+
+  assert.expect(9);
+
+  var shouldPrevent = true,
+      transitionToAbout,
+      lastTransition,
+      retryTransition;
+
+  handlers = {
+    index: {
+      setup: function() {
+        assert.ok(true, 'index setup called');
+      },
+      events: {
+        willTransition: function(transition) {
+          assert.ok(true, "index's willTransition was called");
+          if (shouldPrevent) {
+            transition.data.foo = "hello";
+            transition.foo = "hello";
+            transition.abort();
+            lastTransition = transition;
+          } else {
+            assert.ok(!transition.foo, "no foo property exists on new transition");
+            assert.equal(transition.data.foo, "hello", "values stored in data hash of old transition persist when retried");
+          }
+        }
+      }
+    },
+    about: {
+      setup: function() {
+        assert.ok(true, 'about setup called');
+      }
+    }
+  };
+
+  router.handleURL('/index').then(function() {
+    router.replaceWith('about').then(shouldNotHappen(assert), function() {
+      assert.ok(true, 'transition was blocked');
+      shouldPrevent = false;
+      transitionToAbout = lastTransition;
+      retryTransition = transitionToAbout.retry();
+      assert.equal(retryTransition.urlMethod, 'replace');
       return transitionToAbout.retry();
     }).then(function() {
       assert.ok(true, 'transition succeeded via .retry()');
