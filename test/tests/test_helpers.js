@@ -61,10 +61,18 @@ function transitionToWithAbort(assert, router) {
   flushBackburner();
 }
 
-function shouldNotHappen(assert) {
+function handleURL(router) {
+  var result = router.handleURL.apply(router, slice.call(arguments, 1));
+  flushBackburner();
+  return result;
+}
+
+
+function shouldNotHappen(assert, _message) {
+  var message = _message || "this .then handler should not be called";
   return function _shouldNotHappen(error) {
     console.error(error.stack); // jshint ignore:line
-    assert.ok(false, "this .then handler should not be called");
+    assert.ok(false, message);
   };
 }
 
@@ -87,6 +95,7 @@ export {
   module,
   test,
   flushBackburner,
+  handleURL,
   transitionTo,
   transitionToWithAbort,
   shouldNotHappen,
