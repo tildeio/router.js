@@ -2925,6 +2925,26 @@ scenarios.forEach(function(scenario) {
       });
   });
 
+  test('the serialize function is bound to the correct object when called', function(
+    assert
+  ) {
+    assert.expect(scenario.async ? 0 : 1);
+
+    handlers = {
+      showPostsForDate: {
+        serialize: function(date) {
+          assert.equal(this, handlers.showPostsForDate);
+          return {
+            date:
+              date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+          };
+        },
+      },
+    };
+
+    router.generate('showPostsForDate', new Date(1815, 5, 18));
+  });
+
   test('transitionTo will soak up resolved parent models of active transition', function(
     assert
   ) {
