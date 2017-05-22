@@ -1491,6 +1491,22 @@ scenarios.forEach(function(scenario) {
     );
   });
 
+  test('the serializer method is unbound', function(assert) {
+    assert.expect(1);
+
+    router.getSerializer = function() {
+      return function(date) {
+        assert.equal(this, undefined);
+        return {
+          date:
+            date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+        };
+      };
+    };
+
+    router.generate('showPostsForDate', new Date(1815, 5, 18));
+  });
+
   test('params are known by a transition up front', function(assert) {
     assert.expect(2);
 
