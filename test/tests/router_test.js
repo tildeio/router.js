@@ -2,6 +2,7 @@ import {
   module,
   test,
   flushBackburner,
+  handleURL,
   transitionTo,
   transitionToWithAbort,
   shouldNotHappen,
@@ -2136,6 +2137,66 @@ test("if an aborted transition is retried, it preserves the urlMethod of the ori
       assert.ok(true, 'transition succeeded via .retry()');
     }, shouldNotHappen(assert));
   });
+});
+
+test("if an initial transition is aborted during validation phase and later retried", function(assert) {
+  assert.expect(7);
+
+  var shouldRedirectToLogin = true;
+  var currentURL = '/login';
+  var urlStack = [];
+  var lastTransition;
+
+  map(assert, function(match) {
+    match('/').to('index');
+    match('/login').to('login');
+  });
+
+  router.updateURL = function(url) {
+    urlStack.push(['updateURL', url]);
+    currentURL = url;
+  };
+
+  router.replaceURL = function(url) {
+    urlStack.push(['replaceURL', url]);
+    currentURL = url;
+  };
+
+  handlers = {
+    index: {
+      beforeModel: function(transition) {
+        assert.ok(true, 'index model called');
+        if (shouldRedirectToLogin) {
+          lastTransition = transition;
+          return router.transitionTo('/login');
+        }
+      }
+    },
+    login: {
+      setup: function() {
+        assert.ok('login setup called');
+      }
+    }
+  };
+
+  // use `handleURL` to emulate initial transition properly
+  handleURL(router, '/')
+    .then(shouldNotHappen(assert, 'initial transition aborted'), function() {
+      assert.equal(currentURL, '/login', 'currentURL matches');
+      assert.deepEqual(urlStack, [
+        ['replaceURL', '/login']
+      ]);
+
+      shouldRedirectToLogin = false;
+      return lastTransition.retry();
+    })
+    .then(function() {
+      assert.equal(currentURL, '/', 'after retry currentURL is updated');
+      assert.deepEqual(urlStack, [
+        ['replaceURL', '/login'],
+        ['updateURL', '/']
+      ]);
+    }, shouldNotHappen(assert, 'final catch'));
 });
 
 test("completed transitions can be saved and later retried", function(assert) {
