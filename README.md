@@ -14,17 +14,13 @@ that does one thing and does it well.
 `router.js` is the routing microlib used by
 [Ember.js](https://github.com/emberjs/ember.js).
 
-## Downloads
-
-Passing builds of the 'master' branch will be automatically published to S3.
-You can find them on the [builds page][builds-page].
-
-**Note**: The S3 files are provided for developer convenience, but you should
-not use the S3 URLs to host `router.js` in production.
-
 ## NPM
 
-To install using npm, run the following command: `npm install --save router_js rsvp route-recognizer`
+To install using npm, run the following command: 
+
+```
+npm install --save router_js rsvp route-recognizer
+```
 
 ## Usage
 
@@ -669,15 +665,13 @@ router.js.
 
 1. Ensure that [Node.js](http://nodejs.org/) is installed.
 2. Run `npm install` to ensure the required dependencies are installed.
-3. Run `grunt build` to build router.js. The builds will be placed in the `dist/` directory.
+3. Run `npm run build` to build router.js. The builds will be placed in the `dist/` directory.
 
 ## Running the unit tests
 
-1. To start the development server, run `grunt server`.
+1. To start the development server, run `npm start`.
 2. Visit `http://localhost:4200/tests/`
 
 or from the command line:
 
-1. run `grunt test`
-
-[builds-page]: http://routerjs.builds.emberjs.com.s3-website-us-east-1.amazonaws.com/index.html
+1. run `npm test`
