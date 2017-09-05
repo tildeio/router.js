@@ -1,16 +1,28 @@
 {
   "name": "router_js",
-  "namespace": "Router",
   "version": "1.2.8",
   "description": "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
-  "author": "Tilde, Inc.",
+  "keywords": [
+    "route-recognizer",
+    "router",
+    "rsvp"
+  ],
+  "bugs": {
+    "url": "https://github.com/tildeio/router.js/issues"
+  },
   "license": "MIT",
+  "author": "Tilde, Inc.",
   "main": "dist/router.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/tildeio/router.js.git"
   },
-  "dependencies": { },
+  "scripts": {
+    "prepublish": "ember build",
+    "start": "ember server",
+    "test": "ember test"
+  },
+  "dependencies": {},
   "devDependencies": {
     "babel-preset-env": "^1.6.0",
     "backburner.js": "^1.2.0",
@@ -24,24 +36,12 @@
     "route-recognizer": "^0.3.1",
     "rsvp": "^4.0.1"
   },
-  "scripts": {
-    "test": "ember test",
-    "start": "ember server",
-    "prepublish": "ember build"
-  },
-  "bugs": {
-    "url": "https://github.com/tildeio/router.js/issues"
-  },
-  "keywords": [
-    "router",
-    "route-recognizer",
-    "rsvp"
-  ],
   "peerDependencies": {
     "route-recognizer": "^0.3.0",
     "rsvp": "^3.0.0"
   },
   "engines": {
     "node": "^4.5 || 6.* || >= 8.*"
-  }
+  },
+  "namespace": "Router"
 }
