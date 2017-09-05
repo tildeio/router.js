@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/tildeio/router.js.git"
   },
-  "dependencies": { }
+  "dependencies": { },
   "devDependencies": {
     "babel-preset-env": "^1.6.0",
     "backburner.js": "^1.2.0",
