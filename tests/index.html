@@ -3,17 +3,21 @@
 <head>
   <meta charset="utf-8">
   <title>Router.js Tests</title>
-  <link rel="stylesheet" href="vendor/qunit.css">
+  <link rel="stylesheet" href="/vendor/qunit.css">
 </head>
 <body>
   <div id="qunit"></div>
   <div id="qunit-fixture"></div>
-  <script src="vendor/qunit.js"></script>
-  <script src="loader.js"></script>
-  <script src="deps.js"></script>
-  <script src="../router.amd.js"></script>
-  <script src="tests.js"></script>
-  <script src="tests_main.js"></script>
-  <script src="http://localhost:35729/livereload.js"></script>
+  <script src="/testem.js"></script>
+  <script src="/vendor/qunit.js"></script>
+  <script src="/vendor/loader.js"></script>
+  <script src="/vendor/vendor.js"></script>
+  <script src="/router.amd.js"></script>
+  <script src="./tests.js"></script>
+  <script>
+   for (var moduleName in requirejs.entries) {
+     if (moduleName.match(/[_-]test$/)) { require(moduleName); }
+   }
+  </script>
 </body>
 </html>
