@@ -5,7 +5,7 @@ import { Promise } from "rsvp";
 // so that we avoid using Backburner to handle the async portions of
 // the test suite
 QUnit.module('Async Get Handler', {
-  setup: function() {
+  beforeEach: function() {
     QUnit.config.testTimeout = 60000;
 
     this.handlers = {};
@@ -21,12 +21,13 @@ QUnit.module('Async Get Handler', {
     this.router.updateURL = function() {};
   },
 
-  teardown: function() {
+  afterEach: function() {
     QUnit.config.testTimeout = 1000;
   }
 });
 
-QUnit.asyncTest('can transition to lazily-resolved routes', function(assert) {
+QUnit.test('can transition to lazily-resolved routes', function(assert) {
+  var done = assert.async();
   var testEnvironment = this;
   this.router.getHandler = function(name) {
     return new Promise(function(resolve) {
@@ -50,14 +51,15 @@ QUnit.asyncTest('can transition to lazily-resolved routes', function(assert) {
   this.router.transitionTo('/foo/bar').then(function() {
     assert.ok(fooCalled, 'foo is called before transition ends');
     assert.ok(fooBarCalled, 'fooBar is called before transition ends');
-    QUnit.start();
+    done();
   });
 
   assert.ok(!fooCalled, 'foo is not called synchronously');
   assert.ok(!fooBarCalled, 'fooBar is not called synchronously');
 });
 
-QUnit.asyncTest('calls hooks of lazily-resolved routes in order', function(assert) {
+QUnit.test('calls hooks of lazily-resolved routes in order', function(assert) {
+  var done = assert.async();
   var operations = [];
 
   var testEnvironment = this;
@@ -90,6 +92,6 @@ QUnit.asyncTest('calls hooks of lazily-resolved routes in order', function(asser
       'model foo',
       'model fooBar'
     ], 'order of operations is correct');
-    QUnit.start();
+    done();
   });
 });

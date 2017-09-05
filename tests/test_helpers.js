@@ -1,4 +1,4 @@
-import { Backburner } from "backburner";
+import Backburner from "backburner";
 import { resolve, configure } from "rsvp";
 import { oCreate } from 'router/utils';
 import TransitionAbortedError from 'router/transition-aborted-error';
@@ -22,7 +22,7 @@ var test = QUnit.test;
 function module(name, options) {
   options = options || {};
   QUnit.module(name, {
-    setup: function() {
+    beforeEach: function() {
       configure('async', customAsync);
       bb.begin();
 
@@ -30,7 +30,7 @@ function module(name, options) {
         options.setup.apply(this, arguments);
       }
     },
-    teardown: function() {
+    afterEach: function() {
       bb.end();
 
       if (options.teardown) {

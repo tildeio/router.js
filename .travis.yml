@@ -1,10 +1,19 @@
 language: node_js
 node_js:
-- '0.10'
+- 6
+
+sudo: false
+dist: trusty
+
+addons:
+  chrome: stable
+
+cache:
+  yarn: true
+
 before_install:
-- npm install -g grunt-cli
-env:
-  global:
-  - secure: QZR44UCwwszJZ81cofiYtGFsLLmHOTAthS+XIgnxzztBRWjcivrfO+v55J39umwkYWqcBIxhTf4e3SALxB2QwLLb0KP17lRheEXd4fJP68UIYhQzOUHJYM+wm+WyWamJf61h5n3lp9Kf75EQrr50aTO0WYeReCLgpeq57p5F20Y=
-  - secure: SQaq0nDaew5Jwm1yB480Iln4/6Sg2n46q7zoanYect+vQNrKWJGcJGMp5Jq9mbDiDZLRpdazAGWyUQJRLaTLfosEx6V798dECDqkCue3hHY96AggYZQnXLh0QKnHeSVjN9Jr1x8wHkxMmvAG3zXkbhuPhD8hYOycJJLg4GLvXAo=
-after_success: grunt build s3:dev
+  - curl -o- -L https://yarnpkg.com/install.sh | bash
+  - export PATH=$HOME/.yarn/bin:$PATH
+
+install:
+  - yarn install --no-lockfile --non-interactive

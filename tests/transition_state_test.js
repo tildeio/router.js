@@ -1,4 +1,4 @@
-import { module, test, flushBackburner, stubbedHandlerInfoFactory } from "tests/test_helpers";
+import { module, test, flushBackburner, stubbedHandlerInfoFactory } from "./test_helpers";
 import TransitionState from 'router/transition-state';
 
 import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handler-info-by-object';

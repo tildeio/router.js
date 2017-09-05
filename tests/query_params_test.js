@@ -1,4 +1,4 @@
-import { module, test, flushBackburner, transitionTo } from "tests/test_helpers";
+import { module, test, flushBackburner, transitionTo } from "./test_helpers";
 import Router from "router";
 import { Promise } from "rsvp";
 

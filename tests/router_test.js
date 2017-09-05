@@ -7,7 +7,7 @@ import {
   transitionToWithAbort,
   shouldNotHappen,
   assertAbort
-} from 'tests/test_helpers';
+} from './test_helpers';
 import Router from "router";
 import { reject, Promise } from "rsvp";
 
