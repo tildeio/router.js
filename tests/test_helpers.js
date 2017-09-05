@@ -22,7 +22,7 @@ var test = QUnit.test;
 function module(name, options) {
   options = options || {};
   QUnit.module(name, {
-    setup: function() {
+    beforeEach: function() {
       configure('async', customAsync);
       bb.begin();
 
@@ -30,7 +30,7 @@ function module(name, options) {
         options.setup.apply(this, arguments);
       }
     },
-    teardown: function() {
+    afterEach: function() {
       bb.end();
 
       if (options.teardown) {
