@@ -1,4 +1,5 @@
 /.bundle
+/dist
 /tmp
 /node_modules
 
