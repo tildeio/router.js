@@ -1,4 +1,4 @@
-import { Backburner } from "backburner";
+import Backburner from "backburner";
 import { resolve, configure } from "rsvp";
 import { oCreate } from 'router/utils';
 import TransitionAbortedError from 'router/transition-aborted-error';
