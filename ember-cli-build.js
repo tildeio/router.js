@@ -5,6 +5,7 @@ const Funnel = require('broccoli-funnel');
 const MergeTrees = require('broccoli-merge-trees');
 const Babel = require('broccoli-babel-transpiler');
 const Concat = require('broccoli-concat');
+const ESLint = require('broccoli-lint-eslint');
 
 function findLib(name, libPath) {
   let packagePath = path.join(name, 'package');
@@ -51,18 +52,33 @@ module.exports = function() {
     ]
   });
 
-  let testAMD = toAMD('tests');
-  let concattedTests = new Concat(testAMD, {
-    inputFiles: ['**/*.js'],
-    outputFile: 'tests/tests.js',
-  });
-
   let trees = [
     new Funnel(eslatest, { destDir: 'modules' }),
     new Funnel(cjs, { destDir: 'cjs' }),
   ];
 
   if (process.env.EMBER_ENV !== 'production') {
+    let lintedLib = new ESLint(eslatest, {
+      testGenerator: 'qunit'
+    });
+
+    let lintedTests = new ESLint('tests', {
+      testGenerator: 'qunit'
+    });
+
+    let testAMD = toAMD('tests');
+
+    let tests = new MergeTrees([
+      testAMD,
+      lintedLib,
+      lintedTests,
+    ], { overwrite: true });
+
+    let concattedTests = new Concat(tests, {
+      inputFiles: ['**/*.js'],
+      outputFile: 'tests/tests.js',
+    });
+
     let concattedAMD = new Concat(amd, {
       inputFiles: ['**/*.js'],
       // putting this in test to avoid publishing
