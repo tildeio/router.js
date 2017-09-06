@@ -2,7 +2,7 @@ import { module, test, flushBackburner, transitionTo } from "./test_helpers";
 import Router from "router";
 import { Promise } from "rsvp";
 
-var router, url, handlers, expectedUrl;
+var router, handlers, expectedUrl;
 var scenarios = [
   {
     name: 'Sync Get Handler',
@@ -46,8 +46,6 @@ function map(assert, fn) {
     if (expectedUrl) {
       assert.equal(newUrl, expectedUrl, "The url is " + newUrl+ " as expected");
     }
-
-    url = newUrl;
   };
 }
 
@@ -165,14 +163,12 @@ test("Refreshing the route when changing only query params should correctly set 
 
   var expectReplace;
 
-  router.updateURL = function(newUrl) {
+  router.updateURL = function() {
     assert.notOk(expectReplace, "Expected replace but update was called");
-    url = newUrl;
   };
 
-  router.replaceURL = function(newUrl) {
+  router.replaceURL = function() {
     assert.ok(expectReplace, "Replace was called but update was expected");
-    url = newUrl;
   };
 
   handlers.index = {

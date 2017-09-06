@@ -71,7 +71,7 @@ function handleURL(router) {
 function shouldNotHappen(assert, _message) {
   var message = _message || "this .then handler should not be called";
   return function _shouldNotHappen(error) {
-    console.error(error.stack); // jshint ignore:line
+    console.error(error.stack); // eslint-disable-line
     assert.ok(false, message);
   };
 }

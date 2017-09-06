@@ -453,14 +453,11 @@ test("handleURL: Handling a nested URL triggers each handler", function(assert) 
         assert.equal(postIndexHandler.context, posts);
         assert.equal(showFilteredPostsHandler.context, sadPosts);
         assert.strictEqual(object, sadPosts);
-        started = true;
       } else {
         assert.ok(false, "Should not get here");
       }
     }
   };
-
-  var started = false;
 
   handlers = {
     postIndex: postIndexHandler,
@@ -772,8 +769,7 @@ test("transition.resolvedModels after redirects within the same route", function
 
 test("Moving to the same route with a different parent dynamic segment re-runs model", function(assert) {
   var admins = { 1: { id: 1 }, 2: { id: 2 } },
-      adminPosts = { 1: { id: 1 }, 2: { id: 2 } },
-      adminPostModel = 0;
+      adminPosts = { 1: { id: 1 }, 2: { id: 2 } };
 
   handlers = {
     admin: {
@@ -784,7 +780,6 @@ test("Moving to the same route with a different parent dynamic segment re-runs m
 
     adminPosts: {
       model: function() {
-        adminPostModel++;
         return adminPosts[handlers.admin.currentModel.id];
       }
     }
@@ -998,16 +993,12 @@ test("event triggering is pluggable", function(assert) {
       throw new Error("Could not trigger event '" + name + "'. There are no active handlers");
     }
 
-    var eventWasHandled = false;
-
     for (var i=handlerInfos.length-1; i>=0; i--) {
       var handlerInfo = handlerInfos[i],
           handler = handlerInfo.handler;
 
       if (handler.actions && handler.actions[name]) {
-        if (handler.actions[name].apply(handler, args) === true) {
-          eventWasHandled = true;
-        } else {
+        if (handler.actions[name].apply(handler, args) !== true) {
           return;
         }
       }
@@ -1423,7 +1414,6 @@ test("any of the model hooks can redirect with or without promise", function(ass
   var setupShouldBeEntered = false;
   var returnPromise = false;
   var redirectTo;
-  var shouldFinish;
 
   function redirectToAbout() {
     if (returnPromise) {
@@ -1500,7 +1490,6 @@ test("any of the model hooks can redirect with or without promise", function(ass
 
   delete handlers.index.afterModel;
   setupShouldBeEntered = true;
-  shouldFinish = true;
   testStartup(assert, '/');
 });
 
@@ -2392,11 +2381,10 @@ test("transitionTo will soak up resolved parent models of active transition", fu
 
   var admin = { id: 47 },
       adminPost = { id: 74 },
-      lastAdminPromise,
       adminSetupShouldBeEntered = false;
 
   function adminPromise() {
-    return lastAdminPromise = new Promise(function(res) {
+    return new Promise(function(res) {
       res(admin);
     });
   }
