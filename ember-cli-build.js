@@ -25,15 +25,18 @@ function getLibPath(packagePath) {
 function toAMD(tree) {
   return new Babel(tree, {
     presets: [
-      ['env', {
-        modules: 'amd',
-        targets: {
-          browsers: ["ie 9"]
-        }
-      }]
+      [
+        'env',
+        {
+          modules: 'amd',
+          targets: {
+            browsers: ['ie 9'],
+          },
+        },
+      ],
     ],
 
-    moduleIds: true
+    moduleIds: true,
   });
 }
 
@@ -43,13 +46,16 @@ module.exports = function() {
 
   let cjs = new Babel(eslatest, {
     presets: [
-      ['env', {
-        modules: 'commonjs',
-        targets: {
-          node: 4
-        }
-      }]
-    ]
+      [
+        'env',
+        {
+          modules: 'commonjs',
+          targets: {
+            node: 4,
+          },
+        },
+      ],
+    ],
   });
 
   let trees = [
@@ -59,20 +65,18 @@ module.exports = function() {
 
   if (process.env.EMBER_ENV !== 'production') {
     let lintedLib = new ESLint(eslatest, {
-      testGenerator: 'qunit'
+      testGenerator: 'qunit',
     });
 
     let lintedTests = new ESLint('tests', {
-      testGenerator: 'qunit'
+      testGenerator: 'qunit',
     });
 
     let testAMD = toAMD('tests');
 
-    let tests = new MergeTrees([
-      testAMD,
-      lintedLib,
-      lintedTests,
-    ], { overwrite: true });
+    let tests = new MergeTrees([testAMD, lintedLib, lintedTests], {
+      overwrite: true,
+    });
 
     let concattedTests = new Concat(tests, {
       inputFiles: ['**/*.js'],
@@ -82,32 +86,32 @@ module.exports = function() {
     let concattedAMD = new Concat(amd, {
       inputFiles: ['**/*.js'],
       // putting this in test to avoid publishing
-      outputFile: 'router.amd.js'
+      outputFile: 'router.amd.js',
     });
 
     let rsvp = new Funnel(findLib('rsvp'), {
       files: ['rsvp.es.js'],
-      getDestinationPath() { return 'rsvp.js'; }
+      getDestinationPath() {
+        return 'rsvp.js';
+      },
     });
     let rsvpAMD = toAMD(rsvp);
 
     let rr = new Funnel(findLib('route-recognizer'), {
       files: ['route-recognizer.es.js'],
-      getDestinationPath() { return 'route-recognizer.js'; },
+      getDestinationPath() {
+        return 'route-recognizer.js';
+      },
     });
     let rrAMD = toAMD(rr);
 
     let backburner = findLib('backburner.js', 'dist/es6', {
       files: ['backburner.js'],
-      annotation: 'backburner es'
+      annotation: 'backburner es',
     });
     let backburnerAMD = toAMD(backburner);
 
-    let vendorTree = new MergeTrees([
-      rsvpAMD,
-      rrAMD,
-      backburnerAMD,
-    ]);
+    let vendorTree = new MergeTrees([rsvpAMD, rrAMD, backburnerAMD]);
     let vendor = new Concat(vendorTree, {
       inputFiles: '**/*.js',
       outputFile: 'vendor/vendor.js',
@@ -119,12 +123,12 @@ module.exports = function() {
       // dependencies
       new Funnel(findLib('loader.js'), {
         destDir: 'vendor',
-        annotation: 'loader.js'
+        annotation: 'loader.js',
       }),
       new Funnel(findLib('qunitjs'), {
         files: ['qunit.js', 'qunit.css'],
         destDir: 'vendor',
-        annotation: 'qunit'
+        annotation: 'qunit',
       }),
 
       vendor,
@@ -135,9 +139,9 @@ module.exports = function() {
         destDir: 'tests',
       }),
 
-      concattedTests
+      concattedTests,
     ]);
   }
 
   return new MergeTrees(trees);
-}
+};
