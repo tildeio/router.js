@@ -1,5 +1,5 @@
 import Router from 'router';
-import { Promise } from "rsvp";
+import { Promise } from 'rsvp';
 
 // Intentionally use QUnit.module instead of module from test_helpers
 // so that we avoid using Backburner to handle the async portions of
@@ -11,10 +11,10 @@ QUnit.module('Async Get Handler', {
     this.handlers = {};
     this.router = new Router();
     this.router.map(function(match) {
-      match("/index").to("index");
-      match("/foo").to("foo", function(match) {
-        match("/").to("fooIndex");
-        match("/bar").to("fooBar");
+      match('/index').to('index');
+      match('/foo').to('foo', function(match) {
+        match('/').to('fooIndex');
+        match('/bar').to('fooBar');
       });
     });
 
@@ -23,7 +23,7 @@ QUnit.module('Async Get Handler', {
 
   afterEach: function() {
     QUnit.config.testTimeout = 1000;
-  }
+  },
 });
 
 QUnit.test('can transition to lazily-resolved routes', function(assert) {
@@ -42,10 +42,14 @@ QUnit.test('can transition to lazily-resolved routes', function(assert) {
   var fooBarCalled = false;
 
   this.handlers.foo = {
-    model: function() { fooCalled = true; }
+    model: function() {
+      fooCalled = true;
+    },
   };
   this.handlers.fooBar = {
-    model: function() { fooBarCalled = true; }
+    model: function() {
+      fooBarCalled = true;
+    },
   };
 
   this.router.transitionTo('/foo/bar').then(function() {
@@ -75,23 +79,30 @@ QUnit.test('calls hooks of lazily-resolved routes in order', function(assert) {
     });
   };
 
-
   this.handlers.foo = {
-    model: function() { operations.push('model foo'); }
+    model: function() {
+      operations.push('model foo');
+    },
   };
   this.handlers.fooBar = {
-    model: function() { operations.push('model fooBar'); }
+    model: function() {
+      operations.push('model fooBar');
+    },
   };
 
   this.router.transitionTo('/foo/bar').then(function() {
-    assert.deepEqual(operations, [
-      'get handler foo',
-      'get handler fooBar',
-      'resolved fooBar',
-      'resolved foo',
-      'model foo',
-      'model fooBar'
-    ], 'order of operations is correct');
+    assert.deepEqual(
+      operations,
+      [
+        'get handler foo',
+        'get handler fooBar',
+        'resolved fooBar',
+        'resolved foo',
+        'model foo',
+        'model fooBar',
+      ],
+      'order of operations is correct'
+    );
     done();
   });
 });

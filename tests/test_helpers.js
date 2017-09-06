@@ -1,5 +1,5 @@
-import Backburner from "backburner";
-import { resolve, configure } from "rsvp";
+import Backburner from 'backburner';
+import { resolve, configure } from 'rsvp';
 import { oCreate } from 'router/utils';
 import TransitionAbortedError from 'router/transition-aborted-error';
 
@@ -36,13 +36,16 @@ function module(name, options) {
       if (options.teardown) {
         options.teardown.apply(this, arguments);
       }
-    }
+    },
   });
 }
 
 function assertAbort(assert) {
   return function _assertAbort(e) {
-    assert.ok(e instanceof TransitionAbortedError, 'transition was redirected/aborted');
+    assert.ok(
+      e instanceof TransitionAbortedError,
+      'transition was redirected/aborted'
+    );
   };
 }
 
@@ -57,7 +60,9 @@ function transitionTo(router) {
 
 function transitionToWithAbort(assert, router) {
   var args = slice.call(arguments, 2);
-  router.transitionTo.apply(router, args).then(shouldNotHappen, assertAbort(assert));
+  router.transitionTo
+    .apply(router, args)
+    .then(shouldNotHappen, assertAbort(assert));
   flushBackburner();
 }
 
@@ -67,9 +72,8 @@ function handleURL(router) {
   return result;
 }
 
-
 function shouldNotHappen(assert, _message) {
-  var message = _message || "this .then handler should not be called";
+  var message = _message || 'this .then handler should not be called';
   return function _shouldNotHappen(error) {
     console.error(error.stack); // eslint-disable-line
     assert.ok(false, message);
@@ -82,12 +86,16 @@ function stubbedHandlerInfoFactory(name, props) {
   return obj;
 }
 
-module("backburner sanity test");
+module('backburner sanity test');
 
-test("backburnerized testing works as expected", function(assert) {
+test('backburnerized testing works as expected', function(assert) {
   assert.expect(1);
-  resolve("hello").then(function(word) {
-    assert.equal(word, "hello", "backburner flush in teardown resolved this promise");
+  resolve('hello').then(function(word) {
+    assert.equal(
+      word,
+      'hello',
+      'backburner flush in teardown resolved this promise'
+    );
   });
 });
 
@@ -100,5 +108,5 @@ export {
   transitionToWithAbort,
   shouldNotHappen,
   stubbedHandlerInfoFactory,
-  assertAbort
+  assertAbort,
 };

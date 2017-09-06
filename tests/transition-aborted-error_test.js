@@ -8,12 +8,16 @@ test('correct inheritance and name', function(assert) {
 
   try {
     throw new TransitionAbortedError('Message');
-  } catch(e) {
+  } catch (e) {
     error = e;
   }
 
   // it would be more correct with TransitionAbortedError, but other libraries may rely on this name
-  assert.equal(error.name, 'TransitionAborted', "TransitionAbortedError has the name 'TransitionAborted'");
+  assert.equal(
+    error.name,
+    'TransitionAborted',
+    "TransitionAbortedError has the name 'TransitionAborted'"
+  );
 
   assert.ok(error instanceof TransitionAbortedError);
   assert.ok(error instanceof Error);
