@@ -7,17 +7,16 @@ import UnresolvedHandlerInfoByObject from 'router/handler-info/unresolved-handle
 import UnresolvedHandlerInfoByParam from 'router/handler-info/unresolved-handler-info-by-param';
 
 import { resolve, reject } from 'rsvp';
-import { subclass } from 'router/utils';
 
 function noop() {}
 
 var resolvedModel = {};
 
-var StubHandlerInfo = subclass(HandlerInfo, {
-  getModel: function() {
+class StubHandlerInfo extends HandlerInfo {
+  getModel() {
     return resolvedModel;
-  },
-});
+  }
+}
 
 function create(Klass, _props) {
   var props = _props || {};

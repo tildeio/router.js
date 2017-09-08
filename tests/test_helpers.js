@@ -1,6 +1,5 @@
 import Backburner from 'backburner';
 import { resolve, configure } from 'rsvp';
-import { oCreate } from 'router/utils';
 import TransitionAbortedError from 'router/transition-aborted-error';
 
 var slice = Array.prototype.slice;
@@ -81,7 +80,7 @@ function shouldNotHappen(assert, _message) {
 }
 
 function stubbedHandlerInfoFactory(name, props) {
-  var obj = oCreate(props);
+  var obj = Object.create(props);
   obj._handlerInfoType = name;
   return obj;
 }
