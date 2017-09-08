@@ -12,7 +12,8 @@
   },
   "license": "MIT",
   "author": "Tilde, Inc.",
-  "main": "dist/router.js",
+  "main": "dist/cjs/index.js",
+  "module": "dist/modules/index.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/tildeio/router.js.git"
@@ -22,6 +23,10 @@
     "start": "ember server",
     "test": "ember test"
   },
+  "files": [
+    "dist/cjs",
+    "dist/modules"
+  ],
   "dependencies": {},
   "devDependencies": {
     "babel-preset-env": "^1.6.0",

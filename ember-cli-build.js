@@ -59,8 +59,8 @@ module.exports = function() {
   });
 
   let trees = [
-    new Funnel(eslatest, { destDir: 'modules' }),
-    new Funnel(cjs, { destDir: 'cjs' }),
+    new Funnel(eslatest, { srcDir: 'router', destDir: 'modules' }),
+    new Funnel(cjs, { srcDir: 'router', destDir: 'cjs' }),
   ];
 
   if (process.env.EMBER_ENV !== 'production') {
@@ -86,7 +86,7 @@ module.exports = function() {
     let concattedAMD = new Concat(amd, {
       inputFiles: ['**/*.js'],
       // putting this in test to avoid publishing
-      outputFile: 'router.amd.js',
+      outputFile: 'tests/router.amd.js',
     });
 
     let rsvp = new Funnel(findLib('rsvp'), {
