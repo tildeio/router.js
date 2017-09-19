@@ -1491,6 +1491,22 @@ scenarios.forEach(function(scenario) {
     );
   });
 
+  test('the serializer method is unbound', function(assert) {
+    assert.expect(1);
+
+    router.getSerializer = function() {
+      return function(date) {
+        assert.equal(this, undefined);
+        return {
+          date:
+            date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+        };
+      };
+    };
+
+    router.generate('showPostsForDate', new Date(1815, 5, 18));
+  });
+
   test('params are known by a transition up front', function(assert) {
     assert.expect(2);
 
@@ -2923,6 +2939,26 @@ scenarios.forEach(function(scenario) {
       .then(shouldNotHappen(assert), function() {
         assert.ok(true, 'failure handler called');
       });
+  });
+
+  test('the serialize function is bound to the correct object when called', function(
+    assert
+  ) {
+    assert.expect(scenario.async ? 0 : 1);
+
+    handlers = {
+      showPostsForDate: {
+        serialize: function(date) {
+          assert.equal(this, handlers.showPostsForDate);
+          return {
+            date:
+              date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+          };
+        },
+      },
+    };
+
+    router.generate('showPostsForDate', new Date(1815, 5, 18));
   });
 
   test('transitionTo will soak up resolved parent models of active transition', function(
