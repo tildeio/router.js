@@ -42,12 +42,12 @@
     "loader.js": "^4.6.0",
     "prettier": "^1.6.1",
     "qunitjs": "^2.4.0",
-    "route-recognizer": "^0.3.1",
-    "rsvp": "^4.0.1"
+    "route-recognizer": "^0.3.3",
+    "rsvp": "^4.7.0"
   },
   "peerDependencies": {
-    "route-recognizer": "^0.3.0",
-    "rsvp": "^3.0.0"
+    "route-recognizer": "^0.3.3",
+    "rsvp": "^4.7.0"
   },
   "engines": {
     "node": "^4.5 || 6.* || >= 8.*"
