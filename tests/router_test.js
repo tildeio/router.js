@@ -4597,8 +4597,6 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
   });
 
   test('Calling replaceWith after initial replace in validation hook with multiple redirects should use replaceUrl', function(assert) {
-    // assert.expect(8);
-
     map(assert, function(match) {
       match('/foo').to('foo');
       match('/bar').to('bar');
@@ -4618,11 +4616,10 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
 
     router.replaceURL = function(replaceURL) {
       url = replaceURL;
-      if (history.length > 0) {
-        history[history.length - 1] = url;
-      } else {
-        history.push(url);
+      if (history.length === 0) {
+        assert.ok(false, 'should not replace on initial');
       }
+      history[history.length - 1] = url;
     };
 
     var fooHandler = {
