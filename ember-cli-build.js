@@ -124,7 +124,7 @@ module.exports = function() {
       destDir: 'vendor',
       annotation: 'loader.js',
     }),
-    new Funnel(findLib('qunitjs'), {
+    new Funnel(findLib('qunit'), {
       files: ['qunit.js', 'qunit.css'],
       destDir: 'vendor',
       annotation: 'qunit',

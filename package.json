@@ -29,25 +29,25 @@
   ],
   "dependencies": {},
   "devDependencies": {
-    "babel-preset-env": "^1.6.0",
-    "backburner.js": "^1.2.0",
+    "babel-preset-env": "^1.6.1",
+    "backburner.js": "^2.1.0",
     "broccoli-babel-transpiler": "^6.1.2",
     "broccoli-concat": "^3.2.2",
     "broccoli-funnel": "^2.0.1",
     "broccoli-lint-eslint": "^4.1.0",
     "broccoli-merge-trees": "^2.0.0",
-    "ember-cli": "2.15.0",
+    "ember-cli": "2.18.1",
     "eslint-config-prettier": "^2.4.0",
     "eslint-plugin-prettier": "^2.2.0",
     "loader.js": "^4.6.0",
     "prettier": "^1.6.1",
-    "qunitjs": "^2.4.0",
+    "qunit": "^2.5.0",
     "route-recognizer": "^0.3.3",
-    "rsvp": "^4.7.0"
+    "rsvp": "^4.8.1"
   },
   "peerDependencies": {
     "route-recognizer": "^0.3.3",
-    "rsvp": "^4.7.0"
+    "rsvp": "^4.8.1"
   },
   "engines": {
     "node": "^4.5 || 6.* || >= 8.*"
