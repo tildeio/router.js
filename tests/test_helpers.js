@@ -65,6 +65,14 @@ function transitionToWithAbort(assert, router) {
   flushBackburner();
 }
 
+function replaceWith(router) {
+  var result = router.transitionTo
+    .apply(router, slice.call(arguments, 1))
+    .method('replace');
+  flushBackburner();
+  return result;
+}
+
 function handleURL(router) {
   var result = router.handleURL.apply(router, slice.call(arguments, 1));
   flushBackburner();
@@ -105,6 +113,7 @@ export {
   handleURL,
   transitionTo,
   transitionToWithAbort,
+  replaceWith,
   shouldNotHappen,
   stubbedHandlerInfoFactory,
   assertAbort,
