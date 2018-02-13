@@ -32,9 +32,7 @@ test('getChangelist', function(assert) {
   });
 });
 
-test('callHook invokes optional methods, preferring underscored versions', function(
-  assert
-) {
+test('callHook invokes optional methods, preferring underscored versions', function(assert) {
   assert.expect(8);
 
   var obj = {

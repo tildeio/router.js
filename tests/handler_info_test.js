@@ -61,9 +61,7 @@ test('HandlerInfo can be aborted mid-resolve', function(assert) {
   });
 });
 
-test('HandlerInfo#resolve resolves with a ResolvedHandlerInfo', function(
-  assert
-) {
+test('HandlerInfo#resolve resolves with a ResolvedHandlerInfo', function(assert) {
   assert.expect(1);
 
   var handlerInfo = create(StubHandlerInfo);
@@ -142,9 +140,7 @@ test('HandlerInfo#resolve runs afterModel hook on handler', function(assert) {
   });
 });
 
-test('UnresolvedHandlerInfoByParam gets its model hook called', function(
-  assert
-) {
+test('UnresolvedHandlerInfoByParam gets its model hook called', function(assert) {
   assert.expect(2);
 
   var transition = {};
@@ -166,9 +162,7 @@ test('UnresolvedHandlerInfoByParam gets its model hook called', function(
   handlerInfo.resolve(noop, transition);
 });
 
-test('UnresolvedHandlerInfoByObject does NOT get its model hook called', function(
-  assert
-) {
+test('UnresolvedHandlerInfoByObject does NOT get its model hook called', function(assert) {
   assert.expect(1);
 
   var handlerInfo = create(UnresolvedHandlerInfoByObject, {

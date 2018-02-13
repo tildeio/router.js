@@ -133,9 +133,7 @@ scenarios.forEach(function(scenario) {
     return path.join('.');
   }
 
-  test('Handling a URL triggers model on the handler and passes the result into the setup method', function(
-    assert
-  ) {
+  test('Handling a URL triggers model on the handler and passes the result into the setup method', function(assert) {
     assert.expect(4);
 
     var post = { post: true };
@@ -173,9 +171,7 @@ scenarios.forEach(function(scenario) {
     router.handleURL('/posts/1');
   });
 
-  test('isActive should not break on initial intermediate route', function(
-    assert
-  ) {
+  test('isActive should not break on initial intermediate route', function(assert) {
     assert.expect(1);
     router.intermediateTransitionTo('/posts/admin/1/posts');
     assert.ok(router.isActive('admin', '1'));
@@ -263,9 +259,7 @@ scenarios.forEach(function(scenario) {
     assert.equal(appRedirects, 1);
   });
 
-  test('when transitioning with the same context, setup should only be called once', function(
-    assert
-  ) {
+  test('when transitioning with the same context, setup should only be called once', function(assert) {
     var parentSetupCount = 0,
       childSetupCount = 0;
 
@@ -324,9 +318,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test("when transitioning to a new parent and child state, the parent's context should be available to the child's model", function(
-    assert
-  ) {
+  test("when transitioning to a new parent and child state, the parent's context should be available to the child's model", function(assert) {
     assert.expect(1);
     var contexts = [];
 
@@ -366,9 +358,7 @@ scenarios.forEach(function(scenario) {
       }, shouldNotHappen(assert));
   });
 
-  test('A delegate provided to router.js is passed along to route-recognizer', function(
-    assert
-  ) {
+  test('A delegate provided to router.js is passed along to route-recognizer', function(assert) {
     router = new Router({
       delegate: {
         willAddRoute: function(context, route) {
@@ -410,9 +400,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('handleURL: Handling a nested URL triggers each handler', function(
-    assert
-  ) {
+  test('handleURL: Handling a nested URL triggers each handler', function(assert) {
     assert.expect(28);
 
     var posts = [];
@@ -791,17 +779,13 @@ scenarios.forEach(function(scenario) {
       });
   });
 
-  test('applyIntent returns a tentative state based on a named transition', function(
-    assert
-  ) {
+  test('applyIntent returns a tentative state based on a named transition', function(assert) {
     transitionTo(router, '/posts');
     var state = router.applyIntent('faq', []);
     assert.ok(state.handlerInfos.length);
   });
 
-  test('Moving to a new top-level route triggers exit callbacks', function(
-    assert
-  ) {
+  test('Moving to a new top-level route triggers exit callbacks', function(assert) {
     assert.expect(6);
 
     var allPosts = { posts: 'all' };
@@ -902,9 +886,7 @@ scenarios.forEach(function(scenario) {
       });
   });
 
-  test('transition.resolvedModels after redirects b/w routes', function(
-    assert
-  ) {
+  test('transition.resolvedModels after redirects b/w routes', function(assert) {
     assert.expect(3);
 
     map(assert, function(match) {
@@ -948,9 +930,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/peter');
   });
 
-  test('transition.resolvedModels after redirects within the same route', function(
-    assert
-  ) {
+  test('transition.resolvedModels after redirects within the same route', function(assert) {
     var admin = { admin: true },
       redirect = true;
 
@@ -980,9 +960,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/posts/admin/1/posts');
   });
 
-  test('Moving to the same route with a different parent dynamic segment re-runs model', function(
-    assert
-  ) {
+  test('Moving to the same route with a different parent dynamic segment re-runs model', function(assert) {
     var admins = { 1: { id: 1 }, 2: { id: 2 } },
       adminPosts = { 1: { id: 1 }, 2: { id: 2 } };
 
@@ -1009,9 +987,7 @@ scenarios.forEach(function(scenario) {
     assert.equal(handlers.adminPosts.context, adminPosts[2]);
   });
 
-  test('Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)', function(
-    assert
-  ) {
+  test('Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)', function(assert) {
     assert.expect(8);
 
     var allPosts = { posts: 'all' };
@@ -1094,9 +1070,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('Moving to a sibling route only triggers exit callbacks on the current route (when transitioned via a URL change)', function(
-    assert
-  ) {
+  test('Moving to a sibling route only triggers exit callbacks on the current route (when transitioned via a URL change)', function(assert) {
     assert.expect(7);
 
     var allPosts = { posts: 'all' };
@@ -1296,9 +1270,7 @@ scenarios.forEach(function(scenario) {
     router.trigger('expand');
   });
 
-  test('events can bubble up to a parent handler via `return true`', function(
-    assert
-  ) {
+  test('events can bubble up to a parent handler via `return true`', function(assert) {
     assert.expect(4);
 
     handlers = {
@@ -1339,9 +1311,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test("handled-then-bubbled events don't throw an exception if uncaught by parent route", function(
-    assert
-  ) {
+  test("handled-then-bubbled events don't throw an exception if uncaught by parent route", function(assert) {
     assert.expect(3);
 
     handlers = {
@@ -1454,9 +1424,7 @@ scenarios.forEach(function(scenario) {
     assert.equal(result, '/posts/on/1815-5-18');
   });
 
-  test('getSerializer takes precedence over handler.serialize', function(
-    assert
-  ) {
+  test('getSerializer takes precedence over handler.serialize', function(assert) {
     assert.expect(2);
 
     router.getSerializer = function() {
@@ -1532,9 +1500,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/posts/filter/sad', 'blorg');
   });
 
-  test('transitionTo uses the current context if you are already in a handler with a context that is not changing', function(
-    assert
-  ) {
+  test('transitionTo uses the current context if you are already in a handler with a context that is not changing', function(assert) {
     var admin = { id: 47 },
       adminPost = { id: 74 };
 
@@ -1582,9 +1548,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, 'adminPost', { id: 75 });
   });
 
-  test('tests whether arguments to transitionTo are considered active', function(
-    assert
-  ) {
+  test('tests whether arguments to transitionTo are considered active', function(assert) {
     var admin = { id: 47 },
       adminPost = { id: 74 },
       posts = {
@@ -1665,9 +1629,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('calling generate on a non-dynamic route does not blow away parent contexts', function(
-    assert
-  ) {
+  test('calling generate on a non-dynamic route does not blow away parent contexts', function(assert) {
     map(assert, function(match) {
       match('/projects').to('projects', function(match) {
         match('/').to('projectsIndex');
@@ -1702,9 +1664,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('calling transitionTo on a dynamic parent route causes non-dynamic child context to be updated', function(
-    assert
-  ) {
+  test('calling transitionTo on a dynamic parent route causes non-dynamic child context to be updated', function(assert) {
     map(assert, function(match) {
       match('/project/:project_id').to('project', function(match) {
         match('/').to('projectIndex');
@@ -1767,9 +1727,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('reset exits and clears the current and target route handlers', function(
-    assert
-  ) {
+  test('reset exits and clears the current and target route handlers', function(assert) {
     var postIndexExited = false;
     var showAllPostsExited = false;
     var steps = 0;
@@ -1811,9 +1769,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('any of the model hooks can redirect with or without promise', function(
-    assert
-  ) {
+  test('any of the model hooks can redirect with or without promise', function(assert) {
     assert.expect(26);
     var setupShouldBeEntered = false;
     var returnPromise = false;
@@ -1900,9 +1856,7 @@ scenarios.forEach(function(scenario) {
     testStartup(assert, '/');
   });
 
-  test('transitionTo with a promise pauses the transition until resolve, passes resolved context to setup', function(
-    assert
-  ) {
+  test('transitionTo with a promise pauses the transition until resolve, passes resolved context to setup', function(assert) {
     handlers = {
       index: {},
       showPost: {
@@ -1927,9 +1881,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('error handler gets called for errors in validation hooks', function(
-    assert
-  ) {
+  test('error handler gets called for errors in validation hooks', function(assert) {
     assert.expect(25);
     var setupShouldBeEntered = false;
     var expectedReason = { reason: 'No funciona, mon frere.' };
@@ -2020,9 +1972,7 @@ scenarios.forEach(function(scenario) {
       });
   });
 
-  test("Errors shouldn't be handled after proceeding to next child route", function(
-    assert
-  ) {
+  test("Errors shouldn't be handled after proceeding to next child route", function(assert) {
     assert.expect(3);
 
     map(assert, function(match) {
@@ -2067,9 +2017,7 @@ scenarios.forEach(function(scenario) {
     router.handleURL('/parent/articles');
   });
 
-  test("Error handling shouldn't trigger for transitions that are already aborted", function(
-    assert
-  ) {
+  test("Error handling shouldn't trigger for transitions that are already aborted", function(assert) {
     assert.expect(1);
 
     map(assert, function(match) {
@@ -2103,9 +2051,7 @@ scenarios.forEach(function(scenario) {
     flushBackburner();
   });
 
-  test('Transitions to the same destination as the active transition just return the active transition', function(
-    assert
-  ) {
+  test('Transitions to the same destination as the active transition just return the active transition', function(assert) {
     assert.expect(1);
 
     var transition0 = router.handleURL('/index');
@@ -2211,9 +2157,7 @@ scenarios.forEach(function(scenario) {
     }
   });
 
-  test('redirecting to self from validation hooks should no-op (and not infinite loop)', function(
-    assert
-  ) {
+  test('redirecting to self from validation hooks should no-op (and not infinite loop)', function(assert) {
     assert.expect(2);
 
     var count = 0;
@@ -2261,9 +2205,7 @@ scenarios.forEach(function(scenario) {
     flushBackburner();
   });
 
-  test('redirecting to self from enter hooks should no-op (and not infinite loop)', function(
-    assert
-  ) {
+  test('redirecting to self from enter hooks should no-op (and not infinite loop)', function(assert) {
     assert.expect(1);
 
     var count = 0;
@@ -2284,9 +2226,7 @@ scenarios.forEach(function(scenario) {
     router.handleURL('/index');
   });
 
-  test('redirecting to child handler from validation hooks should no-op (and not infinite loop)', function(
-    assert
-  ) {
+  test('redirecting to child handler from validation hooks should no-op (and not infinite loop)', function(assert) {
     assert.expect(4);
 
     handlers = {
@@ -2340,9 +2280,7 @@ scenarios.forEach(function(scenario) {
     };
   }
 
-  test('transitionTo with named transition can be called at startup', function(
-    assert
-  ) {
+  test('transitionTo with named transition can be called at startup', function(assert) {
     assert.expect(2);
 
     startUpSetup(assert);
@@ -2357,9 +2295,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('transitionTo with URL transition can be called at startup', function(
-    assert
-  ) {
+  test('transitionTo with URL transition can be called at startup', function(assert) {
     assert.expect(2);
 
     startUpSetup(assert);
@@ -2374,9 +2310,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('transitions fire a didTransition event on the destination route', function(
-    assert
-  ) {
+  test('transitions fire a didTransition event on the destination route', function(assert) {
     assert.expect(1);
 
     handlers = {
@@ -2417,9 +2351,7 @@ scenarios.forEach(function(scenario) {
     router.handleURL('/about');
   });
 
-  test('willTransition function fired with handler infos passed in', function(
-    assert
-  ) {
+  test('willTransition function fired with handler infos passed in', function(assert) {
     assert.expect(2);
 
     router.handleURL('/about').then(function() {
@@ -2440,9 +2372,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('willTransition function fired with cancellable transition passed in', function(
-    assert
-  ) {
+  test('willTransition function fired with cancellable transition passed in', function(assert) {
     assert.expect(2);
 
     router.handleURL('/index').then(function() {
@@ -2457,9 +2387,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('transitions can be aborted in the willTransition event', function(
-    assert
-  ) {
+  test('transitions can be aborted in the willTransition event', function(assert) {
     assert.expect(3);
 
     handlers = {
@@ -2488,9 +2416,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('transitions can redirected in the willTransition event', function(
-    assert
-  ) {
+  test('transitions can redirected in the willTransition event', function(assert) {
     assert.expect(2);
 
     var destFlag = true;
@@ -2587,9 +2513,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('if an aborted transition is retried, it preserves the urlMethod of the original one', function(
-    assert
-  ) {
+  test('if an aborted transition is retried, it preserves the urlMethod of the original one', function(assert) {
     assert.expect(9);
 
     var shouldPrevent = true,
@@ -2648,9 +2572,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test('if an initial transition is aborted during validation phase and later retried', function(
-    assert
-  ) {
+  test('if an initial transition is aborted during validation phase and later retried', function(assert) {
     assert.expect(7);
 
     var shouldRedirectToLogin = true;
@@ -2708,9 +2630,7 @@ scenarios.forEach(function(scenario) {
       }, shouldNotHappen(assert, 'final catch'));
   });
 
-  test('completed transitions can be saved and later retried', function(
-    assert
-  ) {
+  test('completed transitions can be saved and later retried', function(assert) {
     assert.expect(3);
 
     var post = { id: '123' },
@@ -2833,9 +2753,7 @@ scenarios.forEach(function(scenario) {
     router.trigger('logUserIn');
   });
 
-  test('authenticated routes: starting on parameterized auth route', function(
-    assert
-  ) {
+  test('authenticated routes: starting on parameterized auth route', function(assert) {
     assert.expect(5);
 
     setupAuthenticatedExample(assert);
@@ -2902,9 +2820,7 @@ scenarios.forEach(function(scenario) {
       });
   });
 
-  test('a successful transition resolves with the target handler', function(
-    assert
-  ) {
+  test('a successful transition resolves with the target handler', function(assert) {
     assert.expect(2);
 
     // Note: this is extra convenient for Ember where you can all
@@ -2941,9 +2857,7 @@ scenarios.forEach(function(scenario) {
       });
   });
 
-  test('the serialize function is bound to the correct object when called', function(
-    assert
-  ) {
+  test('the serialize function is bound to the correct object when called', function(assert) {
     assert.expect(scenario.async ? 0 : 1);
 
     handlers = {
@@ -2961,9 +2875,7 @@ scenarios.forEach(function(scenario) {
     router.generate('showPostsForDate', new Date(1815, 5, 18));
   });
 
-  test('transitionTo will soak up resolved parent models of active transition', function(
-    assert
-  ) {
+  test('transitionTo will soak up resolved parent models of active transition', function(assert) {
     assert.expect(5);
 
     var admin = { id: 47 },
@@ -3048,9 +2960,7 @@ scenarios.forEach(function(scenario) {
     });
   });
 
-  test("transitionTo will soak up resolved all models of active transition, including present route's resolved model", function(
-    assert
-  ) {
+  test("transitionTo will soak up resolved all models of active transition, including present route's resolved model", function(assert) {
     assert.expect(2);
 
     var modelCalled = 0,
@@ -3116,9 +3026,7 @@ scenarios.forEach(function(scenario) {
     assertOnRoute('index');
   });
 
-  test('resolved models can be swapped out within afterModel', function(
-    assert
-  ) {
+  test('resolved models can be swapped out within afterModel', function(assert) {
     assert.expect(3);
 
     var modelPre = {},
@@ -3155,9 +3063,7 @@ scenarios.forEach(function(scenario) {
     router.transitionTo('index');
   });
 
-  test('String/number args in transitionTo are treated as url params', function(
-    assert
-  ) {
+  test('String/number args in transitionTo are treated as url params', function(assert) {
     assert.expect(11);
 
     var adminParams = { id: '1' },
@@ -3224,9 +3130,7 @@ scenarios.forEach(function(scenario) {
       }, shouldNotHappen(assert));
   });
 
-  test("Transitions returned from beforeModel/model/afterModel hooks aren't treated as pausing promises", function(
-    assert
-  ) {
+  test("Transitions returned from beforeModel/model/afterModel hooks aren't treated as pausing promises", function(assert) {
     assert.expect(6);
 
     handlers = {
@@ -3310,9 +3214,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
 });
 */
 
-  test('Transition#followRedirects() returns a promise that fulfills when any redirecting transitions complete', function(
-    assert
-  ) {
+  test('Transition#followRedirects() returns a promise that fulfills when any redirecting transitions complete', function(assert) {
     assert.expect(3);
 
     handlers.about = {
@@ -3352,9 +3254,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
       });
   });
 
-  test("Returning a redirecting Transition from a model hook doesn't cause things to explode", function(
-    assert
-  ) {
+  test("Returning a redirecting Transition from a model hook doesn't cause things to explode", function(assert) {
     assert.expect(2);
 
     handlers.index = {
@@ -3458,9 +3358,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
       });
   });
 
-  test('invalidating parent model with different string/numeric parameters invalidates children', function(
-    assert
-  ) {
+  test('invalidating parent model with different string/numeric parameters invalidates children', function(assert) {
     map(assert, function(match) {
       match('/:p').to('parent', function(match) {
         match('/:c').to('child');
@@ -3504,9 +3402,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     transitionTo(router, 'child', '2', '1');
   });
 
-  test('intents make use of previous transition state in case not enough contexts are provided to retry a transition', function(
-    assert
-  ) {
+  test('intents make use of previous transition state in case not enough contexts are provided to retry a transition', function(assert) {
     assert.expect(3);
 
     map(assert, function(match) {
@@ -3554,9 +3450,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     );
   });
 
-  test('A failed transition calls the catch and finally callbacks', function(
-    assert
-  ) {
+  test('A failed transition calls the catch and finally callbacks', function(assert) {
     assert.expect(2);
 
     map(assert, function(match) {
@@ -3586,9 +3480,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     flushBackburner();
   });
 
-  test('underscore-prefixed hooks are preferred over non-prefixed', function(
-    assert
-  ) {
+  test('underscore-prefixed hooks are preferred over non-prefixed', function(assert) {
     assert.expect(2);
 
     handlers = {
@@ -3665,9 +3557,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   });
 
   if (scenario.async) {
-    test('getHandler is invoked synchronously when returning Promises', function(
-      assert
-    ) {
+    test('getHandler is invoked synchronously when returning Promises', function(assert) {
       assert.expect(2);
 
       var count = 0;
@@ -3763,9 +3653,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     },
   });
 
-  test('isActive supports multiple soaked up string/number params (via params)', function(
-    assert
-  ) {
+  test('isActive supports multiple soaked up string/number params (via params)', function(assert) {
     assert.ok(router.isActive('child'), 'child');
     assert.ok(router.isActive('parent'), 'parent');
 
@@ -3795,9 +3683,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     assert.ok(!router.isActive('parent', 'c', 't'), '!parent c t');
   });
 
-  test('isActive supports multiple soaked up string/number params (via serialized objects)', function(
-    assert
-  ) {
+  test('isActive supports multiple soaked up string/number params (via serialized objects)', function(assert) {
     assert.ok(
       router.isActive('child', { three: 'c', four: 'd' }),
       'child(3:c, 4:d)'
@@ -3855,9 +3741,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     );
   });
 
-  test('isActive supports multiple soaked up string/number params (mixed)', function(
-    assert
-  ) {
+  test('isActive supports multiple soaked up string/number params (mixed)', function(assert) {
     assert.ok(router.isActive('child', 'a', 'b', { three: 'c', four: 'd' }));
     assert.ok(router.isActive('child', 'b', { three: 'c', four: 'd' }));
     assert.ok(!router.isActive('child', 'a', { three: 'c', four: 'd' }));
@@ -4051,9 +3935,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
 });
 */
 
-  test("beforeModel shouldn't be refired with incorrect params during redirect", function(
-    assert
-  ) {
+  test("beforeModel shouldn't be refired with incorrect params during redirect", function(assert) {
     // Source: https://github.com/emberjs/ember.js/issues/3407
 
     assert.expect(3);
@@ -4114,9 +3996,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     },
   });
 
-  test("Transitioning into a route marked as inaccessibleByURL doesn't update the URL", function(
-    assert
-  ) {
+  test("Transitioning into a route marked as inaccessibleByURL doesn't update the URL", function(assert) {
     assert.expect(1);
 
     handlers = {
@@ -4136,9 +4016,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       });
   });
 
-  test("Transitioning into a route with a parent route marked as inaccessibleByURL doesn't update the URL", function(
-    assert
-  ) {
+  test("Transitioning into a route with a parent route marked as inaccessibleByURL doesn't update the URL", function(assert) {
     assert.expect(2);
 
     handlers = {
@@ -4155,9 +4033,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(url, '/index');
   });
 
-  test('Handling a URL on a route marked as inaccessible behaves like a failed url match', function(
-    assert
-  ) {
+  test('Handling a URL on a route marked as inaccessible behaves like a failed url match', function(assert) {
     assert.expect(1);
 
     handlers = {
@@ -4195,9 +4071,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     },
   });
 
-  test("intermediateTransitionTo() forces an immediate intermediate transition that doesn't cancel currently active async transitions", function(
-    assert
-  ) {
+  test("intermediateTransitionTo() forces an immediate intermediate transition that doesn't cancel currently active async transitions", function(assert) {
     assert.expect(11);
 
     var counter = 1,
@@ -4276,9 +4150,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     counterAt(7, 'original transition promise resolves');
   });
 
-  test('Calling transitionTo during initial transition in validation hook should use replaceURL', function(
-    assert
-  ) {
+  test('Calling transitionTo during initial transition in validation hook should use replaceURL', function(assert) {
     assert.expect(4);
     map(assert, function(match) {
       match('/foo').to('foo');
@@ -4326,9 +4198,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1);
   });
 
-  test('Calling transitionTo during initial transition in validation hook with multiple redirects should use replaceURL', function(
-    assert
-  ) {
+  test('Calling transitionTo during initial transition in validation hook with multiple redirects should use replaceURL', function(assert) {
     assert.expect(5);
     map(assert, function(match) {
       match('/foo').to('foo');
@@ -4387,9 +4257,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(bazModelCount, 1);
   });
 
-  test('Calling transitionTo after initial transition in validation hook should use updateUrl', function(
-    assert
-  ) {
+  test('Calling transitionTo after initial transition in validation hook should use updateUrl', function(assert) {
     assert.expect(8);
 
     map(assert, function(match) {
@@ -4441,9 +4309,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(fooModelCount, 1, 'Foo model should be called once');
   });
 
-  test('Calling transitionTo after initial transition in validation hook with multiple redirects should use updateUrl', function(
-    assert
-  ) {
+  test('Calling transitionTo after initial transition in validation hook with multiple redirects should use updateUrl', function(assert) {
     assert.expect(10);
 
     map(assert, function(match) {
@@ -4507,9 +4373,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1, 'Bar model should be called once');
   });
 
-  test('Calling replaceWith during initial transition in validation hook should use replaceURL', function(
-    assert
-  ) {
+  test('Calling replaceWith during initial transition in validation hook should use replaceURL', function(assert) {
     assert.expect(4);
     map(assert, function(match) {
       match('/foo').to('foo');
@@ -4557,9 +4421,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1);
   });
 
-  test('Calling replaceWith during initial transition in validation hook with multiple redirects should use replaceURL', function(
-    assert
-  ) {
+  test('Calling replaceWith during initial transition in validation hook with multiple redirects should use replaceURL', function(assert) {
     assert.expect(5);
     map(assert, function(match) {
       match('/foo').to('foo');
@@ -4618,9 +4480,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(bazModelCount, 1, 'should call baz model once');
   });
 
-  test('Calling replaceWith after initial transition in validation hook should use updateUrl', function(
-    assert
-  ) {
+  test('Calling replaceWith after initial transition in validation hook should use updateUrl', function(assert) {
     assert.expect(8);
 
     map(assert, function(match) {
@@ -4671,9 +4531,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(fooModelCount, 1, 'Foo model should be called once');
   });
 
-  test('Calling replaceWith after initial transition in validation hook with multiple redirects should use updateUrl', function(
-    assert
-  ) {
+  test('Calling replaceWith after initial transition in validation hook with multiple redirects should use updateUrl', function(assert) {
     assert.expect(10);
 
     map(assert, function(match) {
@@ -4737,9 +4595,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1, 'Bar model should be called once');
   });
 
-  test('Mixing multiple types of redirect during initial transition should work', function(
-    assert
-  ) {
+  test('Mixing multiple types of redirect during initial transition should work', function(assert) {
     assert.expect(10);
 
     map(assert, function(match) {
@@ -4803,9 +4659,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1, 'Bar model should be called once');
   });
 
-  test('Mixing multiple types of redirects after initial transition should work', function(
-    assert
-  ) {
+  test('Mixing multiple types of redirects after initial transition should work', function(assert) {
     assert.expect(12);
 
     map(assert, function(match) {
@@ -4885,9 +4739,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1, 'Bar model should be called once');
   });
 
-  test('Calling replaceWith after initial transition outside validation hook should use replaceURL', function(
-    assert
-  ) {
+  test('Calling replaceWith after initial transition outside validation hook should use replaceURL', function(assert) {
     assert.expect(7);
 
     map(assert, function(match) {
@@ -4937,9 +4789,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1, 'Bar model should be called once');
   });
 
-  test('Calling transitionTo after initial transition outside validation hook should use updateUrl', function(
-    assert
-  ) {
+  test('Calling transitionTo after initial transition outside validation hook should use updateUrl', function(assert) {
     assert.expect(7);
 
     map(assert, function(match) {
@@ -4988,9 +4838,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(barModelCount, 1, 'Bar model should be called once');
   });
 
-  test('transitioning to the same route with different context should not reenter the route', function(
-    assert
-  ) {
+  test('transitioning to the same route with different context should not reenter the route', function(assert) {
     map(assert, function(match) {
       match('/project/:project_id').to('project');
     });
@@ -5039,9 +4887,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     );
   });
 
-  test('synchronous transition errors can be detected synchronously', function(
-    assert
-  ) {
+  test('synchronous transition errors can be detected synchronously', function(assert) {
     map(assert, function(match) {
       match('/').to('root');
     });
