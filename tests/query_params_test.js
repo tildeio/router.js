@@ -60,9 +60,7 @@ scenarios.forEach(function(scenario) {
     return true;
   }
 
-  test('a change in query params fires a queryParamsDidChange event', function(
-    assert
-  ) {
+  test('a change in query params fires a queryParamsDidChange event', function(assert) {
     assert.expect(7);
 
     var count = 0;
@@ -108,9 +106,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/index?foo=8&bar=9');
   });
 
-  test('transitioning between routes fires a queryParamsDidChange event', function(
-    assert
-  ) {
+  test('transitioning between routes fires a queryParamsDidChange event', function(assert) {
     assert.expect(8);
     var count = 0;
     handlers.parent = {
@@ -164,9 +160,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/parent?foo=10&bar=11');
   });
 
-  test('Refreshing the route when changing only query params should correctly set queryParamsOnly', function(
-    assert
-  ) {
+  test('Refreshing the route when changing only query params should correctly set queryParamsOnly', function(assert) {
     assert.expect(16);
 
     var initialTransition = true;
@@ -260,9 +254,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('a handler can opt into a full-on transition by calling refresh', function(
-    assert
-  ) {
+  test('a handler can opt into a full-on transition by calling refresh', function(assert) {
     assert.expect(3);
 
     var count = 0;
@@ -301,9 +293,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/index?foo=5&wat=lol');
   });
 
-  test('at the end of a query param change a finalizeQueryParamChange event is fired', function(
-    assert
-  ) {
+  test('at the end of a query param change a finalizeQueryParamChange event is fired', function(assert) {
     assert.expect(5);
 
     var eventHandled = false;
@@ -342,9 +332,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/index?foo=8&bar=9');
   });
 
-  test('failing to consume QPs in finalize event tells the router it no longer has those params', function(
-    assert
-  ) {
+  test('failing to consume QPs in finalize event tells the router it no longer has those params', function(assert) {
     assert.expect(2);
 
     handlers.index = {
@@ -358,9 +346,7 @@ scenarios.forEach(function(scenario) {
     assert.deepEqual(router.state.queryParams, {});
   });
 
-  test('consuming QPs in finalize event tells the router those params are active', function(
-    assert
-  ) {
+  test('consuming QPs in finalize event tells the router those params are active', function(assert) {
     assert.expect(1);
 
     handlers.index = {
@@ -375,9 +361,7 @@ scenarios.forEach(function(scenario) {
     assert.deepEqual(router.state.queryParams, { foo: '8' });
   });
 
-  test("can hide query params from URL if they're marked as visible=false in finalizeQueryParamChange", function(
-    assert
-  ) {
+  test("can hide query params from URL if they're marked as visible=false in finalizeQueryParamChange", function(assert) {
     assert.expect(2);
 
     handlers.index = {
@@ -413,9 +397,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, { queryParams: { foo: '123' } });
   });
 
-  test('handleURL will NOT follow up with a replace URL if query params are already in sync', function(
-    assert
-  ) {
+  test('handleURL will NOT follow up with a replace URL if query params are already in sync', function(assert) {
     assert.expect(0);
 
     router.replaceURL = function(url) {
@@ -440,9 +422,7 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, '/index?foo=5');
   });
 
-  test('can cause full transition by calling refresh within queryParamsDidChange', function(
-    assert
-  ) {
+  test('can cause full transition by calling refresh within queryParamsDidChange', function(assert) {
     assert.expect(5);
 
     var modelCount = 0;
@@ -523,9 +503,7 @@ scenarios.forEach(function(scenario) {
     expectedUrl = '/index?foo=def';
   });
 
-  test('tests whether query params to transitionTo are considered active', function(
-    assert
-  ) {
+  test('tests whether query params to transitionTo are considered active', function(assert) {
     assert.expect(6);
 
     handlers.index = {
@@ -563,9 +541,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  test('tests whether array query params to transitionTo are considered active', function(
-    assert
-  ) {
+  test('tests whether array query params to transitionTo are considered active', function(assert) {
     assert.expect(7);
 
     handlers.index = {
