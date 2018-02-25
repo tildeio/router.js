@@ -5,6 +5,7 @@ import {
   handleURL,
   transitionTo,
   transitionToWithAbort,
+  replaceWith,
   shouldNotHappen,
   assertAbort,
 } from './test_helpers';
@@ -4593,6 +4594,81 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.equal(bazModelCount, 2, 'Baz model should be called twice');
     assert.equal(fooModelCount, 1, 'Foo model should be called once');
     assert.equal(barModelCount, 1, 'Bar model should be called once');
+  });
+
+  test('Calling replaceWith after initial replace in validation hook with multiple redirects should use replaceUrl', function(assert) {
+    map(assert, function(match) {
+      match('/foo').to('foo');
+      match('/bar').to('bar');
+      match('/baz').to('baz');
+      match('/qux').to('qux');
+    });
+
+    var fooModelCount = 0,
+      barModelCount = 0,
+      bazModelCount = 0,
+      history = [];
+
+    router.updateURL = function(updateUrl) {
+      url = updateUrl;
+      history.push(url);
+    };
+
+    router.replaceURL = function(replaceURL) {
+      url = replaceURL;
+      if (history.length === 0) {
+        assert.ok(false, 'should not replace on initial');
+      }
+      history[history.length - 1] = url;
+    };
+
+    var fooHandler = {
+      model: function() {
+        fooModelCount++;
+        router.replaceWith('/bar');
+      },
+    };
+
+    var barHandler = {
+      model: function() {
+        barModelCount++;
+        router.replaceWith('/baz');
+      },
+    };
+
+    var bazHandler = {
+      model: function() {
+        bazModelCount++;
+      },
+    };
+
+    var quxHandler = {
+      model: function() {},
+    };
+
+    handlers = {
+      foo: fooHandler,
+      bar: barHandler,
+      baz: bazHandler,
+      qux: quxHandler,
+    };
+
+    transitionTo(router, '/qux');
+
+    assert.equal(history.length, 1, 'only one history item');
+    assert.equal(history[0], '/qux', 'history item is /qux');
+
+    replaceWith(router, '/foo');
+
+    assert.equal(
+      history.length,
+      1,
+      'still only one history item, replaced the previous'
+    );
+    assert.equal(history[0], '/baz', 'history item is /foo');
+    assert.equal(fooModelCount, 1, 'Foo model should be called once');
+    assert.equal(barModelCount, 1, 'Bar model should be called once');
+    assert.equal(bazModelCount, 1, 'Baz model should be called once');
   });
 
   test('Mixing multiple types of redirect during initial transition should work', function(assert) {
