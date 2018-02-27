@@ -1594,6 +1594,27 @@ scenarios.forEach(function(scenario) {
       showPost: showPostHandler,
     };
 
+    // Check for mid-transition correctness.
+    // Get a reference to the transition, mid-transition.
+    router.willTransition = function() {
+      var midTransitionState = router.activeTransition.state;
+
+      // Make sure that the activeIntent doesn't match post 300.
+      var isPost300Targeted = router.isActiveIntent(
+        'showPost',
+        [300],
+        null,
+        midTransitionState
+      );
+      assert.notOk(isPost300Targeted, 'Post 300 should not match post 3.');
+    };
+
+    // Go to post 3. This triggers our test.
+    transitionTo(router, '/posts/3');
+
+    // Clean up.
+    delete router.willTransition;
+
     transitionTo(router, '/posts/1');
     assert.ok(router.isActive('showPost'), 'The showPost handler is active');
     assert.ok(
