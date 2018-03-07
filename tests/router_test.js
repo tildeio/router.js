@@ -1549,6 +1549,48 @@ scenarios.forEach(function(scenario) {
     transitionTo(router, 'adminPost', { id: 75 });
   });
 
+  test('check for mid-transition correctness', function(assert) {
+    var posts = {
+      1: { id: 1 },
+      2: { id: 2 },
+      3: { id: 3 },
+    };
+
+    var showPostHandler = {
+      serialize: function(object) {
+        return (object && { id: object.id }) || null;
+      },
+
+      model: function(params) {
+        return posts[params.id];
+      },
+    };
+
+    handlers = {
+      showPost: showPostHandler,
+    };
+
+    // Get a reference to the transition, mid-transition.
+    router.willTransition = function() {
+      var midTransitionState = router.activeTransition.state;
+
+      // Make sure that the activeIntent doesn't match post 300.
+      var isPost300Targeted = router.isActiveIntent(
+        'showPost',
+        [300],
+        null,
+        midTransitionState
+      );
+      assert.notOk(isPost300Targeted, 'Post 300 should not match post 3.');
+    };
+
+    // Go to post 3. This triggers our test.
+    transitionTo(router, '/posts/3');
+
+    // Clean up.
+    delete router.willTransition;
+  });
+
   test('tests whether arguments to transitionTo are considered active', function(assert) {
     var admin = { id: 47 },
       adminPost = { id: 74 },
