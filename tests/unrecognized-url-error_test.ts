@@ -1,10 +1,10 @@
-import { module, test } from './test_helpers';
 import UnrecognizedURLError from 'router/unrecognized-url-error';
+import { module, test } from './test_helpers';
 
 module('unrecognized-url-error');
 
 test('correct inheritance', function(assert) {
-  var error;
+  let error;
 
   try {
     throw new UnrecognizedURLError('Message');

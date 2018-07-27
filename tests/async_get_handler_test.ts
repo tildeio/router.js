@@ -1,24 +1,35 @@
-import Router from 'router';
+import Router, { IHandler } from 'router';
+import { Dict } from 'router/core';
 import { Promise } from 'rsvp';
+import { createHandler } from './test_helpers';
 
 // Intentionally use QUnit.module instead of module from test_helpers
 // so that we avoid using Backburner to handle the async portions of
 // the test suite
+let handlers: Dict<IHandler>;
+let router: Router;
 QUnit.module('Async Get Handler', {
   beforeEach: function() {
     QUnit.config.testTimeout = 60000;
 
-    this.handlers = {};
-    this.router = new Router();
-    this.router.map(function(match) {
+    handlers = {};
+    router = new Router({
+      getHandler: () => {
+        throw new Error('never');
+      },
+      delegate: {},
+      getSerializer: () => {
+        throw new Error('never');
+      },
+      updateURL: () => {},
+    });
+    router.map(function(match) {
       match('/index').to('index');
       match('/foo').to('foo', function(match) {
         match('/').to('fooIndex');
         match('/bar').to('fooBar');
       });
     });
-
-    this.router.updateURL = function() {};
   },
 
   afterEach: function() {
@@ -27,32 +38,31 @@ QUnit.module('Async Get Handler', {
 });
 
 QUnit.test('can transition to lazily-resolved routes', function(assert) {
-  var done = assert.async();
-  var testEnvironment = this;
-  this.router.getHandler = function(name) {
+  let done = assert.async();
+
+  router.getHandler = function(name: string) {
     return new Promise(function(resolve) {
       setTimeout(function() {
-        var handlers = testEnvironment.handlers;
-        resolve(handlers[name] || (handlers[name] = {}));
+        resolve(handlers[name] || (handlers[name] = createHandler('empty')));
       }, 1);
     });
   };
 
-  var fooCalled = false;
-  var fooBarCalled = false;
+  let fooCalled = false;
+  let fooBarCalled = false;
 
-  this.handlers.foo = {
-    model: function() {
+  handlers.foo = createHandler('foo', {
+    model() {
       fooCalled = true;
     },
-  };
-  this.handlers.fooBar = {
+  });
+  handlers.fooBar = createHandler('fooBar', {
     model: function() {
       fooBarCalled = true;
     },
-  };
+  });
 
-  this.router.transitionTo('/foo/bar').then(function() {
+  router.transitionTo('/foo/bar').then(function() {
     assert.ok(fooCalled, 'foo is called before transition ends');
     assert.ok(fooBarCalled, 'fooBar is called before transition ends');
     done();
@@ -63,34 +73,32 @@ QUnit.test('can transition to lazily-resolved routes', function(assert) {
 });
 
 QUnit.test('calls hooks of lazily-resolved routes in order', function(assert) {
-  var done = assert.async();
-  var operations = [];
+  let done = assert.async();
+  let operations: string[] = [];
 
-  var testEnvironment = this;
-  this.router.getHandler = function(name) {
+  router.getHandler = function(name: string) {
     operations.push('get handler ' + name);
     return new Promise(function(resolve) {
-      var timeoutLength = name === 'foo' ? 100 : 1;
+      let timeoutLength = name === 'foo' ? 100 : 1;
       setTimeout(function() {
-        var handlers = testEnvironment.handlers;
         operations.push('resolved ' + name);
-        resolve(handlers[name] || (handlers[name] = {}));
+        resolve(handlers[name] || (handlers[name] = createHandler('empty')));
       }, timeoutLength);
     });
   };
 
-  this.handlers.foo = {
+  handlers.foo = createHandler('foo', {
     model: function() {
       operations.push('model foo');
     },
-  };
-  this.handlers.fooBar = {
+  });
+  handlers.fooBar = createHandler('fooBar', {
     model: function() {
       operations.push('model fooBar');
     },
-  };
+  });
 
-  this.router.transitionTo('/foo/bar').then(function() {
+  router.transitionTo('/foo/bar').then(function() {
     assert.deepEqual(
       operations,
       [
