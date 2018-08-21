@@ -1,30 +1,48 @@
-import TransitionIntent from '../transition-intent';
+import RouteRecognizer from 'route-recognizer';
+import { Dict } from '../core';
+import HandlerInfo, {
+  IHandler,
+  UnresolvedHandlerInfoByObject,
+  UnresolvedHandlerInfoByParam,
+} from '../handler-info';
+import { GetHandlerFunc, GetSerializerFunc, SerializerFunc } from '../router';
+import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
-import handlerInfoFactory from '../handler-info/factory';
-import { isParam, extractQueryParams, merge } from '../utils';
+import { extractQueryParams, isParam, merge } from '../utils';
 
 export default class NamedTransitionIntent extends TransitionIntent {
-  constructor(props) {
-    super(props);
+  name: string;
+  pivotHandler?: IHandler;
+  contexts: Dict<unknown>[];
+  queryParams: Dict<unknown>;
+  preTransitionState?: TransitionState = undefined;
 
-    this.name = props.name;
-    this.pivotHandler = props.pivotHandler;
-    this.contexts = props.contexts || [];
-    this.queryParams = props.queryParams;
+  constructor(
+    name: string,
+    pivotHandler: IHandler | undefined,
+    contexts: Dict<unknown>[] = [],
+    queryParams: Dict<unknown> = {}
+  ) {
+    super();
+    this.name = name;
+    this.pivotHandler = pivotHandler;
+    this.contexts = contexts;
+    this.queryParams = queryParams;
   }
 
   applyToState(
-    oldState,
-    recognizer,
-    getHandler,
-    isIntermediate,
-    getSerializer
+    oldState: TransitionState,
+    recognizer: RouteRecognizer,
+    getHandler: GetHandlerFunc,
+    isIntermediate: boolean,
+    getSerializer: GetSerializerFunc
   ) {
-    var partitionedArgs = extractQueryParams([this.name].concat(this.contexts)),
+    // TODO: WTF fix me
+    let partitionedArgs = extractQueryParams([this.name].concat(this.contexts as any)),
       pureArgs = partitionedArgs[0],
       handlers = recognizer.handlersFor(pureArgs[0]);
 
-    var targetRouteName = handlers[handlers.length - 1].handler;
+    let targetRouteName = handlers[handlers.length - 1].handler;
 
     return this.applyToHandlers(
       oldState,
@@ -32,25 +50,25 @@ export default class NamedTransitionIntent extends TransitionIntent {
       getHandler,
       targetRouteName,
       isIntermediate,
-      null,
+      false,
       getSerializer
     );
   }
 
   applyToHandlers(
-    oldState,
-    handlers,
-    getHandler,
-    targetRouteName,
-    isIntermediate,
-    checkingIfActive,
-    getSerializer
+    oldState: TransitionState,
+    handlers: IHandler[],
+    getHandler: GetHandlerFunc,
+    targetRouteName: string,
+    isIntermediate: boolean,
+    checkingIfActive: boolean,
+    getSerializer: GetSerializerFunc
   ) {
-    var i, len;
-    var newState = new TransitionState();
-    var objects = this.contexts.slice(0);
+    let i, len;
+    let newState = new TransitionState();
+    let objects = this.contexts.slice(0);
 
-    var invalidateIndex = handlers.length;
+    let invalidateIndex = handlers.length;
 
     // Pivot handlers are provided for refresh transitions
     if (this.pivotHandler) {
@@ -63,11 +81,11 @@ export default class NamedTransitionIntent extends TransitionIntent {
     }
 
     for (i = handlers.length - 1; i >= 0; --i) {
-      var result = handlers[i];
-      var name = result.handler;
+      let result = handlers[i];
+      let name = result.handler;
 
-      var oldHandlerInfo = oldState.handlerInfos[i];
-      var newHandlerInfo = null;
+      let oldHandlerInfo = oldState.handlerInfos[i];
+      let newHandlerInfo = null;
 
       if (result.names.length > 0) {
         if (i >= invalidateIndex) {
@@ -79,7 +97,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
             oldHandlerInfo
           );
         } else {
-          var serializer = getSerializer(name);
+          let serializer = getSerializer(name);
           newHandlerInfo = this.getHandlerInfoForDynamicSegment(
             name,
             getHandler,
@@ -109,14 +127,11 @@ export default class NamedTransitionIntent extends TransitionIntent {
         // If we're performing an isActive check, we want to
         // serialize URL params with the provided context, but
         // ignore mismatches between old and new context.
-        newHandlerInfo = newHandlerInfo.becomeResolved(
-          null,
-          newHandlerInfo.context
-        );
-        var oldContext = oldHandlerInfo && oldHandlerInfo.context;
+        newHandlerInfo = newHandlerInfo.becomeResolved(null, newHandlerInfo.context!);
+        let oldContext = oldHandlerInfo && oldHandlerInfo.context;
         if (
           result.names.length > 0 &&
-          'context' in oldHandlerInfo &&
+          oldHandlerInfo.context !== undefined &&
           newHandlerInfo.context === oldContext
         ) {
           // If contexts match in isActive test, assume params also match.
@@ -127,17 +142,14 @@ export default class NamedTransitionIntent extends TransitionIntent {
         newHandlerInfo.context = oldContext;
       }
 
-      var handlerToUse = oldHandlerInfo;
-      if (
-        i >= invalidateIndex ||
-        newHandlerInfo.shouldSupercede(oldHandlerInfo)
-      ) {
+      let handlerToUse = oldHandlerInfo;
+      if (i >= invalidateIndex || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
         invalidateIndex = Math.min(i, invalidateIndex);
         handlerToUse = newHandlerInfo;
       }
 
       if (isIntermediate && !checkingIfActive) {
-        handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context);
+        handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context!);
       }
 
       newState.handlerInfos.unshift(handlerToUse);
@@ -159,35 +171,29 @@ export default class NamedTransitionIntent extends TransitionIntent {
     return newState;
   }
 
-  invalidateChildren(handlerInfos, invalidateIndex) {
-    for (var i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
-      var handlerInfo = handlerInfos[i];
+  invalidateChildren(handlerInfos: HandlerInfo[], invalidateIndex: number) {
+    for (let i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
+      let handlerInfo = handlerInfos[i];
       handlerInfos[i] = handlerInfo.getUnresolved();
     }
   }
 
   getHandlerInfoForDynamicSegment(
-    name,
-    getHandler,
-    names,
-    objects,
-    oldHandlerInfo,
-    targetRouteName,
-    i,
-    serializer
+    name: string,
+    getHandler: GetHandlerFunc,
+    names: string[],
+    objects: Dict<unknown>[],
+    oldHandlerInfo: HandlerInfo,
+    _targetRouteName: string,
+    i: number,
+    serializer: SerializerFunc
   ) {
-    var objectToUse;
+    let objectToUse: Dict<unknown>;
     if (objects.length > 0) {
       // Use the objects provided for this transition.
       objectToUse = objects[objects.length - 1];
       if (isParam(objectToUse)) {
-        return this.createParamHandlerInfo(
-          name,
-          getHandler,
-          names,
-          objects,
-          oldHandlerInfo
-        );
+        return this.createParamHandlerInfo(name, getHandler, names, objects, oldHandlerInfo);
       } else {
         objects.pop();
       }
@@ -196,9 +202,8 @@ export default class NamedTransitionIntent extends TransitionIntent {
       return oldHandlerInfo;
     } else {
       if (this.preTransitionState) {
-        var preTransitionHandlerInfo = this.preTransitionState.handlerInfos[i];
-        objectToUse =
-          preTransitionHandlerInfo && preTransitionHandlerInfo.context;
+        let preTransitionHandlerInfo = this.preTransitionState.handlerInfos[i];
+        objectToUse = preTransitionHandlerInfo && preTransitionHandlerInfo.context!;
       } else {
         // Ideally we should throw this error to provide maximal
         // information to the user that not enough context objects
@@ -211,30 +216,27 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return handlerInfoFactory('object', {
-      name: name,
-      getHandler: getHandler,
-      serializer: serializer,
-      context: objectToUse,
-      names: names,
-    });
+    return new UnresolvedHandlerInfoByObject(name, names, getHandler, serializer, objectToUse);
   }
 
-  createParamHandlerInfo(name, getHandler, names, objects, oldHandlerInfo) {
-    var params = {};
+  createParamHandlerInfo(
+    name: string,
+    getHandler: GetHandlerFunc,
+    names: string[],
+    objects: Dict<unknown>[],
+    oldHandlerInfo: HandlerInfo
+  ) {
+    let params: Dict<unknown> = {};
 
     // Soak up all the provided string/numbers
-    var numNames = names.length;
+    let numNames = names.length;
     while (numNames--) {
       // Only use old params if the names match with the new handler
-      var oldParams =
-        (oldHandlerInfo &&
-          name === oldHandlerInfo.name &&
-          oldHandlerInfo.params) ||
-        {};
+      let oldParams =
+        (oldHandlerInfo && name === oldHandlerInfo.name && oldHandlerInfo.params) || {};
 
-      var peek = objects[objects.length - 1];
-      var paramName = names[numNames];
+      let peek = objects[objects.length - 1];
+      let paramName = names[numNames];
       if (isParam(peek)) {
         params[paramName] = '' + objects.pop();
       } else {
@@ -252,10 +254,6 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return handlerInfoFactory('param', {
-      name: name,
-      getHandler: getHandler,
-      params: params,
-    });
+    return new UnresolvedHandlerInfoByParam(name, getHandler, params);
   }
 }

@@ -1,6 +1,11 @@
-import { Promise } from 'rsvp';
-import { trigger, slice, log, promiseLabel } from './utils';
+import { OnFulfilled, OnRejected, Promise } from 'rsvp';
+import { Dict, Maybe } from './core';
+import HandlerInfo, { IHandler } from './handler-info';
+import Router from './router';
 import TransitionAborted from './transition-aborted-error';
+import { TransitionIntent } from './transition-intent';
+import TransitionState, { TransitionError } from './transition-state';
+import { log, promiseLabel, trigger } from './utils';
 
 export { default as TransitionAborted } from './transition-aborted-error';
 
@@ -20,26 +25,50 @@ export { default as TransitionAborted } from './transition-aborted-error';
   @private
  */
 export class Transition {
-  constructor(router, intent, state, error, previousTransition) {
+  state?: TransitionState;
+  router: Router;
+  data: Dict<unknown>;
+  intent?: TransitionIntent;
+  resolvedModels: Dict<Dict<unknown> | undefined>;
+  queryParams: Dict<unknown>;
+  promise?: Promise<any>; // Todo: Fix this shit its actually TransitionState | IHandler | undefined | Error
+  error: Maybe<Error>;
+  params: Dict<unknown>;
+  handlerInfos: HandlerInfo[];
+  targetName: Maybe<string>;
+  pivotHandler: Maybe<IHandler>;
+  sequence: number;
+  isAborted = false;
+  isActive = true;
+  urlMethod = 'update';
+  resolveIndex = 0;
+  queryParamsOnly = false;
+  isTransition = true;
+  isCausedByAbortingTransition = false;
+  isCausedByInitialTransition = false;
+  isCausedByAbortingReplaceTransition = false;
+  _visibleQueryParams: Dict<unknown> = {};
+
+  constructor(
+    router: Router,
+    intent: TransitionIntent | undefined,
+    state: TransitionState | undefined,
+    error: Maybe<Error> = undefined,
+    previousTransition: Maybe<Transition> = undefined
+  ) {
     this.state = state || router.state;
     this.intent = intent;
     this.router = router;
-    this.data = (this.intent && this.intent.data) || {};
+    this.data = (intent && intent.data) || {};
     this.resolvedModels = {};
     this.queryParams = {};
     this.promise = undefined;
     this.error = undefined;
-    this.params = undefined;
-    this.handlerInfos = undefined;
+    this.params = {};
+    this.handlerInfos = [];
     this.targetName = undefined;
     this.pivotHandler = undefined;
-    this.sequence = undefined;
-    this.isAborted = false;
-    this.isActive = true;
-    this.urlMethod = 'update';
-    this.resolveIndex = 0;
-    this.queryParamsOnly = false;
-    this.isTransition = true;
+    this.sequence = -1;
 
     if (error) {
       this.promise = Promise.reject(error);
@@ -53,13 +82,12 @@ export class Transition {
     // initial transition
     this.isCausedByAbortingTransition = !!previousTransition;
     this.isCausedByInitialTransition =
-      previousTransition &&
-      (previousTransition.isCausedByInitialTransition ||
-        previousTransition.sequence === 0);
+      !!previousTransition &&
+      (previousTransition.isCausedByInitialTransition || previousTransition.sequence === 0);
     // Every transition in the chain is a replace
     this.isCausedByAbortingReplaceTransition =
-      previousTransition &&
-      (previousTransition.urlMethod == 'replace' &&
+      !!previousTransition &&
+      (previousTransition.urlMethod === 'replace' &&
         (!previousTransition.isCausedByAbortingTransition ||
           previousTransition.isCausedByAbortingReplaceTransition));
 
@@ -87,28 +115,28 @@ export class Transition {
       this.promise = state
         .resolve(() => {
           if (this.isAborted) {
-            return Promise.reject(
-              undefined,
-              promiseLabel('Transition aborted - reject')
-            );
+            return Promise.reject(false, promiseLabel('Transition aborted - reject'));
           }
+
+          return Promise.resolve(true);
         }, this)
-        .catch(result => {
+        .catch((result: TransitionError) => {
           if (result.wasAborted || this.isAborted) {
             return Promise.reject(logAbort(this));
           } else {
-            this.trigger('error', result.error, this, result.handlerWithError);
+            this.trigger(false, 'error', result.error, this, result.handler);
             this.abort();
             return Promise.reject(result.error);
           }
         }, promiseLabel('Handle Abort'));
     } else {
-      this.promise = Promise.resolve(this.state);
+      this.promise = Promise.resolve(this.state!);
       this.params = {};
     }
   }
 
-  isExiting(handler) {
+  // Todo Delete?
+  isExiting(handler: IHandler | string) {
     let handlerInfos = this.handlerInfos;
     for (let i = 0, len = handlerInfos.length; i < len; ++i) {
       let handlerInfo = handlerInfos[i];
@@ -160,8 +188,12 @@ export class Transition {
     @return {Promise}
     @public
    */
-  then(onFulfilled, onRejected, label) {
-    return this.promise.then(onFulfilled, onRejected, label);
+  then<T>(
+    onFulfilled: OnFulfilled<TransitionState | undefined | Error, T>,
+    onRejected: OnRejected<TransitionState, T>,
+    label: string
+  ) {
+    return this.promise!.then(onFulfilled, onRejected, label);
   }
 
   /**
@@ -177,8 +209,8 @@ export class Transition {
     @return {Promise}
     @public
    */
-  catch(onRejection, label) {
-    return this.promise.catch(onRejection, label);
+  catch<T>(onRejection: OnRejected<TransitionState, T>, label: string) {
+    return this.promise!.catch(onRejection, label);
   }
 
   /**
@@ -194,8 +226,8 @@ export class Transition {
     @return {Promise}
     @public
    */
-  finally(callback, label) {
-    return this.promise.finally(callback, label);
+  finally<T>(callback: T | undefined, label?: string) {
+    return this.promise!.finally(callback, label);
   }
 
   /**
@@ -210,15 +242,12 @@ export class Transition {
     if (this.isAborted) {
       return this;
     }
-    log(
-      this.router,
-      this.sequence,
-      this.targetName + ': transition was aborted'
-    );
-    this.intent.preTransitionState = this.router.state;
+    log(this.router, this.sequence, this.targetName + ': transition was aborted');
+
+    this.intent!.preTransitionState = this.router.state;
     this.isAborted = true;
     this.isActive = false;
-    this.router.activeTransition = null;
+    this.router.activeTransition = undefined;
     return this;
   }
 
@@ -235,7 +264,7 @@ export class Transition {
   retry() {
     // TODO: add tests for merged state retry()s
     this.abort();
-    let newTransition = this.router.transitionByIntent(this.intent, false);
+    let newTransition = this.router.transitionByIntent(this.intent!, false);
 
     // inheriting a `null` urlMethod is not valid
     // the urlMethod is only set to `null` when
@@ -271,9 +300,20 @@ export class Transition {
     @return {Transition} this transition
     @public
    */
-  method(method) {
+  method(method: string) {
     this.urlMethod = method;
     return this;
+  }
+
+  // Alias 'trigger' as 'send'
+  send(
+    ignoreFailure: boolean,
+    _name: string,
+    err?: Error,
+    transition?: Transition,
+    handler?: IHandler
+  ) {
+    this.trigger(ignoreFailure, _name, err, transition, handler);
   }
 
   /**
@@ -289,19 +329,13 @@ export class Transition {
     @param {String} name the name of the event to fire
     @public
    */
-  trigger(ignoreFailure) {
-    let args = slice.call(arguments);
-    if (typeof ignoreFailure === 'boolean') {
-      args.shift();
-    } else {
-      // Throw errors on unhandled trigger events by default
-      ignoreFailure = false;
-    }
+  trigger(ignoreFailure: boolean, _name: string, ...args: any[]) {
     trigger(
       this.router,
-      this.state.handlerInfos.slice(0, this.resolveIndex + 1),
+      this.state!.handlerInfos.slice(0, this.resolveIndex + 1),
       ignoreFailure,
-      args
+      _name,
+      ...args
     );
   }
 
@@ -317,9 +351,9 @@ export class Transition {
       value that the final redirecting transition fulfills with
     @public
    */
-  followRedirects() {
+  followRedirects(): Promise<unknown> {
     let router = this.router;
-    return this.promise.catch(function(reason) {
+    return this.promise!.catch(function(reason) {
       if (router.activeTransition) {
         return router.activeTransition.followRedirects();
       }
@@ -334,20 +368,29 @@ export class Transition {
   /**
     @private
    */
-  log(message) {
+  log(message: string) {
     log(this.router, this.sequence, message);
   }
 }
-
-// Alias 'trigger' as 'send'
-Transition.prototype.send = Transition.prototype.trigger;
 
 /**
   @private
 
   Logs and returns an instance of TransitionAborted.
  */
-export function logAbort(transition) {
+export function logAbort(transition: Transition) {
   log(transition.router, transition.sequence, 'detected abort.');
   return new TransitionAborted();
+}
+
+export function isTransition(obj: Dict<unknown> | undefined): obj is Transition {
+  return typeof obj === 'object' && obj instanceof Transition && obj.isTransition;
+}
+
+export function prepareResult(obj: Dict<unknown> | undefined) {
+  if (isTransition(obj)) {
+    return null;
+  }
+
+  return obj;
 }

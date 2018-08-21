@@ -1,37 +1,48 @@
+import { MatchCallback } from 'route-recognizer';
+import Router, { IHandler, Transition } from 'router';
+import { Dict, Maybe } from 'router/core';
+import HandlerInfo from 'router/handler-info';
+import { GetSerializerFunc, SerializerFunc } from 'router/router';
+import { Promise, reject } from 'rsvp';
 import {
-  module,
-  test,
+  assertAbort,
+  createHandler,
   flushBackburner,
   handleURL,
-  transitionTo,
-  transitionToWithAbort,
+  module,
   replaceWith,
   shouldNotHappen,
-  assertAbort,
+  test,
+  transitionTo,
+  transitionToWithAbort,
 } from './test_helpers';
-import Router from 'router';
-import { reject, Promise } from 'rsvp';
 
-var router, url, handlers, serializers, expectedUrl;
+let router: Router;
+let url: string;
+let handlers: Dict<IHandler>;
 
-var scenarios = [
+let serializers: Dict<SerializerFunc>, expectedUrl: Maybe<string>;
+
+let scenarios = [
   {
     name: 'Sync Get Handler',
     async: false,
-    getHandler: function(name) {
-      return handlers[name] || (handlers[name] = {});
+    getHandler: function(name: string) {
+      return handlers[name] || (handlers[name] = createHandler('empty'));
     },
-    getSerializer: function() {},
+    getSerializer: function() {
+      return;
+    },
   },
   {
     name: 'Async Get Handler',
     async: true,
-    getHandler: function(name) {
+    getHandler: function(name: string) {
       // Treat 'loading' route transitions are synchronous
-      var handler = handlers[name] || (handlers[name] = {});
+      let handler = handlers[name] || (handlers[name] = createHandler('empty'));
       return name === 'loading' ? handler : Promise.resolve(handler);
     },
-    getSerializer: function(name) {
+    getSerializer: function(name: string) {
       return serializers && serializers[name];
     },
   },
@@ -39,9 +50,9 @@ var scenarios = [
 
 scenarios.forEach(function(scenario) {
   module('The router (' + scenario.name + ')', {
-    setup: function(assert) {
+    setup: function(assert: Assert) {
       handlers = {};
-      expectedUrl = null;
+      expectedUrl = undefined;
 
       map(assert, function(match) {
         match('/index').to('index');
@@ -71,19 +82,16 @@ scenarios.forEach(function(scenario) {
     },
   });
 
-  function map(assert, fn) {
+  function map(assert: Assert, fn: MatchCallback) {
     router = new Router({
+      delegate: {},
       getHandler: scenario.getHandler,
 
-      getSerializer: scenario.getSerializer,
+      getSerializer: scenario.getSerializer as GetSerializerFunc,
 
       updateURL: function(newUrl) {
         if (expectedUrl) {
-          assert.equal(
-            newUrl,
-            expectedUrl,
-            'The url is ' + newUrl + ' as expected'
-          );
+          assert.equal(newUrl, expectedUrl, 'The url is ' + newUrl + ' as expected');
         }
 
         url = newUrl;
@@ -113,21 +121,17 @@ scenarios.forEach(function(scenario) {
   test('Handling an invalid URL returns a rejecting promise', function(assert) {
     router.handleURL('/unknown').then(
       shouldNotHappen(assert),
-      function(e) {
-        assert.equal(
-          e.name,
-          'UnrecognizedURLError',
-          'error.name is UnrecognizedURLError'
-        );
+      function(e: Error) {
+        assert.equal(e.name, 'UnrecognizedURLError', 'error.name is UnrecognizedURLError');
       },
       shouldNotHappen(assert)
     );
   });
 
-  function routePath(infos) {
-    var path = [];
+  function routePath(infos: HandlerInfo[]) {
+    let path = [];
 
-    for (var i = 0, l = infos.length; i < l; i++) {
+    for (let i = 0, l = infos.length; i < l; i++) {
       path.push(infos[i].name);
     }
 
@@ -137,32 +141,24 @@ scenarios.forEach(function(scenario) {
   test('Handling a URL triggers model on the handler and passes the result into the setup method', function(assert) {
     assert.expect(4);
 
-    var post = { post: true };
+    let post = { post: true };
 
     handlers = {
-      showPost: {
-        model: function(params) {
-          assert.deepEqual(
-            params,
-            { id: '1', queryParams: {} },
-            'showPost#model called with id 1'
-          );
+      showPost: createHandler('showPost', {
+        model: function(params: Dict<unknown>) {
+          assert.deepEqual(params, { id: '1', queryParams: {} }, 'showPost#model called with id 1');
           return post;
         },
 
-        setup: function(object) {
-          assert.strictEqual(
-            object,
-            post,
-            'setup was called with expected model'
-          );
+        setup: function(object: Dict<unknown>) {
+          assert.strictEqual(object, post, 'setup was called with expected model');
           assert.equal(
             handlers.showPost.context,
             post,
             'context was properly set on showPost handler'
           );
         },
-      },
+      }),
     };
 
     router.didTransition = function(infos) {
@@ -182,15 +178,15 @@ scenarios.forEach(function(scenario) {
     assert.expect(3);
 
     handlers = {
-      index: {
-        model: function(params, transition) {
+      index: createHandler('index', {
+        model: function(_params: string[], transition: Transition) {
           assert.deepEqual(transition.queryParams, {
             sort: 'date',
             filter: 'true',
           });
         },
         events: {
-          finalizeQueryParamChange: function(params, finalParams) {
+          finalizeQueryParamChange: function(params: string[], finalParams: Dict<unknown>[]) {
             assert.ok(true, 'finalizeQueryParamChange');
             // need to consume the params so that the router
             // knows that they're active
@@ -198,12 +194,12 @@ scenarios.forEach(function(scenario) {
             finalParams.push({ key: 'filter', value: params.filter });
           },
         },
-      },
+      }),
     };
 
     router.handleURL('/index?sort=date&filter');
     flushBackburner();
-    assert.deepEqual(router.state.queryParams, {
+    assert.deepEqual(router.state!.queryParams, {
       sort: 'date',
       filter: 'true',
     });
@@ -213,11 +209,11 @@ scenarios.forEach(function(scenario) {
     assert.expect(1);
 
     handlers = {
-      showAllPosts: {
+      showAllPosts: createHandler('showAllPosts', {
         setup: function() {
           assert.ok(true, "showAllPosts' setup called");
         },
-      },
+      }),
     };
 
     router.handleURL('posts/all');
@@ -227,11 +223,11 @@ scenarios.forEach(function(scenario) {
     assert.expect(1);
 
     handlers = {
-      showAllPosts: {
+      showAllPosts: createHandler('showAllPosts', {
         setup: function() {
           assert.ok(true, "showAllPosts' setup called");
         },
-      },
+      }),
     };
 
     router.handleURL('/posts/all?sort=name&sortDirection=descending');
@@ -245,13 +241,13 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    var appRedirects = 0;
+    let appRedirects = 0;
     handlers = {
-      app: {
+      app: createHandler('app', {
         redirect: function() {
           appRedirects++;
         },
-      },
+      }),
     };
 
     transitionTo(router, '/');
@@ -261,10 +257,10 @@ scenarios.forEach(function(scenario) {
   });
 
   test('when transitioning with the same context, setup should only be called once', function(assert) {
-    var parentSetupCount = 0,
+    let parentSetupCount = 0,
       childSetupCount = 0;
 
-    var context = { id: 1 };
+    let context = { id: 1 };
 
     map(assert, function(match) {
       match('/').to('index');
@@ -274,17 +270,17 @@ scenarios.forEach(function(scenario) {
     });
 
     handlers = {
-      post: {
+      post: createHandler('post', {
         setup: function() {
           parentSetupCount++;
         },
-      },
+      }),
 
-      postDetails: {
+      postDetails: createHandler('postDetails', {
         setup: function() {
           childSetupCount++;
         },
-      },
+      }),
     };
 
     transitionTo(router, '/');
@@ -294,34 +290,18 @@ scenarios.forEach(function(scenario) {
 
     transitionTo(router, 'postDetails', context);
 
-    assert.equal(
-      parentSetupCount,
-      1,
-      'after initial transition parent is setup once'
-    );
-    assert.equal(
-      childSetupCount,
-      1,
-      'after initial transition child is setup once'
-    );
+    assert.equal(parentSetupCount, 1, 'after initial transition parent is setup once');
+    assert.equal(childSetupCount, 1, 'after initial transition child is setup once');
 
     transitionTo(router, 'postDetails', context);
 
-    assert.equal(
-      parentSetupCount,
-      1,
-      'after duplicate transition, parent is still setup once'
-    );
-    assert.equal(
-      childSetupCount,
-      1,
-      'after duplicate transition, child is still setup once'
-    );
+    assert.equal(parentSetupCount, 1, 'after duplicate transition, parent is still setup once');
+    assert.equal(childSetupCount, 1, 'after duplicate transition, child is still setup once');
   });
 
   test("when transitioning to a new parent and child state, the parent's context should be available to the child's model", function(assert) {
     assert.expect(1);
-    var contexts = [];
+    let contexts: Dict<unknown>[] = [];
 
     map(assert, function(match) {
       match('/').to('index');
@@ -331,18 +311,18 @@ scenarios.forEach(function(scenario) {
     });
 
     handlers = {
-      post: {
+      post: createHandler('post', {
         model: function() {
-          return contexts.post;
+          return contexts;
         },
-      },
+      }),
 
-      postDetails: {
+      postDetails: createHandler('postDetails', {
         name: 'postDetails',
-        afterModel: function(model, transition) {
-          contexts.push(transition.resolvedModels.post);
+        afterModel: function(_model: Dict<unknown>, transition: Transition) {
+          contexts.push(transition.resolvedModels.post!);
         },
-      },
+      }),
     };
 
     router
@@ -361,6 +341,15 @@ scenarios.forEach(function(scenario) {
 
   test('A delegate provided to router.js is passed along to route-recognizer', function(assert) {
     router = new Router({
+      getHandler() {
+        throw new Error('never');
+      },
+      getSerializer() {
+        throw new Error('never');
+      },
+      updateURL() {
+        throw new Error('never');
+      },
       delegate: {
         willAddRoute: function(context, route) {
           if (!context) {
@@ -375,7 +364,7 @@ scenarios.forEach(function(scenario) {
         },
 
         // Test that both delegates work together
-        contextEntered: function(name, match) {
+        contextEntered: function(_name: string, match) {
           match('/').to('index');
         },
       },
@@ -389,11 +378,12 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    var handlers = [];
+    let handlers: string[] = [];
 
-    router.getHandler = function(handler) {
+    router.getHandler = function(handler: string) {
       handlers.push(handler);
-      return scenario.async ? Promise.resolve({}) : {};
+      let h = createHandler('empty');
+      return scenario.async ? Promise.resolve(h) : h;
     };
 
     router.handleURL('/posts').then(function() {
@@ -404,16 +394,16 @@ scenarios.forEach(function(scenario) {
   test('handleURL: Handling a nested URL triggers each handler', function(assert) {
     assert.expect(28);
 
-    var posts = [];
-    var allPosts = { all: true };
-    var popularPosts = { popular: true };
-    var amazingPosts = { id: 'amazing' };
-    var sadPosts = { id: 'sad' };
+    let posts: Dict<unknown>[] = [];
+    let allPosts = { all: true };
+    let popularPosts = { popular: true };
+    let amazingPosts = { id: 'amazing' };
+    let sadPosts = { id: 'sad' };
 
-    var counter = 0;
+    let counter = 0;
 
-    var postIndexHandler = {
-      model: function(params) {
+    let postIndexHandler = createHandler('postIndex', {
+      model: function(params: Dict<unknown>) {
         // this will always get called, since it's at the root
         // of all of the routes tested here
         assert.deepEqual(
@@ -424,7 +414,7 @@ scenarios.forEach(function(scenario) {
         return posts;
       },
 
-      setup: function(object) {
+      setup: function(context: Dict<unknown>) {
         if (counter === 0) {
           assert.equal(
             postIndexHandler.context,
@@ -432,7 +422,7 @@ scenarios.forEach(function(scenario) {
             'postIndexHandler context should be set up in postIndexHandler#setup'
           );
           assert.strictEqual(
-            object,
+            context,
             posts,
             'The object passed in to postIndexHandler#setup should be posts'
           );
@@ -440,10 +430,10 @@ scenarios.forEach(function(scenario) {
           assert.ok(false, 'Should not get here');
         }
       },
-    };
+    });
 
-    var showAllPostsHandler = {
-      model: function(params) {
+    let showAllPostsHandler = createHandler('showAllPosts', {
+      model(params: Dict<unknown>) {
         if (counter > 0 && counter < 4) {
           assert.equal(
             postIndexHandler.context,
@@ -462,9 +452,11 @@ scenarios.forEach(function(scenario) {
         } else {
           assert.ok(false, 'Should not get here');
         }
+
+        return;
       },
 
-      setup: function(object) {
+      setup(context: Dict<unknown>) {
         if (counter === 0) {
           assert.equal(
             postIndexHandler.context,
@@ -477,7 +469,7 @@ scenarios.forEach(function(scenario) {
             'showAllPostsHandler context should be set up in showAllPostsHandler#setup'
           );
           assert.strictEqual(
-            object,
+            context,
             allPosts,
             'The object passed in should be allPosts in showAllPostsHandler#setup'
           );
@@ -485,10 +477,10 @@ scenarios.forEach(function(scenario) {
           assert.ok(false, 'Should not get here');
         }
       },
-    };
+    });
 
-    var showPopularPostsHandler = {
-      model: function(params) {
+    let showPopularPostsHandler = createHandler('showPopularPosts', {
+      model: function(params: Dict<unknown>) {
         if (counter < 3) {
           assert.ok(false, 'Should not get here');
         } else if (counter === 3) {
@@ -506,9 +498,11 @@ scenarios.forEach(function(scenario) {
         } else {
           assert.ok(false, 'Should not get here');
         }
+
+        return;
       },
 
-      setup: function(object) {
+      setup: function(context: Dict<unknown>) {
         if (counter === 3) {
           assert.equal(
             postIndexHandler.context,
@@ -521,7 +515,7 @@ scenarios.forEach(function(scenario) {
             'showPopularPostsHandler context should be set up in showPopularPostsHandler#setup'
           );
           assert.strictEqual(
-            object,
+            context,
             popularPosts,
             'The object passed to showPopularPostsHandler#setup should be popular posts'
           );
@@ -529,10 +523,10 @@ scenarios.forEach(function(scenario) {
           assert.ok(false, 'Should not get here');
         }
       },
-    };
+    });
 
-    var showFilteredPostsHandler = {
-      model: function(params) {
+    let showFilteredPostsHandler = createHandler('showFilteredPosts', {
+      model: function(params: Dict<unknown>) {
         if (counter < 4) {
           assert.ok(false, 'Should not get here');
         } else if (counter === 4) {
@@ -562,22 +556,24 @@ scenarios.forEach(function(scenario) {
         } else {
           assert.ok(false, 'Should not get here');
         }
+
+        return;
       },
 
-      setup: function(object) {
+      setup: function(context: Dict<unknown>) {
         if (counter === 4) {
           assert.equal(postIndexHandler.context, posts);
           assert.equal(showFilteredPostsHandler.context, amazingPosts);
-          assert.strictEqual(object, amazingPosts);
+          assert.strictEqual(context, amazingPosts);
         } else if (counter === 5) {
           assert.equal(postIndexHandler.context, posts);
           assert.equal(showFilteredPostsHandler.context, sadPosts);
-          assert.strictEqual(object, sadPosts);
+          assert.strictEqual(context, sadPosts);
         } else {
           assert.ok(false, 'Should not get here');
         }
       },
-    };
+    });
 
     handlers = {
       postIndex: postIndexHandler,
@@ -619,12 +615,12 @@ scenarios.forEach(function(scenario) {
   });
 
   test('it can handle direct transitions to named routes', function(assert) {
-    var allPosts = { all: true };
-    var popularPosts = { popular: true };
-    var amazingPosts = { filter: 'amazing' };
-    var sadPosts = { filter: 'sad' };
+    let allPosts = { all: true };
+    let popularPosts = { popular: true };
+    let amazingPosts = { filter: 'amazing' };
+    let sadPosts = { filter: 'sad' };
 
-    var postIndexHandler = {
+    let postIndexHandler = createHandler('postIndex', {
       model: function() {
         return allPosts;
       },
@@ -632,9 +628,9 @@ scenarios.forEach(function(scenario) {
       serialize: function() {
         return {};
       },
-    };
+    });
 
-    var showAllPostsHandler = {
+    let showAllPostsHandler = createHandler('showAllPosts', {
       model: function() {
         //assert.ok(!params, 'params is falsy for non dynamic routes');
         return allPosts;
@@ -644,16 +640,12 @@ scenarios.forEach(function(scenario) {
         return {};
       },
 
-      setup: function(object) {
-        assert.strictEqual(
-          object,
-          allPosts,
-          'showAllPosts should get correct setup'
-        );
+      setup: function(context: Dict<unknown>) {
+        assert.strictEqual(context, allPosts, 'showAllPosts should get correct setup');
       },
-    };
+    });
 
-    var showPopularPostsHandler = {
+    let showPopularPostsHandler = createHandler('showPopularPosts', {
       model: function() {
         return popularPosts;
       },
@@ -662,17 +654,17 @@ scenarios.forEach(function(scenario) {
         return {};
       },
 
-      setup: function(object) {
+      setup: function(context: Dict<unknown>) {
         assert.strictEqual(
-          object,
+          context,
           popularPosts,
           'showPopularPosts#setup should be called with the deserialized value'
         );
       },
-    };
+    });
 
-    var showFilteredPostsHandler = {
-      model: function(params) {
+    let showFilteredPostsHandler = createHandler('showFilteredPosts', {
+      model: function(params: Dict<unknown>) {
         if (!params) {
           return;
         }
@@ -681,33 +673,30 @@ scenarios.forEach(function(scenario) {
         } else if (params.filter_id === 'sad') {
           return sadPosts;
         }
+        return;
       },
 
-      serialize: function(object, params) {
-        assert.deepEqual(
-          params,
-          ['filter_id'],
-          'showFilteredPosts should get correct serialize'
-        );
-        return { filter_id: object.filter };
+      serialize: function(context: Dict<unknown>, params: string[]) {
+        assert.deepEqual(params, ['filter_id'], 'showFilteredPosts should get correct serialize');
+        return { filter_id: context.filter };
       },
 
-      setup: function(object) {
+      setup: function(context: Dict<unknown>) {
         if (counter === 2) {
           assert.strictEqual(
-            object,
+            context,
             amazingPosts,
             'showFilteredPosts should get setup with amazingPosts'
           );
         } else if (counter === 3) {
           assert.strictEqual(
-            object,
+            context,
             sadPosts,
             'showFilteredPosts should get setup setup with sadPosts'
           );
         }
       },
-    };
+    });
 
     handlers = {
       postIndex: postIndexHandler,
@@ -717,7 +706,7 @@ scenarios.forEach(function(scenario) {
     };
 
     router.updateURL = function(url) {
-      var expected = {
+      let expected: Dict<string> = {
         0: '/posts',
         1: '/posts/popular',
         2: '/posts/filter/amazing',
@@ -725,14 +714,10 @@ scenarios.forEach(function(scenario) {
         4: '/posts',
       };
 
-      assert.equal(
-        url,
-        expected[counter],
-        'updateURL should be called with correct url'
-      );
+      assert.equal(url, expected[counter], 'updateURL should be called with correct url');
     };
 
-    var counter = 0;
+    let counter = 0;
 
     router
       .handleURL('/posts')
@@ -758,7 +743,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('replaceWith calls replaceURL', function(assert) {
-    var updateCount = 0,
+    let updateCount = 0,
       replaceCount = 0;
 
     router.updateURL = function() {
@@ -782,25 +767,26 @@ scenarios.forEach(function(scenario) {
 
   test('applyIntent returns a tentative state based on a named transition', function(assert) {
     transitionTo(router, '/posts');
-    var state = router.applyIntent('faq', []);
+    let state = router.applyIntent('faq', []);
     assert.ok(state.handlerInfos.length);
   });
 
   test('Moving to a new top-level route triggers exit callbacks', function(assert) {
     assert.expect(6);
 
-    var allPosts = { posts: 'all' };
-    var postsStore = { 1: { id: 1 }, 2: { id: 2 } };
-    var currentId, currentPath;
+    let allPosts = { posts: 'all' };
+    let postsStore: Dict<any> = { 1: { id: 1 }, 2: { id: 2 } };
+    let currentId: number;
+    let currentPath: string;
 
     handlers = {
-      showAllPosts: {
+      showAllPosts: createHandler('showAllPosts', {
         model: function() {
           return allPosts;
         },
 
-        setup: function(posts, transition) {
-          assert.ok(!transition.isExiting(this));
+        setup: function(posts: Dict<unknown>, transition: Transition) {
+          assert.ok(!transition.isExiting(this as IHandler));
           assert.equal(
             posts,
             allPosts,
@@ -809,25 +795,26 @@ scenarios.forEach(function(scenario) {
           currentPath = 'postIndex.showAllPosts';
         },
 
-        exit: function(transition) {
-          assert.ok(transition.isExiting(this));
+        exit: function(transition: Transition) {
+          assert.ok(transition.isExiting(this as IHandler));
         },
-      },
+      }),
 
-      showPost: {
-        model: function(params) {
-          return postsStore[params.id];
+      showPost: createHandler('showPost', {
+        model: function(params: Dict<unknown>) {
+          let id = parseInt(params.id as string, 10);
+          return postsStore[id];
         },
 
-        serialize: function(post) {
+        serialize: function(post: Dict<unknown>) {
           return { id: post.id };
         },
 
-        setup: function(post) {
+        setup: function(post: Dict<unknown>) {
           currentPath = 'showPost';
           assert.equal(post.id, currentId, 'The post id is ' + currentId);
         },
-      },
+      }),
     };
 
     router
@@ -838,7 +825,7 @@ scenarios.forEach(function(scenario) {
         return router.transitionTo('showPost', postsStore[1]);
       }, shouldNotHappen(assert))
       .then(function() {
-        assert.equal(routePath(router.currentHandlerInfos), currentPath);
+        assert.equal(routePath(router.currentHandlerInfos!), currentPath);
       }, shouldNotHappen(assert));
   });
 
@@ -846,35 +833,29 @@ scenarios.forEach(function(scenario) {
     assert.expect(3);
 
     handlers = {
-      showAllPosts: {
-        beforeModel: function(transition) {
-          assert.ok(
-            !transition.pivotHandler,
-            'First route transition has no pivot route'
-          );
+      showAllPosts: createHandler('showAllPosts', {
+        beforeModel: function(transition: Transition) {
+          assert.ok(!transition.pivotHandler, 'First route transition has no pivot route');
         },
-      },
+      }),
 
-      showPopularPosts: {
-        beforeModel: function(transition) {
+      showPopularPosts: createHandler('showPopularPosts', {
+        beforeModel: function(transition: Transition) {
           assert.equal(
             transition.pivotHandler,
             handlers.postIndex,
             'showAllPosts -> showPopularPosts pivotHandler is postIndex'
           );
         },
-      },
+      }),
 
-      postIndex: {},
+      postIndex: createHandler('postIndex'),
 
-      about: {
-        beforeModel: function(transition) {
-          assert.ok(
-            !transition.pivotHandler,
-            'top-level transition has no pivotHandler'
-          );
+      about: createHandler('about', {
+        beforeModel: function(transition: Transition) {
+          assert.ok(!transition.pivotHandler, 'top-level transition has no pivotHandler');
         },
-      },
+      }),
     };
 
     router
@@ -897,18 +878,18 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    var app = { app: true };
+    let app = { app: true };
 
     handlers = {
-      application: {
+      application: createHandler('application', {
         model: function() {
           assert.ok(true, 'application#model');
           return app;
         },
-      },
+      }),
 
-      peter: {
-        model: function(params, transition) {
+      peter: createHandler('peter', {
+        model: function(_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(
             transition.resolvedModels.application,
             app,
@@ -916,35 +897,35 @@ scenarios.forEach(function(scenario) {
           );
           router.transitionTo('wagenet');
         },
-      },
-      wagenet: {
-        model: function(params, transition) {
+      }),
+      wagenet: createHandler('wagenet', {
+        model: function(_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(
             transition.resolvedModels.application,
             app,
             'wagenet: resolvedModel correctly stored in resolvedModels for parent route'
           );
         },
-      },
+      }),
     };
 
     transitionTo(router, '/peter');
   });
 
   test('transition.resolvedModels after redirects within the same route', function(assert) {
-    var admin = { admin: true },
+    let admin = { admin: true },
       redirect = true;
 
     handlers = {
-      admin: {
+      admin: createHandler('admin', {
         model: function() {
           assert.ok(true, 'admin#model');
           return admin;
         },
-      },
+      }),
 
-      adminPosts: {
-        model: function(params, transition) {
+      adminPosts: createHandler('adminPosts', {
+        model: function(_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(
             transition.resolvedModels.admin,
             admin,
@@ -955,28 +936,29 @@ scenarios.forEach(function(scenario) {
             router.transitionTo('adminPosts');
           }
         },
-      },
+      }),
     };
 
     transitionTo(router, '/posts/admin/1/posts');
   });
 
   test('Moving to the same route with a different parent dynamic segment re-runs model', function(assert) {
-    var admins = { 1: { id: 1 }, 2: { id: 2 } },
-      adminPosts = { 1: { id: 1 }, 2: { id: 2 } };
+    let admins: Dict<any> = { 1: { id: 1 }, 2: { id: 2 } },
+      adminPosts: Dict<any> = { 1: { id: 1 }, 2: { id: 2 } };
 
     handlers = {
-      admin: {
-        model: function(params) {
-          return (this.currentModel = admins[params.id]);
+      admin: createHandler('admin', {
+        currentModel: -1,
+        model: function(params: Dict<unknown>) {
+          return (this.currentModel = admins[params.id as string]);
         },
-      },
+      }),
 
-      adminPosts: {
+      adminPosts: createHandler('adminPosts', {
         model: function() {
-          return adminPosts[handlers.admin.currentModel.id];
+          return adminPosts[(handlers.admin as any).currentModel.id];
         },
-      },
+      }),
     };
 
     transitionTo(router, '/posts/admin/1/posts');
@@ -991,14 +973,14 @@ scenarios.forEach(function(scenario) {
   test('Moving to a sibling route only triggers exit callbacks on the current route (when transitioned internally)', function(assert) {
     assert.expect(8);
 
-    var allPosts = { posts: 'all' };
+    let allPosts = { posts: 'all' };
 
-    var showAllPostsHandler = {
+    let showAllPostsHandler = createHandler('showAllPosts', {
       model: function() {
         return allPosts;
       },
 
-      setup: function(posts) {
+      setup: function(posts: Dict<unknown>) {
         assert.equal(
           posts,
           allPosts,
@@ -1013,11 +995,11 @@ scenarios.forEach(function(scenario) {
       exit: function() {
         assert.ok(true, 'The sibling handler should be exited');
       },
-    };
+    });
 
-    var filters = {};
+    let filters: Dict<unknown> = {};
 
-    var showFilteredPostsHandler = {
+    let showFilteredPostsHandler = createHandler('showFilteredPosts', {
       enter: function() {
         assert.ok(true, 'The new handler was entered');
       },
@@ -1026,8 +1008,8 @@ scenarios.forEach(function(scenario) {
         assert.ok(false, 'The new handler should not be exited');
       },
 
-      model: function(params) {
-        var id = params.filter_id;
+      model: function(params: Dict<unknown>) {
+        let id = params.filter_id as string;
         if (!filters[id]) {
           filters[id] = { id: id };
         }
@@ -1035,21 +1017,21 @@ scenarios.forEach(function(scenario) {
         return filters[id];
       },
 
-      serialize: function(filter) {
+      serialize: function(filter: Dict<unknown>) {
         assert.equal(filter.id, 'favorite', "The filter should be 'favorite'");
         return { filter_id: filter.id };
       },
 
-      setup: function(filter) {
+      setup: function(filter: Dict<unknown>) {
         assert.equal(
           filter.id,
           'favorite',
           'showFilteredPostsHandler#setup was called with the favorite filter'
         );
       },
-    };
+    });
 
-    var postIndexHandler = {
+    let postIndexHandler = createHandler('postIndex', {
       enter: function() {
         assert.ok(true, 'The outer handler was entered only once');
       },
@@ -1057,7 +1039,7 @@ scenarios.forEach(function(scenario) {
       exit: function() {
         assert.ok(false, 'The outer handler was not exited');
       },
-    };
+    });
 
     handlers = {
       postIndex: postIndexHandler,
@@ -1074,14 +1056,14 @@ scenarios.forEach(function(scenario) {
   test('Moving to a sibling route only triggers exit callbacks on the current route (when transitioned via a URL change)', function(assert) {
     assert.expect(7);
 
-    var allPosts = { posts: 'all' };
+    let allPosts = { posts: 'all' };
 
-    var showAllPostsHandler = {
+    let showAllPostsHandler = createHandler('showAllPostsHandler', {
       model: function() {
         return allPosts;
       },
 
-      setup: function(posts) {
+      setup: function(posts: Dict<unknown>) {
         assert.equal(
           posts,
           allPosts,
@@ -1096,11 +1078,11 @@ scenarios.forEach(function(scenario) {
       exit: function() {
         assert.ok(true, 'The sibling handler should be exited');
       },
-    };
+    });
 
-    var filters = {};
+    let filters: Dict<unknown> = {};
 
-    var showFilteredPostsHandler = {
+    let showFilteredPostsHandler = createHandler('showFilteredPosts', {
       enter: function() {
         assert.ok(true, 'The new handler was entered');
       },
@@ -1109,14 +1091,10 @@ scenarios.forEach(function(scenario) {
         assert.ok(false, 'The new handler should not be exited');
       },
 
-      model: function(params) {
-        assert.equal(
-          params.filter_id,
-          'favorite',
-          "The filter should be 'favorite'"
-        );
+      model: function(params: Dict<unknown>) {
+        assert.equal(params.filter_id, 'favorite', "The filter should be 'favorite'");
 
-        var id = params.filter_id;
+        let id = params.filter_id as string;
         if (!filters[id]) {
           filters[id] = { id: id };
         }
@@ -1124,20 +1102,20 @@ scenarios.forEach(function(scenario) {
         return filters[id];
       },
 
-      serialize: function(filter) {
+      serialize: function(filter: Dict<unknown>) {
         return { filter_id: filter.id };
       },
 
-      setup: function(filter) {
+      setup: function(filter: Dict<unknown>) {
         assert.equal(
           filter.id,
           'favorite',
           'showFilteredPostsHandler#setup was called with the favorite filter'
         );
       },
-    };
+    });
 
-    var postIndexHandler = {
+    let postIndexHandler = createHandler('postIndex', {
       enter: function() {
         assert.ok(true, 'The outer handler was entered only once');
       },
@@ -1145,7 +1123,7 @@ scenarios.forEach(function(scenario) {
       exit: function() {
         assert.ok(false, 'The outer handler was not exited');
       },
-    };
+    });
 
     handlers = {
       postIndex: postIndexHandler,
@@ -1165,21 +1143,17 @@ scenarios.forEach(function(scenario) {
     assert.expect(2);
 
     handlers = {
-      showPost: {
+      showPost: createHandler('showPost', {
         enter: function() {
           assert.ok(true, 'The show post handler was entered');
         },
 
         events: {
           expand: function() {
-            assert.equal(
-              this,
-              handlers.showPost,
-              'The handler is the `this` for the event'
-            );
+            assert.equal(this, handlers.showPost, 'The handler is the `this` for the event');
           },
         },
-      },
+      }),
     };
 
     transitionTo(router, '/posts/1');
@@ -1189,37 +1163,35 @@ scenarios.forEach(function(scenario) {
 
   test('event triggering is pluggable', function(assert) {
     handlers = {
-      showPost: {
+      showPost: createHandler('showPost', {
         enter: function() {
           assert.ok(true, 'The show post handler was entered');
         },
 
         actions: {
           expand: function() {
-            assert.equal(
-              this,
-              handlers.showPost,
-              'The handler is the `this` for the event'
-            );
+            assert.equal(this, handlers.showPost, 'The handler is the `this` for the event');
           },
         },
-      },
+      }),
     };
-    router.triggerEvent = function(handlerInfos, ignoreFailure, args) {
-      var name = args.shift();
+    router.triggerEvent = function(
+      handlerInfos: HandlerInfo[],
+      ignoreFailure: boolean,
+      args: any[]
+    ) {
+      let name: string = args.shift();
 
       if (!handlerInfos) {
         if (ignoreFailure) {
           return;
         }
-        throw new Error(
-          "Could not trigger event '" + name + "'. There are no active handlers"
-        );
+        throw new Error("Could not trigger event '" + name + "'. There are no active handlers");
       }
 
-      for (var i = handlerInfos.length - 1; i >= 0; i--) {
-        var handlerInfo = handlerInfos[i],
-          handler = handlerInfo.handler;
+      for (let i = handlerInfos.length - 1; i >= 0; i--) {
+        let handlerInfo = handlerInfos[i],
+          handler = handlerInfo.handler as any;
 
         if (handler.actions && handler.actions[name]) {
           if (handler.actions[name].apply(handler, args) !== true) {
@@ -1245,26 +1217,22 @@ scenarios.forEach(function(scenario) {
     assert.expect(3);
 
     handlers = {
-      postIndex: {
+      postIndex: createHandler('postIndex', {
         enter: function() {
           assert.ok(true, 'The post index handler was entered');
         },
 
         events: {
           expand: function() {
-            assert.equal(
-              this,
-              handlers.postIndex,
-              'The handler is the `this` in events'
-            );
+            assert.equal(this, handlers.postIndex, 'The handler is the `this` in events');
           },
         },
-      },
-      showAllPosts: {
+      }),
+      showAllPosts: createHandler('showAllPosts', {
         enter: function() {
           assert.ok(true, 'The show all posts handler was entered');
         },
-      },
+      }),
     };
 
     transitionTo(router, '/posts');
@@ -1275,36 +1243,28 @@ scenarios.forEach(function(scenario) {
     assert.expect(4);
 
     handlers = {
-      postIndex: {
+      postIndex: createHandler('postIndex', {
         enter: function() {
           assert.ok(true, 'The post index handler was entered');
         },
 
         events: {
           expand: function() {
-            assert.equal(
-              this,
-              handlers.postIndex,
-              'The handler is the `this` in events'
-            );
+            assert.equal(this, handlers.postIndex, 'The handler is the `this` in events');
           },
         },
-      },
-      showAllPosts: {
+      }),
+      showAllPosts: createHandler('showAllPosts', {
         enter: function() {
           assert.ok(true, 'The show all posts handler was entered');
         },
         events: {
           expand: function() {
-            assert.equal(
-              this,
-              handlers.showAllPosts,
-              'The handler is the `this` in events'
-            );
+            assert.equal(this, handlers.showAllPosts, 'The handler is the `this` in events');
             return true;
           },
         },
-      },
+      }),
     };
 
     router.handleURL('/posts').then(function() {
@@ -1316,27 +1276,23 @@ scenarios.forEach(function(scenario) {
     assert.expect(3);
 
     handlers = {
-      postIndex: {
+      postIndex: createHandler('postIndex', {
         enter: function() {
           assert.ok(true, 'The post index handler was entered');
         },
-      },
+      }),
 
-      showAllPosts: {
+      showAllPosts: createHandler('showAllPosts', {
         enter: function() {
           assert.ok(true, 'The show all posts handler was entered');
         },
         events: {
           expand: function() {
-            assert.equal(
-              this,
-              handlers.showAllPosts,
-              'The handler is the `this` in events'
-            );
+            assert.equal(this, handlers.showAllPosts, 'The handler is the `this` in events');
             return true;
           },
         },
-      },
+      }),
     };
 
     transitionTo(router, '/posts');
@@ -1347,7 +1303,7 @@ scenarios.forEach(function(scenario) {
     assert.expect(5);
 
     handlers = {
-      postIndex: {
+      postIndex: createHandler('postIndex', {
         enter: function() {
           assert.ok(true, 'The post index handler was entered');
         },
@@ -1357,21 +1313,17 @@ scenarios.forEach(function(scenario) {
             assert.ok(false, 'Should not get to the parent handler');
           },
         },
-      },
+      }),
 
-      showAllPosts: {
+      showAllPosts: createHandler('showAllPosts', {
         enter: function() {
           assert.ok(true, 'The show all posts handler was entered');
         },
 
         events: {
-          expand: function(passedContext1, passedContext2) {
+          expand: function(passedContext1: Dict<unknown>, passedContext2: Dict<unknown>) {
             assert.equal(context1, passedContext1, 'A context is passed along');
-            assert.equal(
-              context2,
-              passedContext2,
-              'A second context is passed along'
-            );
+            assert.equal(context2, passedContext2, 'A second context is passed along');
             assert.equal(
               this,
               handlers.showAllPosts,
@@ -1379,11 +1331,11 @@ scenarios.forEach(function(scenario) {
             );
           },
         },
-      },
+      }),
     };
 
-    var context1 = {},
-      context2 = {};
+    let context1: Dict<unknown> = {},
+      context2: Dict<unknown> = {};
     router.handleURL('/posts').then(function() {
       router.trigger('expand', context1, context2);
     });
@@ -1393,35 +1345,30 @@ scenarios.forEach(function(scenario) {
     assert.expect(1);
 
     handlers = {
-      showPostsForDate: {
-        serialize: function(date) {
+      showPostsForDate: createHandler('showPostsForDate', {
+        serialize: function(date: Date) {
           return {
-            date:
-              date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+            date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
           };
         },
 
         model: function() {
-          assert.ok(
-            false,
-            "model shouldn't be called; the date is the provided model"
-          );
+          assert.ok(false, "model shouldn't be called; the date is the provided model");
         },
-      },
+      }),
     };
 
     if (scenario.async) {
       serializers = {
-        showPostsForDate: function(date) {
+        showPostsForDate: function(date: any) {
           return {
-            date:
-              date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+            date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
           };
         },
       };
     }
 
-    var result = router.generate('showPostsForDate', new Date(1815, 5, 18));
+    let result = router.generate('showPostsForDate', new Date(1815, 5, 18));
     assert.equal(result, '/posts/on/1815-5-18');
   });
 
@@ -1429,46 +1376,38 @@ scenarios.forEach(function(scenario) {
     assert.expect(2);
 
     router.getSerializer = function() {
-      return function(date) {
+      return function(date: any) {
         assert.ok(true, 'getSerializer called');
         return {
-          date:
-            date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+          date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
         };
       };
     };
 
     handlers = {
-      showPostsForDate: {
+      showPostsForDate: createHandler('showPostsForDate', {
         serialize: function() {
           assert.ok(false, "serialize method shouldn't be called");
           return {};
         },
 
         model: function() {
-          assert.ok(
-            false,
-            "model shouldn't be called; the date is the provided model"
-          );
+          assert.ok(false, "model shouldn't be called; the date is the provided model");
         },
-      },
+      }),
     };
 
-    assert.equal(
-      router.generate('showPostsForDate', new Date(1815, 5, 18)),
-      '/posts/on/1815-5-18'
-    );
+    assert.equal(router.generate('showPostsForDate', new Date(1815, 5, 18)), '/posts/on/1815-5-18');
   });
 
   test('the serializer method is unbound', function(assert) {
     assert.expect(1);
 
     router.getSerializer = function() {
-      return function(date) {
+      return function(this: void, date: any) {
         assert.equal(this, undefined);
         return {
-          date:
-            date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+          date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
         };
       };
     };
@@ -1480,66 +1419,54 @@ scenarios.forEach(function(scenario) {
     assert.expect(2);
 
     handlers = {
-      postIndex: {
-        model: function(params, transition) {
+      postIndex: createHandler('postIndex', {
+        model: function(_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(transition.params, {
             postIndex: {},
             showFilteredPosts: { filter_id: 'sad' },
           });
         },
-      },
-      showFilteredPosts: {
-        model: function(params, transition) {
+      }),
+      showFilteredPosts: createHandler('showFilteredPosts', {
+        model: function(_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(transition.params, {
             postIndex: {},
             showFilteredPosts: { filter_id: 'sad' },
           });
         },
-      },
+      }),
     };
 
     transitionTo(router, '/posts/filter/sad', 'blorg');
   });
 
   test('transitionTo uses the current context if you are already in a handler with a context that is not changing', function(assert) {
-    var admin = { id: 47 },
+    let admin = { id: 47 },
       adminPost = { id: 74 };
 
     handlers = {
-      admin: {
-        serialize: function(object) {
-          assert.equal(
-            object.id,
-            47,
-            'The object passed to serialize is correct'
-          );
+      admin: createHandler('admin', {
+        serialize: function(object: Dict<unknown>) {
+          assert.equal(object.id, 47, 'The object passed to serialize is correct');
           return { id: 47 };
         },
 
-        model: function(params) {
-          assert.equal(
-            params.id,
-            47,
-            'The object passed to serialize is correct'
-          );
+        model: function(params: Dict<unknown>) {
+          assert.equal(params.id, 47, 'The object passed to serialize is correct');
           return admin;
         },
-      },
+      }),
 
-      adminPost: {
-        serialize: function(object) {
+      adminPost: createHandler('adminPost', {
+        serialize: function(object: Dict<unknown>) {
           return { post_id: object.id };
         },
 
-        model: function(params) {
-          assert.equal(
-            params.id,
-            74,
-            'The object passed to serialize is correct'
-          );
+        model: function(params: Dict<unknown>) {
+          assert.equal(params.id, 74, 'The object passed to serialize is correct');
           return adminPost;
         },
-      },
+      }),
     };
 
     expectedUrl = '/posts/admin/47/posts/74';
@@ -1550,21 +1477,22 @@ scenarios.forEach(function(scenario) {
   });
 
   test('check for mid-transition correctness', function(assert) {
-    var posts = {
+    let posts: Dict<any> = {
       1: { id: 1 },
       2: { id: 2 },
       3: { id: 3 },
     };
 
-    var showPostHandler = {
-      serialize: function(object) {
+    let showPostHandler = createHandler('showPost', {
+      serialize: function(object: Dict<unknown>) {
         return (object && { id: object.id }) || null;
       },
 
-      model: function(params) {
-        return posts[params.id];
+      model: function(params: Dict<unknown>) {
+        let id = params.id as string;
+        return posts[id];
       },
-    };
+    });
 
     handlers = {
       showPost: showPostHandler,
@@ -1572,13 +1500,13 @@ scenarios.forEach(function(scenario) {
 
     // Get a reference to the transition, mid-transition.
     router.willTransition = function() {
-      var midTransitionState = router.activeTransition.state;
+      let midTransitionState = router.activeTransition!.state;
 
       // Make sure that the activeIntent doesn't match post 300.
-      var isPost300Targeted = router.isActiveIntent(
+      let isPost300Targeted = router.isActiveIntent(
         'showPost',
         [300],
-        null,
+        undefined,
         midTransitionState
       );
       assert.notOk(isPost300Targeted, 'Post 300 should not match post 3.');
@@ -1592,15 +1520,15 @@ scenarios.forEach(function(scenario) {
   });
 
   test('tests whether arguments to transitionTo are considered active', function(assert) {
-    var admin = { id: 47 },
+    let admin = { id: 47 },
       adminPost = { id: 74 },
-      posts = {
+      posts: Dict<any> = {
         1: { id: 1 },
         2: { id: 2 },
         3: { id: 3 },
       };
 
-    var adminHandler = {
+    let adminHandler = createHandler('admin', {
       serialize: function() {
         return { id: 47 };
       },
@@ -1608,27 +1536,27 @@ scenarios.forEach(function(scenario) {
       model: function() {
         return admin;
       },
-    };
+    });
 
-    var adminPostHandler = {
-      serialize: function(object) {
+    let adminPostHandler = createHandler('adminPost', {
+      serialize: function(object: Dict<unknown>) {
         return { post_id: object.id };
       },
 
       model: function() {
         return adminPost;
       },
-    };
+    });
 
-    var showPostHandler = {
-      serialize: function(object) {
+    let showPostHandler = createHandler('showPost', {
+      serialize: function(object: Dict<unknown>) {
         return (object && { id: object.id }) || null;
       },
 
-      model: function(params) {
-        return posts[params.id];
+      model: function(params: Dict<unknown>) {
+        return posts[params.id as string];
       },
-    };
+    });
 
     handlers = {
       admin: adminHandler,
@@ -1646,10 +1574,7 @@ scenarios.forEach(function(scenario) {
       !router.isActive('showPost', posts[2]),
       'The showPost handler is inactive when the context is different'
     );
-    assert.ok(
-      !router.isActive('adminPost'),
-      'The adminPost handler is inactive'
-    );
+    assert.ok(!router.isActive('adminPost'), 'The adminPost handler is inactive');
     assert.ok(
       !router.isActive('showPost', null),
       'The showPost handler is inactive with a null context'
@@ -1666,10 +1591,7 @@ scenarios.forEach(function(scenario) {
       'The adminPost handler is active with the current and parent context'
     );
     assert.ok(router.isActive('admin'), 'The admin handler is active');
-    assert.ok(
-      router.isActive('admin', admin),
-      'The admin handler is active with its context'
-    );
+    assert.ok(router.isActive('admin', admin), 'The admin handler is active with its context');
   });
 
   test('calling generate on a non-dynamic route does not blow away parent contexts', function(assert) {
@@ -1682,28 +1604,20 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    var projects = {};
+    let projects = {};
 
     handlers = {
-      projects: {
+      projects: createHandler('projects', {
         model: function() {
           return projects;
         },
-      },
+      }),
     };
 
     router.handleURL('/projects').then(function() {
-      assert.equal(
-        handlers.projects.context,
-        projects,
-        'projects handler has correct context'
-      );
+      assert.equal(handlers.projects.context, projects, 'projects handler has correct context');
       router.generate('projectIndex');
-      assert.equal(
-        handlers.projects.context,
-        projects,
-        'projects handler retains correct context'
-      );
+      assert.equal(handlers.projects.context, projects, 'projects handler retains correct context');
     });
   });
 
@@ -1714,18 +1628,18 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    var projectHandler = {
-      model: function(params) {
+    let projectHandler = createHandler('project', {
+      model: function(params: Dict<unknown>) {
         delete params.queryParams;
         return params;
       },
-    };
+    });
 
-    var projectIndexHandler = {
-      model: function(params, transition) {
+    let projectIndexHandler = createHandler('projectIndex', {
+      model: function(_params: Dict<unknown>, transition: Transition) {
         return transition.resolvedModels.project;
       },
-    };
+    });
 
     handlers = {
       project: projectHandler,
@@ -1771,23 +1685,23 @@ scenarios.forEach(function(scenario) {
   });
 
   test('reset exits and clears the current and target route handlers', function(assert) {
-    var postIndexExited = false;
-    var showAllPostsExited = false;
-    var steps = 0;
+    let postIndexExited = false;
+    let showAllPostsExited = false;
+    let steps = 0;
 
     assert.equal(++steps, 1);
-    var postIndexHandler = {
+    let postIndexHandler = createHandler('postIndex', {
       exit: function() {
         postIndexExited = true;
         assert.equal(++steps, 4);
       },
-    };
-    var showAllPostsHandler = {
+    });
+    let showAllPostsHandler = createHandler('showAllPosts', {
       exit: function() {
         showAllPostsExited = true;
         assert.equal(++steps, 3);
       },
-    };
+    });
     handlers = {
       postIndex: postIndexHandler,
       showAllPosts: showAllPostsHandler,
@@ -1800,23 +1714,14 @@ scenarios.forEach(function(scenario) {
 
     assert.ok(postIndexExited, 'Post index handler did not exit');
     assert.ok(showAllPostsExited, 'Show all posts handler did not exit');
-    assert.equal(
-      router.currentHandlerInfos,
-      null,
-      'currentHandlerInfos should be null'
-    );
-    assert.equal(
-      router.targetHandlerInfos,
-      null,
-      'targetHandlerInfos should be null'
-    );
+    assert.equal(router.currentHandlerInfos, null, 'currentHandlerInfos should be null');
   });
 
   test('any of the model hooks can redirect with or without promise', function(assert) {
     assert.expect(26);
-    var setupShouldBeEntered = false;
-    var returnPromise = false;
-    var redirectTo;
+    let setupShouldBeEntered = false;
+    let returnPromise = false;
+    let redirectTo: string;
 
     function redirectToAbout() {
       if (returnPromise) {
@@ -1826,36 +1731,34 @@ scenarios.forEach(function(scenario) {
       } else {
         router.transitionTo(redirectTo);
       }
+      return;
     }
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         beforeModel: redirectToAbout,
         model: redirectToAbout,
         afterModel: redirectToAbout,
 
         setup: function() {
-          assert.ok(
-            setupShouldBeEntered,
-            'setup should be entered at this time'
-          );
+          assert.ok(setupShouldBeEntered, 'setup should be entered at this time');
         },
-      },
+      }),
 
-      about: {
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, "about handler's setup function was called");
         },
-      },
+      }),
 
-      borf: {
+      borf: createHandler('borf', {
         setup: function() {
           assert.ok(true, 'borf setup entered');
         },
-      },
+      }),
     };
 
-    function testStartup(assert, firstExpectedURL) {
+    function testStartup(assert: Assert, firstExpectedURL?: string) {
       map(assert, function(match) {
         match('/').to('index');
         match('/about').to('about');
@@ -1901,16 +1804,12 @@ scenarios.forEach(function(scenario) {
 
   test('transitionTo with a promise pauses the transition until resolve, passes resolved context to setup', function(assert) {
     handlers = {
-      index: {},
-      showPost: {
-        setup: function(context) {
-          assert.deepEqual(
-            context,
-            { id: 1 },
-            'setup receives a resolved context'
-          );
+      index: createHandler('index'),
+      showPost: createHandler('showPost', {
+        setup: function(context: Dict<unknown>) {
+          assert.deepEqual(context, { id: 1 }, 'setup receives a resolved context');
         },
-      },
+      }),
     };
 
     transitionTo(router, '/index');
@@ -1926,21 +1825,21 @@ scenarios.forEach(function(scenario) {
 
   test('error handler gets called for errors in validation hooks', function(assert) {
     assert.expect(25);
-    var setupShouldBeEntered = false;
-    var expectedReason = { reason: 'No funciona, mon frere.' };
+    let setupShouldBeEntered = false;
+    let expectedReason = { reason: 'No funciona, mon frere.' };
 
     function throwAnError() {
       return reject(expectedReason);
     }
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         beforeModel: throwAnError,
         model: throwAnError,
         afterModel: throwAnError,
 
         events: {
-          error: function(reason) {
+          error: function(reason: string) {
             assert.equal(
               reason,
               expectedReason,
@@ -1950,28 +1849,25 @@ scenarios.forEach(function(scenario) {
         },
 
         setup: function() {
-          assert.ok(
-            setupShouldBeEntered,
-            'setup should be entered at this time'
-          );
+          assert.ok(setupShouldBeEntered, 'setup should be entered at this time');
         },
-      },
+      }),
 
-      about: {
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, "about handler's setup function was called");
         },
-      },
+      }),
     };
 
-    function testStartup(assert) {
+    function testStartup(assert: Assert) {
       map(assert, function(match) {
         match('/').to('index');
         match('/about').to('about');
       });
 
       // Perform a redirect on startup.
-      return router.handleURL('/').then(null, function(reason) {
+      return router.handleURL('/').then(null, function(reason: string) {
         assert.equal(
           reason,
           expectedReason,
@@ -1980,7 +1876,7 @@ scenarios.forEach(function(scenario) {
 
         return router
           .transitionTo('index')
-          .then(shouldNotHappen(assert), function(newReason) {
+          .then(shouldNotHappen(assert), function(newReason: string) {
             assert.equal(
               newReason,
               expectedReason,
@@ -2026,7 +1922,7 @@ scenarios.forEach(function(scenario) {
     });
 
     handlers = {
-      articles: {
+      articles: createHandler('articles', {
         beforeModel: function() {
           assert.ok(true, 'articles beforeModel was entered');
           return reject('blorg');
@@ -2037,24 +1933,21 @@ scenarios.forEach(function(scenario) {
             router.transitionTo('login');
           },
         },
-      },
+      }),
 
-      login: {
+      login: createHandler('login', {
         setup: function() {
           assert.ok(true, 'login#setup');
         },
-      },
+      }),
 
-      parent: {
+      parent: createHandler('parent', {
         events: {
           error: function() {
-            assert.ok(
-              false,
-              "handled error shouldn't bubble up to parent route"
-            );
+            assert.ok(false, "handled error shouldn't bubble up to parent route");
           },
         },
-      },
+      }),
     };
 
     router.handleURL('/parent/articles');
@@ -2069,9 +1962,9 @@ scenarios.forEach(function(scenario) {
     });
 
     handlers = {
-      slow_failure: {
+      slow_failure: createHandler('showFailure', {
         model: function() {
-          return new Promise(function(res, rej) {
+          return new Promise(function(_res, rej) {
             router.transitionTo('good');
             rej();
           });
@@ -2081,13 +1974,13 @@ scenarios.forEach(function(scenario) {
             assert.ok(false, "error handling shouldn't fire");
           },
         },
-      },
+      }),
 
-      good: {
+      good: createHandler('good', {
         setup: function() {
           assert.ok(true, 'good#setup');
         },
-      },
+      }),
     };
 
     router.handleURL('/slow_failure');
@@ -2097,8 +1990,8 @@ scenarios.forEach(function(scenario) {
   test('Transitions to the same destination as the active transition just return the active transition', function(assert) {
     assert.expect(1);
 
-    var transition0 = router.handleURL('/index');
-    var transition1 = router.handleURL('/index');
+    let transition0 = router.handleURL('/index');
+    let transition1 = router.handleURL('/index');
     assert.equal(transition0, transition1);
     flushBackburner();
   });
@@ -2106,17 +1999,17 @@ scenarios.forEach(function(scenario) {
   test('can redirect from error handler', function(assert) {
     assert.expect(4);
 
-    var errorCount = 0;
+    let errorCount = 0;
 
     handlers = {
-      index: {},
+      index: createHandler('index'),
 
-      showPost: {
+      showPost: createHandler('showPost', {
         model: function() {
           return reject('borf!');
         },
         events: {
-          error: function(e) {
+          error: function(e: Error) {
             errorCount++;
 
             assert.equal(e, 'borf!', 'received error thrown from model');
@@ -2128,7 +2021,7 @@ scenarios.forEach(function(scenario) {
 
                 return router
                   .transitionTo('showPost', reject('borf!'))
-                  .then(shouldNotHappen(assert), function(e) {
+                  .then(shouldNotHappen(assert), function(e: Error) {
                     assert.equal(e, 'borf!', 'got thing');
                   });
               }
@@ -2139,59 +2032,45 @@ scenarios.forEach(function(scenario) {
         setup: function() {
           assert.ok(false, 'should not get here');
         },
-      },
+      }),
     };
 
-    router
-      .handleURL('/posts/123')
-      .then(shouldNotHappen(assert), function(reason) {
-        assert.equal(
-          reason,
-          'borf!',
-          'expected reason received from first failed transition'
-        );
-      });
+    router.handleURL('/posts/123').then(shouldNotHappen(assert), function(reason: string) {
+      assert.equal(reason, 'borf!', 'expected reason received from first failed transition');
+    });
   });
 
   test('can redirect from setup/enter', function(assert) {
     assert.expect(5);
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         enter: function() {
           assert.ok(true, 'index#enter called');
-          router
-            .transitionTo('about')
-            .then(secondAttempt, shouldNotHappen(assert));
+          router.transitionTo('about').then(secondAttempt, shouldNotHappen(assert));
         },
         setup: function() {
           assert.ok(true, 'index#setup called');
-          router
-            .transitionTo('/about')
-            .then(thirdAttempt, shouldNotHappen(assert));
+          router.transitionTo('/about').then(thirdAttempt, shouldNotHappen(assert));
         },
         events: {
           error: function() {
             assert.ok(false, 'redirects should not call error hook');
           },
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'about#setup was entered');
         },
-      },
+      }),
     };
 
-    router
-      .handleURL('/index')
-      .then(shouldNotHappen(assert), assertAbort(assert));
+    router.handleURL('/index').then(shouldNotHappen(assert), assertAbort(assert));
 
     function secondAttempt() {
       delete handlers.index.enter;
-      router
-        .transitionTo('index')
-        .then(shouldNotHappen(assert), assertAbort(assert));
+      router.transitionTo('index').then(shouldNotHappen(assert), assertAbort(assert));
     }
 
     function thirdAttempt() {
@@ -2203,10 +2082,10 @@ scenarios.forEach(function(scenario) {
   test('redirecting to self from validation hooks should no-op (and not infinite loop)', function(assert) {
     assert.expect(2);
 
-    var count = 0;
+    let count = 0;
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         afterModel: function() {
           if (count++ > 10) {
             assert.ok(false, 'infinite loop occurring');
@@ -2218,7 +2097,7 @@ scenarios.forEach(function(scenario) {
         setup: function() {
           assert.ok(true, 'setup was called');
         },
-      },
+      }),
     };
 
     router.handleURL('/index');
@@ -2228,11 +2107,11 @@ scenarios.forEach(function(scenario) {
     assert.expect(1);
 
     handlers = {
-      about: {
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'about#setup was called');
         },
-      },
+      }),
     };
 
     router.updateURL = function() {
@@ -2251,10 +2130,10 @@ scenarios.forEach(function(scenario) {
   test('redirecting to self from enter hooks should no-op (and not infinite loop)', function(assert) {
     assert.expect(1);
 
-    var count = 0;
+    let count = 0;
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         setup: function() {
           if (count++ > 10) {
             assert.ok(false, 'infinite loop occurring');
@@ -2263,7 +2142,7 @@ scenarios.forEach(function(scenario) {
             router.transitionTo('index');
           }
         },
-      },
+      }),
     };
 
     router.handleURL('/index');
@@ -2273,24 +2152,24 @@ scenarios.forEach(function(scenario) {
     assert.expect(4);
 
     handlers = {
-      postIndex: {
+      postIndex: createHandler('postIndex', {
         beforeModel: function() {
           assert.ok(true, 'postIndex beforeModel called');
           router.transitionTo('showAllPosts');
         },
-      },
+      }),
 
-      showAllPosts: {
+      showAllPosts: createHandler('showAllPosts', {
         beforeModel: function() {
           assert.ok(true, 'showAllPosts beforeModel called');
         },
-      },
+      }),
 
-      showPopularPosts: {
+      showPopularPosts: createHandler('showPopularPosts', {
         beforeModel: function() {
           assert.ok(true, 'showPopularPosts beforeModel called');
         },
-      },
+      }),
     };
 
     router.handleURL('/posts/popular').then(
@@ -2303,23 +2182,23 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  function startUpSetup(assert) {
+  function startUpSetup(assert: Assert) {
     handlers = {
-      index: {
+      index: createHandler('index', {
         setup: function() {
           assert.ok(true, 'index setup called');
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'about setup called');
         },
-      },
-      faq: {
+      }),
+      faq: createHandler('faq', {
         setup: function() {
           assert.ok(true, 'faq setup called');
         },
-      },
+      }),
     };
   }
 
@@ -2357,13 +2236,13 @@ scenarios.forEach(function(scenario) {
     assert.expect(1);
 
     handlers = {
-      about: {
+      about: createHandler('about', {
         events: {
           didTransition: function() {
             assert.ok(true, "index's didTransition was called");
           },
         },
-      },
+      }),
     };
 
     router.handleURL('/index').then(function() {
@@ -2374,21 +2253,18 @@ scenarios.forEach(function(scenario) {
   test('willTransition function fired before route change', function(assert) {
     assert.expect(1);
 
-    var beforeModelNotCalled = true;
+    let beforeModelNotCalled = true;
 
     handlers = {
-      about: {
+      about: createHandler('about', {
         beforeModel: function() {
           beforeModelNotCalled = false;
         },
-      },
+      }),
     };
 
     router.willTransition = function() {
-      assert.ok(
-        beforeModelNotCalled,
-        'about beforeModel hook should not be called at this time'
-      );
+      assert.ok(beforeModelNotCalled, 'about beforeModel hook should not be called at this time');
     };
 
     router.handleURL('/about');
@@ -2419,14 +2295,12 @@ scenarios.forEach(function(scenario) {
     assert.expect(2);
 
     router.handleURL('/index').then(function() {
-      router.willTransition = function(fromInfos, toInfos, transition) {
+      router.willTransition = function(_fromInfos, _toInfos, transition) {
         assert.ok(true, "index's transitionTo was called");
         transition.abort();
       };
 
-      return router
-        .transitionTo('about')
-        .then(shouldNotHappen(assert), assertAbort(assert));
+      return router.transitionTo('about').then(shouldNotHappen(assert), assertAbort(assert));
     });
   });
 
@@ -2434,38 +2308,36 @@ scenarios.forEach(function(scenario) {
     assert.expect(3);
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         setup: function() {
           assert.ok(true, 'index setup called');
         },
         events: {
-          willTransition: function(transition) {
+          willTransition: function(transition: Transition) {
             assert.ok(true, "index's transitionTo was called");
             transition.abort();
           },
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'about setup called');
         },
-      },
+      }),
     };
 
     router.handleURL('/index').then(function() {
-      return router
-        .transitionTo('about')
-        .then(shouldNotHappen(assert), assertAbort(assert));
+      return router.transitionTo('about').then(shouldNotHappen(assert), assertAbort(assert));
     });
   });
 
   test('transitions can redirected in the willTransition event', function(assert) {
     assert.expect(2);
 
-    var destFlag = true;
+    let destFlag = true;
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         setup: function() {
           assert.ok(true, 'index setup called');
         },
@@ -2474,22 +2346,22 @@ scenarios.forEach(function(scenario) {
             // Router code must be careful here not to refire
             // `willTransition` when a transition is already
             // underway, else infinite loop.
-            var dest = destFlag ? 'about' : 'faq';
+            let dest = destFlag ? 'about' : 'faq';
             destFlag = !destFlag;
             router.transitionTo(dest);
           },
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'about setup called');
         },
-      },
-      faq: {
+      }),
+      faq: createHandler('faq', {
         setup: function() {
           assert.ok(false, 'faq setup should not be called');
         },
-      },
+      }),
     };
 
     router.handleURL('/index').then(function() {
@@ -2500,29 +2372,26 @@ scenarios.forEach(function(scenario) {
   test('aborted transitions can be saved and later retried', function(assert) {
     assert.expect(9);
 
-    var shouldPrevent = true,
+    let shouldPrevent = true,
       transitionToAbout,
-      lastTransition,
-      retryTransition;
+      lastTransition: Transition,
+      retryTransition: Transition;
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         setup: function() {
           assert.ok(true, 'index setup called');
         },
         events: {
-          willTransition: function(transition) {
+          willTransition: function(transition: Transition) {
             assert.ok(true, "index's willTransition was called");
             if (shouldPrevent) {
               transition.data.foo = 'hello';
-              transition.foo = 'hello';
+              (transition as any).foo = 'hello';
               transition.abort();
               lastTransition = transition;
             } else {
-              assert.ok(
-                !transition.foo,
-                'no foo property exists on new transition'
-              );
+              assert.ok(!(transition as any).foo, 'no foo property exists on new transition');
               assert.equal(
                 transition.data.foo,
                 'hello',
@@ -2531,12 +2400,12 @@ scenarios.forEach(function(scenario) {
             }
           },
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'about setup called');
         },
-      },
+      }),
     };
 
     router.handleURL('/index').then(function() {
@@ -2559,29 +2428,26 @@ scenarios.forEach(function(scenario) {
   test('if an aborted transition is retried, it preserves the urlMethod of the original one', function(assert) {
     assert.expect(9);
 
-    var shouldPrevent = true,
+    let shouldPrevent = true,
       transitionToAbout,
-      lastTransition,
-      retryTransition;
+      lastTransition: Transition,
+      retryTransition: Transition;
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         setup: function() {
           assert.ok(true, 'index setup called');
         },
         events: {
-          willTransition: function(transition) {
+          willTransition: function(transition: Transition) {
             assert.ok(true, "index's willTransition was called");
             if (shouldPrevent) {
               transition.data.foo = 'hello';
-              transition.foo = 'hello';
+              (transition as any).foo = 'hello';
               transition.abort();
               lastTransition = transition;
             } else {
-              assert.ok(
-                !transition.foo,
-                'no foo property exists on new transition'
-              );
+              assert.ok(!(transition as any).foo, 'no foo property exists on new transition');
               assert.equal(
                 transition.data.foo,
                 'hello',
@@ -2590,12 +2456,12 @@ scenarios.forEach(function(scenario) {
             }
           },
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'about setup called');
         },
-      },
+      }),
     };
 
     router.handleURL('/index').then(function() {
@@ -2618,10 +2484,10 @@ scenarios.forEach(function(scenario) {
   test('if an initial transition is aborted during validation phase and later retried', function(assert) {
     assert.expect(7);
 
-    var shouldRedirectToLogin = true;
-    var currentURL = '/login';
-    var urlStack = [];
-    var lastTransition;
+    let shouldRedirectToLogin = true;
+    let currentURL = '/login';
+    let urlStack: string[][] = [];
+    let lastTransition: Transition;
 
     map(assert, function(match) {
       match('/').to('index');
@@ -2639,20 +2505,20 @@ scenarios.forEach(function(scenario) {
     };
 
     handlers = {
-      index: {
-        beforeModel: function(transition) {
+      index: createHandler('index', {
+        beforeModel: function(transition: Transition) {
           assert.ok(true, 'index model called');
           if (shouldRedirectToLogin) {
             lastTransition = transition;
             return router.transitionTo('/login');
           }
         },
-      },
-      login: {
+      }),
+      login: createHandler('login', {
         setup: function() {
           assert.ok('login setup called');
         },
-      },
+      }),
     };
 
     // use `handleURL` to emulate initial transition properly
@@ -2666,36 +2532,29 @@ scenarios.forEach(function(scenario) {
       })
       .then(function() {
         assert.equal(currentURL, '/', 'after retry currentURL is updated');
-        assert.deepEqual(urlStack, [
-          ['replaceURL', '/login'],
-          ['updateURL', '/'],
-        ]);
+        assert.deepEqual(urlStack, [['replaceURL', '/login'], ['updateURL', '/']]);
       }, shouldNotHappen(assert, 'final catch'));
   });
 
   test('completed transitions can be saved and later retried', function(assert) {
     assert.expect(3);
 
-    var post = { id: '123' },
-      savedTransition;
+    let post = { id: '123' },
+      savedTransition: Transition;
 
     handlers = {
-      showPost: {
-        afterModel: function(model, transition) {
-          assert.equal(
-            model,
-            post,
-            "showPost's afterModel got the expected post model"
-          );
+      showPost: createHandler('showPost', {
+        afterModel: function(model: Dict<unknown>, transition: Transition) {
+          assert.equal(model, post, "showPost's afterModel got the expected post model");
           savedTransition = transition;
         },
-      },
-      index: {},
-      about: {
+      }),
+      index: createHandler('index'),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'setup was entered');
         },
-      },
+      }),
     };
 
     router
@@ -2711,7 +2570,7 @@ scenarios.forEach(function(scenario) {
       });
   });
 
-  function setupAuthenticatedExample(assert) {
+  function setupAuthenticatedExample(assert: Assert) {
     map(assert, function(match) {
       match('/index').to('index');
       match('/login').to('login');
@@ -2722,35 +2581,35 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    var isLoggedIn = false,
-      lastRedirectedTransition;
+    let isLoggedIn = false,
+      lastRedirectedTransition: Transition;
 
     handlers = {
-      index: {},
-      login: {
+      index: createHandler('index'),
+      login: createHandler('login', {
         events: {
           logUserIn: function() {
             isLoggedIn = true;
             lastRedirectedTransition.retry();
           },
         },
-      },
-      admin: {
-        beforeModel: function(transition) {
+      }),
+      admin: createHandler('admin', {
+        beforeModel: function(transition: Transition) {
           lastRedirectedTransition = transition;
           assert.ok(true, 'beforeModel redirect was called');
           if (!isLoggedIn) {
             router.transitionTo('login');
           }
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         setup: function() {
           assert.ok(isLoggedIn, 'about was entered only after user logged in');
         },
-      },
-      adminPost: {
-        model: function(params) {
+      }),
+      adminPost: createHandler('adminPost', {
+        model: function(params: Dict<unknown>) {
           assert.deepEqual(
             params,
             { post_id: '5', queryParams: {} },
@@ -2758,14 +2617,10 @@ scenarios.forEach(function(scenario) {
           );
           return 'adminPost';
         },
-        setup: function(model) {
-          assert.equal(
-            model,
-            'adminPost',
-            'adminPost was entered with correct model'
-          );
+        setup: function(model: Dict<unknown>) {
+          assert.equal(model, 'adminPost', 'adminPost was entered with correct model');
         },
-      },
+      }),
     };
   }
 
@@ -2810,25 +2665,19 @@ scenarios.forEach(function(scenario) {
   test('An instantly aborted transition fires no hooks', function(assert) {
     assert.expect(7);
 
-    var hooksShouldBeCalled = false;
+    let hooksShouldBeCalled = false;
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         beforeModel: function() {
-          assert.ok(
-            hooksShouldBeCalled,
-            'index beforeModel hook should be called at this time'
-          );
+          assert.ok(hooksShouldBeCalled, 'index beforeModel hook should be called at this time');
         },
-      },
-      about: {
+      }),
+      about: createHandler('about', {
         beforeModel: function() {
-          assert.ok(
-            hooksShouldBeCalled,
-            'about beforeModel hook should be called at this time'
-          );
+          assert.ok(hooksShouldBeCalled, 'about beforeModel hook should be called at this time');
         },
-      },
+      }),
     };
 
     router
@@ -2870,17 +2719,17 @@ scenarios.forEach(function(scenario) {
     // .transitionTo right on the route.
 
     handlers = {
-      index: { borfIndex: true },
-      about: { borfAbout: true },
+      index: createHandler('index', { borfIndex: true }),
+      about: createHandler('about', { borfAbout: true }),
     };
 
     router
       .handleURL('/index')
-      .then(function(result) {
+      .then(function(result: Dict<unknown>) {
         assert.ok(result.borfIndex, 'resolved to index handler');
         return router.transitionTo('about');
       }, shouldNotHappen(assert))
-      .then(function(result) {
+      .then(function(result: Dict<unknown>) {
         assert.ok(result.borfAbout, 'resolved to about handler');
       });
   });
@@ -2891,7 +2740,7 @@ scenarios.forEach(function(scenario) {
     router
       .handleURL('/index')
       .promise.then(function() {
-        var promise = router.transitionTo('about').abort().promise;
+        let promise = router.transitionTo('about').abort().promise;
         assert.ok(promise, 'promise exists on aborted transitions');
         return promise;
       }, shouldNotHappen(assert))
@@ -2904,15 +2753,14 @@ scenarios.forEach(function(scenario) {
     assert.expect(scenario.async ? 0 : 1);
 
     handlers = {
-      showPostsForDate: {
-        serialize: function(date) {
+      showPostsForDate: createHandler('showPostsForDate', {
+        serialize: function(date: any) {
           assert.equal(this, handlers.showPostsForDate);
           return {
-            date:
-              date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
+            date: date.getFullYear() + '-' + date.getMonth() + '-' + date.getDate(),
           };
         },
-      },
+      }),
     };
 
     router.generate('showPostsForDate', new Date(1815, 5, 18));
@@ -2921,7 +2769,7 @@ scenarios.forEach(function(scenario) {
   test('transitionTo will soak up resolved parent models of active transition', function(assert) {
     assert.expect(5);
 
-    var admin = { id: 47 },
+    let admin = { id: 47 },
       adminPost = { id: 74 },
       adminSetupShouldBeEntered = false;
 
@@ -2931,35 +2779,24 @@ scenarios.forEach(function(scenario) {
       });
     }
 
-    var adminHandler = {
-      serialize: function(object) {
-        assert.equal(
-          object.id,
-          47,
-          'The object passed to serialize is correct'
-        );
+    let adminHandler = createHandler('admin', {
+      serialize: function(object: Dict<unknown>) {
+        assert.equal(object.id, 47, 'The object passed to serialize is correct');
         return { id: 47 };
       },
 
-      model: function(params) {
-        assert.equal(
-          params.id,
-          47,
-          'The object passed to serialize is correct'
-        );
+      model: function(params: Dict<unknown>) {
+        assert.equal(params.id, 47, 'The object passed to serialize is correct');
         return admin;
       },
 
       setup: function() {
-        assert.ok(
-          adminSetupShouldBeEntered,
-          "adminHandler's setup should be called at this time"
-        );
+        assert.ok(adminSetupShouldBeEntered, "adminHandler's setup should be called at this time");
       },
-    };
+    });
 
-    var adminPostHandler = {
-      serialize: function(object) {
+    let adminPostHandler = createHandler('adminPost', {
+      serialize: function(object: Dict<unknown>) {
         return { post_id: object.id };
       },
 
@@ -2974,20 +2811,20 @@ scenarios.forEach(function(scenario) {
       model: function() {
         return adminPost;
       },
-    };
+    });
 
-    var adminPostsHandler = {
+    let adminPostsHandler = createHandler('adminPosts', {
       beforeModel: function() {
         adminSetupShouldBeEntered = true;
         router.transitionTo('adminPost', adminPost);
       },
-    };
+    });
 
-    var indexHandler = {
+    let indexHandler = createHandler('index', {
       setup: function() {
         assert.ok(true, 'index entered');
       },
-    };
+    });
 
     handlers = {
       index: indexHandler,
@@ -3006,7 +2843,7 @@ scenarios.forEach(function(scenario) {
   test("transitionTo will soak up resolved all models of active transition, including present route's resolved model", function(assert) {
     assert.expect(2);
 
-    var modelCalled = 0,
+    let modelCalled = 0,
       hasRedirected = false;
 
     map(assert, function(match) {
@@ -3016,13 +2853,9 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    var postHandler = {
+    let postHandler = createHandler('post', {
       model: function() {
-        assert.equal(
-          modelCalled++,
-          0,
-          "postHandler's model should only be called once"
-        );
+        assert.equal(modelCalled++, 0, "postHandler's model should only be called once");
         return { title: 'Hello world' };
       },
 
@@ -3032,17 +2865,15 @@ scenarios.forEach(function(scenario) {
           router.transitionTo('postNew');
         }
       },
-    };
+    });
 
     handlers = {
       post: postHandler,
-      postIndex: {},
-      postNew: {},
+      postIndex: createHandler('postIndex'),
+      postNew: createHandler('postNew'),
     };
 
-    router
-      .transitionTo('postIndex')
-      .then(shouldNotHappen(assert), assertAbort(assert));
+    router.transitionTo('postIndex').then(shouldNotHappen(assert), assertAbort(assert));
   });
 
   test("can reference leaf '/' route by leaf or parent name", function(assert) {
@@ -3055,9 +2886,8 @@ scenarios.forEach(function(scenario) {
       });
     });
 
-    function assertOnRoute(name) {
-      var last =
-        router.currentHandlerInfos[router.currentHandlerInfos.length - 1];
+    function assertOnRoute(name: string) {
+      let last = router.currentHandlerInfos![router.currentHandlerInfos!.length - 1];
       assert.equal(last.name, name);
     }
 
@@ -3072,15 +2902,15 @@ scenarios.forEach(function(scenario) {
   test('resolved models can be swapped out within afterModel', function(assert) {
     assert.expect(3);
 
-    var modelPre = {},
+    let modelPre = {},
       modelPost = {};
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         model: function() {
           return modelPre;
         },
-        afterModel: function(resolvedModel, transition) {
+        afterModel: function(resolvedModel: Dict<unknown>, transition: Transition) {
           assert.equal(
             resolvedModel,
             transition.resolvedModels.index,
@@ -3093,14 +2923,14 @@ scenarios.forEach(function(scenario) {
           );
           transition.resolvedModels.index = modelPost;
         },
-        setup: function(model) {
+        setup: function(model: Dict<unknown>) {
           assert.equal(
             model,
             modelPost,
             'the model passed to `setup` is the one substituted in afterModel'
           );
         },
-      },
+      }),
     };
 
     router.transitionTo('index');
@@ -3109,13 +2939,13 @@ scenarios.forEach(function(scenario) {
   test('String/number args in transitionTo are treated as url params', function(assert) {
     assert.expect(11);
 
-    var adminParams = { id: '1' },
+    let adminParams = { id: '1' },
       adminModel = { id: '1' },
       adminPostModel = { id: '2' };
 
     handlers = {
-      admin: {
-        model: function(params) {
+      admin: createHandler('admin', {
+        model: function(params: Dict<unknown>) {
           delete params.queryParams;
           assert.deepEqual(
             params,
@@ -3124,9 +2954,9 @@ scenarios.forEach(function(scenario) {
           );
           return adminModel;
         },
-      },
-      adminPost: {
-        model: function(params) {
+      }),
+      adminPost: createHandler('adminPost', {
+        model: function(params: Dict<unknown>) {
           delete params.queryParams;
           assert.deepEqual(
             params,
@@ -3138,7 +2968,7 @@ scenarios.forEach(function(scenario) {
         setup: function() {
           assert.ok(true, 'adminPost setup was entered');
         },
-      },
+      }),
     };
 
     router
@@ -3148,10 +2978,7 @@ scenarios.forEach(function(scenario) {
         return router.transitionTo('adminPost', 1, '2');
       })
       .then(function() {
-        assert.ok(
-          router.isActive('adminPost', 1, '2'),
-          'adminPost is active via params'
-        );
+        assert.ok(router.isActive('adminPost', 1, '2'), 'adminPost is active via params');
         assert.ok(
           router.isActive('adminPost', 1, adminPostModel),
           'adminPost is active via contexts'
@@ -3162,10 +2989,7 @@ scenarios.forEach(function(scenario) {
         return router.transitionTo('adminPost', 0, '2');
       })
       .then(function() {
-        assert.ok(
-          router.isActive('adminPost', 0, '2'),
-          'adminPost is active via params'
-        );
+        assert.ok(router.isActive('adminPost', 0, '2'), 'adminPost is active via params');
         assert.ok(
           router.isActive('adminPost', 0, adminPostModel),
           'adminPost is active via contexts'
@@ -3177,7 +3001,7 @@ scenarios.forEach(function(scenario) {
     assert.expect(6);
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         beforeModel: function() {
           assert.ok(true, 'index beforeModel called');
           return router.transitionTo('index');
@@ -3190,10 +3014,10 @@ scenarios.forEach(function(scenario) {
           assert.ok(true, 'index afterModel called');
           return router.transitionTo('index');
         },
-      },
+      }),
     };
 
-    function testStartup(assert) {
+    function testStartup(assert: Assert) {
       map(assert, function(match) {
         match('/index').to('index');
       });
@@ -3222,12 +3046,12 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
 
   enableErrorHandlingDeferredActionQueue();
 
-  var anError = {};
+  let anError = {};
   function throwAnError() {
     throw anError;
   }
 
-  var routeWasEntered = false;
+  let routeWasEntered = false;
 
   handlers = {
     index: {
@@ -3240,10 +3064,10 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     }
   };
 
-  var hooks = ['beforeModel', 'model', 'afterModel'];
+  let hooks = ['beforeModel', 'model', 'afterModel'];
 
   while(hooks.length) {
-    var transition = router.transitionTo('index');
+    let transition = router.transitionTo('index');
     flush(anError);
     transition.abort();
     assert.ok(!routeWasEntered, "route hasn't been entered yet");
@@ -3260,16 +3084,16 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   test('Transition#followRedirects() returns a promise that fulfills when any redirecting transitions complete', function(assert) {
     assert.expect(3);
 
-    handlers.about = {
+    handlers.about = createHandler('about', {
       redirect: function() {
         router.transitionTo('faq').then(null, shouldNotHappen(assert));
       },
-    };
+    });
 
     router
       .transitionTo('/index')
       .followRedirects()
-      .then(function(handler) {
+      .then(function(handler: IHandler) {
         assert.equal(
           handler,
           handlers.index,
@@ -3278,15 +3102,16 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
 
         return router.transitionTo('about').followRedirects();
       })
-      .then(function(handler) {
+      .then(function(handler: IHandler) {
         assert.equal(
           handler,
           handlers.faq,
           'followRedirects promise resolved with redirected faq handler'
         );
 
-        handlers.about.beforeModel = function(transition) {
+        (handlers.about as IHandler).beforeModel = function(transition: Transition) {
           transition.abort();
+          return undefined;
         };
 
         // followRedirects should just reject for non-redirecting transitions.
@@ -3300,17 +3125,17 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   test("Returning a redirecting Transition from a model hook doesn't cause things to explode", function(assert) {
     assert.expect(2);
 
-    handlers.index = {
+    handlers.index = createHandler('index', {
       beforeModel: function() {
         return router.transitionTo('about');
       },
-    };
+    });
 
-    handlers.about = {
+    handlers.about = createHandler('about', {
       setup: function() {
         assert.ok(true, 'about#setup was called');
       },
-    };
+    });
 
     router.transitionTo('/index').then(null, assertAbort(assert));
   });
@@ -3331,9 +3156,10 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
 
   if (scenario.async) {
     test('Generate does not invoke getHandler', function(assert) {
-      var originalGetHandler = router.getHandler;
+      let originalGetHandler = router.getHandler;
       router.getHandler = function() {
         assert.ok(false, 'getHandler should not be called');
+        return createHandler('empty');
       };
 
       assert.equal(router.generate('index'), '/index', 'just index');
@@ -3355,10 +3181,10 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   test('errors in enter/setup hooks fire `error`', function(assert) {
     assert.expect(4);
 
-    var count = 0;
+    let count = 0;
 
     handlers = {
-      index: {
+      index: createHandler('index', {
         enter: function() {
           throw 'OMG ENTER';
         },
@@ -3366,36 +3192,28 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
           throw 'OMG SETUP';
         },
         events: {
-          error: function(e) {
+          error: function(e: Error) {
             if (count === 0) {
-              assert.equal(
-                e,
-                'OMG ENTER',
-                "enter's throw value passed to error hook"
-              );
+              assert.equal(e, 'OMG ENTER', "enter's throw value passed to error hook");
             } else if (count === 1) {
-              assert.equal(
-                e,
-                'OMG SETUP',
-                "setup's throw value passed to error hook"
-              );
+              assert.equal(e, 'OMG SETUP', "setup's throw value passed to error hook");
             } else {
               assert.ok(false, 'should not happen');
             }
           },
         },
-      },
+      }),
     };
 
     router
       .handleURL('/index')
-      .then(shouldNotHappen(assert), function(reason) {
+      .then(shouldNotHappen(assert), function(reason: string) {
         assert.equal(reason, 'OMG ENTER', "enters's error was propagated");
         count++;
         delete handlers.index.enter;
         return router.handleURL('/index');
       })
-      .then(shouldNotHappen(assert), function(reason) {
+      .then(shouldNotHappen(assert), function(reason: string) {
         assert.equal(reason, 'OMG SETUP', "setup's error was propagated");
         delete handlers.index.setup;
       });
@@ -3410,34 +3228,34 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
 
     assert.expect(8);
 
-    var count = 0;
+    let count = 0;
     handlers = {
-      parent: {
-        model: function(params) {
+      parent: createHandler('parent', {
+        model: function(params: Dict<unknown>) {
           assert.ok(true, 'parent model called');
           return { id: params.p };
         },
-        setup: function(model) {
+        setup: function(model: Dict<unknown>) {
           if (count === 0) {
             assert.deepEqual(model, { id: '1' });
           } else {
             assert.deepEqual(model, { id: '2' });
           }
         },
-      },
-      child: {
-        model: function(params) {
+      }),
+      child: createHandler('child', {
+        model: function(params: Dict<unknown>) {
           assert.ok(true, 'child model called');
           return { id: params.c };
         },
-        setup: function(model) {
+        setup: function(model: Dict<unknown>) {
           if (count === 0) {
             assert.deepEqual(model, { id: '1' });
           } else {
             assert.deepEqual(model, { id: '1' });
           }
         },
-      },
+      }),
     };
 
     transitionTo(router, 'child', '1', '1');
@@ -3458,12 +3276,12 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
       });
     });
 
-    var hasAuthed = false,
-      savedTransition,
+    let hasAuthed = false,
+      savedTransition: Transition,
       didFinish = false;
     handlers = {
-      auth: {
-        beforeModel: function(transition) {
+      auth: createHandler('auth', {
+        beforeModel: function(transition: Transition) {
           if (!hasAuthed) {
             savedTransition = transition;
             router.transitionTo('login');
@@ -3472,25 +3290,21 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
         setup: function() {
           didFinish = true;
         },
-      },
+      }),
     };
 
     transitionTo(router, 'userIndex', { user: 'machty' });
 
     // Then attempt to transition into auth; this will redirect.
     transitionTo(router, 'auth');
-    assert.ok(savedTransition, 'transition was saved');
+    assert.ok(savedTransition!, 'transition was saved');
 
     hasAuthed = true;
-    savedTransition.retry();
+    savedTransition!.retry();
     flushBackburner();
 
     assert.ok(didFinish, 'did enter auth route');
-    assert.equal(
-      handlers.user.context.user,
-      'machty',
-      'User was remembered upon retry'
-    );
+    assert.equal((handlers.user.context as any).user, 'machty', 'User was remembered upon retry');
   });
 
   test('A failed transition calls the catch and finally callbacks', function(assert) {
@@ -3503,13 +3317,13 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     });
 
     handlers = {
-      badRoute: {
+      badRoute: createHandler('badRoute', {
         beforeModel: function() {
-          return new Promise(function(resolve, reject) {
+          return new Promise(function(_resolve, reject) {
             reject('example reason');
           });
         },
-      },
+      }),
     };
 
     router
@@ -3527,7 +3341,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     assert.expect(2);
 
     handlers = {
-      showPost: {
+      showPost: createHandler('showPost', {
         _model: function() {
           assert.ok(true);
           return {};
@@ -3536,7 +3350,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
         _setup: function() {
           assert.ok(true);
         },
-      },
+      }),
     };
 
     router.handleURL('/posts/1');
@@ -3565,7 +3379,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
       });
     });
 
-    var transition = router.handleURL('/example');
+    let transition = router.handleURL('/example');
 
     assert.equal(transition.isActive, true);
     assert.equal(transition.isAborted, false);
@@ -3580,31 +3394,23 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
       });
     });
 
-    var transition = router.handleURL('/example');
+    let transition = router.handleURL('/example');
 
     assert.equal(transition.isActive, true, 'precond');
     assert.equal(transition.isAborted, false, 'precond');
 
     transition.abort();
 
-    assert.equal(
-      transition.isActive,
-      false,
-      'isActive should be false after abort'
-    );
-    assert.equal(
-      transition.isAborted,
-      true,
-      'isAborted is set to true after abort'
-    );
+    assert.equal(transition.isActive, false, 'isActive should be false after abort');
+    assert.equal(transition.isAborted, true, 'isAborted is set to true after abort');
   });
 
   if (scenario.async) {
     test('getHandler is invoked synchronously when returning Promises', function(assert) {
       assert.expect(2);
 
-      var count = 0;
-      var handlerCount = 2;
+      let count = 0;
+      let handlerCount = 2;
 
       router.getHandler = function() {
         count++;
@@ -3628,11 +3434,11 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     });
 
     handlers = {
-      bar: {
+      bar: createHandler('bar', {
         model: function() {
           return {};
         },
-      },
+      }),
     };
 
     expectedUrl = '/omg/lol';
@@ -3646,36 +3452,36 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   });
 
   module('isActive (' + scenario.name + ')', {
-    setup: function(assert) {
+    setup: function(assert: Assert) {
       handlers = {
-        parent: {
-          serialize: function(obj) {
+        parent: createHandler('parent', {
+          serialize: function(obj: Dict<unknown>) {
             return {
               one: obj.one,
               two: obj.two,
             };
           },
-        },
-        child: {
-          serialize: function(obj) {
+        }),
+        child: createHandler('child', {
+          serialize: function(obj: Dict<unknown>) {
             return {
               three: obj.three,
               four: obj.four,
             };
           },
-        },
+        }),
       };
 
       // When using an async getHandler serializers need to be loaded separately
       if (scenario.async) {
         serializers = {
-          parent: function(obj) {
+          parent: function(obj: Dict<unknown>) {
             return {
               one: obj.one,
               two: obj.two,
             };
           },
-          child: function(obj) {
+          child: function(obj: Dict<unknown>) {
             return {
               three: obj.three,
               four: obj.four,
@@ -3727,59 +3533,29 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   });
 
   test('isActive supports multiple soaked up string/number params (via serialized objects)', function(assert) {
-    assert.ok(
-      router.isActive('child', { three: 'c', four: 'd' }),
-      'child(3:c, 4:d)'
-    );
-    assert.ok(
-      !router.isActive('child', { three: 'e', four: 'd' }),
-      '!child(3:e, 4:d)'
-    );
-    assert.ok(
-      !router.isActive('child', { three: 'c', four: 'e' }),
-      '!child(3:c, 4:e)'
-    );
+    assert.ok(router.isActive('child', { three: 'c', four: 'd' }), 'child(3:c, 4:d)');
+    assert.ok(!router.isActive('child', { three: 'e', four: 'd' }), '!child(3:e, 4:d)');
+    assert.ok(!router.isActive('child', { three: 'c', four: 'e' }), '!child(3:c, 4:e)');
     assert.ok(!router.isActive('child', { three: 'c' }), '!child(3:c)');
     assert.ok(!router.isActive('child', { four: 'd' }), '!child(4:d)');
     assert.ok(!router.isActive('child', {}), '!child({})');
 
-    assert.ok(
-      router.isActive('parent', { one: 'a', two: 'b' }),
-      'parent(1:a, 2:b)'
-    );
-    assert.ok(
-      !router.isActive('parent', { one: 'e', two: 'b' }),
-      '!parent(1:e, 2:b)'
-    );
-    assert.ok(
-      !router.isActive('parent', { one: 'a', two: 'e' }),
-      '!parent(1:a, 2:e)'
-    );
+    assert.ok(router.isActive('parent', { one: 'a', two: 'b' }), 'parent(1:a, 2:b)');
+    assert.ok(!router.isActive('parent', { one: 'e', two: 'b' }), '!parent(1:e, 2:b)');
+    assert.ok(!router.isActive('parent', { one: 'a', two: 'e' }), '!parent(1:a, 2:e)');
     assert.ok(!router.isActive('parent', { one: 'a' }), '!parent(1:a)');
     assert.ok(!router.isActive('parent', { two: 'b' }), '!parent(2:b)');
 
     assert.ok(
-      router.isActive(
-        'child',
-        { one: 'a', two: 'b' },
-        { three: 'c', four: 'd' }
-      ),
+      router.isActive('child', { one: 'a', two: 'b' }, { three: 'c', four: 'd' }),
       'child(1:a, 2:b, 3:c, 4:d)'
     );
     assert.ok(
-      !router.isActive(
-        'child',
-        { one: 'e', two: 'b' },
-        { three: 'c', four: 'd' }
-      ),
+      !router.isActive('child', { one: 'e', two: 'b' }, { three: 'c', four: 'd' }),
       '!child(1:e, 2:b, 3:c, 4:d)'
     );
     assert.ok(
-      !router.isActive(
-        'child',
-        { one: 'a', two: 'b' },
-        { three: 'c', four: 'e' }
-      ),
+      !router.isActive('child', { one: 'a', two: 'b' }, { three: 'c', four: 'e' }),
       '!child(1:a, 2:b, 3:c, 4:e)'
     );
   });
@@ -3799,7 +3575,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   });
 
   module('Preservation of params between redirects (' + scenario.name + ')', {
-    setup: function(assert) {
+    setup: function(assert: Assert) {
       expectedUrl = null;
 
       map(assert, function(match) {
@@ -3813,22 +3589,23 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
       });
 
       handlers = {
-        foo: {
-          model: function(params) {
-            this.modelCount = this.modelCount ? this.modelCount + 1 : 1;
+        foo: createHandler('foo', {
+          modelCount: undefined,
+          model: function(params: Dict<unknown>) {
+            this.modelCount = this.modelCount ? (this as any).modelCount + 1 : 1;
             return { id: params.foo_id };
           },
           afterModel: function() {
             router.transitionTo('barIndex', '789');
           },
-        },
+        }),
 
-        bar: {
-          model: function(params) {
-            this.modelCount = this.modelCount ? this.modelCount + 1 : 1;
+        bar: createHandler('bar', {
+          model: function(params: Dict<unknown>) {
+            this.modelCount = this.modelCount ? (this as any).modelCount + 1 : 1;
             return { id: params.bar_id };
           },
-        },
+        }),
       };
     },
   });
@@ -3841,17 +3618,13 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     transitionTo(router, 'barIndex', '123', '456');
 
     assert.equal(
-      handlers.foo.modelCount,
+      (handlers.foo as any).modelCount,
       2,
       'redirect in foo#afterModel should run foo#model twice (since validation failed)'
     );
 
     assert.deepEqual(handlers.foo.context, { id: '123' });
-    assert.deepEqual(
-      handlers.bar.context,
-      { id: '789' },
-      'bar should have redirected to bar 789'
-    );
+    assert.deepEqual(handlers.bar.context, { id: '789' }, 'bar should have redirected to bar 789');
 
     // Try setting foo's context to 200; this should redirect
     // bar to '789' but preserve the new foo 200.
@@ -3859,21 +3632,17 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     transitionTo(router, 'fooIndex', '200');
 
     assert.equal(
-      handlers.foo.modelCount,
+      (handlers.foo as any).modelCount,
       4,
       'redirect in foo#afterModel should re-run foo#model'
     );
 
     assert.deepEqual(handlers.foo.context, { id: '200' });
-    assert.deepEqual(
-      handlers.bar.context,
-      { id: '789' },
-      'bar should have redirected to bar 789'
-    );
+    assert.deepEqual(handlers.bar.context, { id: '789' }, 'bar should have redirected to bar 789');
   });
 
   test("Starting on '/' root index, using redirect", function(assert) {
-    handlers.foo.redirect = handlers.foo.afterModel;
+    (handlers.foo.redirect as any) = handlers.foo.afterModel;
     delete handlers.foo.afterModel;
 
     transitionTo(router, '/');
@@ -3883,17 +3652,13 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     transitionTo(router, 'barIndex', '123', '456');
 
     assert.equal(
-      handlers.foo.modelCount,
+      (handlers.foo as any).modelCount,
       1,
       'redirect in foo#redirect should NOT run foo#model (since validation succeeded)'
     );
 
     assert.deepEqual(handlers.foo.context, { id: '123' });
-    assert.deepEqual(
-      handlers.bar.context,
-      { id: '789' },
-      'bar should have redirected to bar 789'
-    );
+    assert.deepEqual(handlers.bar.context, { id: '789' }, 'bar should have redirected to bar 789');
 
     // Try setting foo's context to 200; this should redirect
     // bar to '789' but preserve the new foo 200.
@@ -3901,27 +3666,19 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     transitionTo(router, 'fooIndex', '200');
 
     assert.equal(
-      handlers.foo.modelCount,
+      (handlers.foo as any).modelCount,
       2,
       'redirect in foo#redirect should NOT foo#model'
     );
 
     assert.deepEqual(handlers.foo.context, { id: '200' });
-    assert.deepEqual(
-      handlers.bar.context,
-      { id: '789' },
-      'bar should have redirected to bar 789'
-    );
+    assert.deepEqual(handlers.bar.context, { id: '789' }, 'bar should have redirected to bar 789');
   });
 
   test('Starting on non root index', function(assert) {
     transitionTo(router, '/123/456');
     assert.deepEqual(handlers.foo.context, { id: '123' });
-    assert.deepEqual(
-      handlers.bar.context,
-      { id: '789' },
-      'bar should have redirected to bar 789'
-    );
+    assert.deepEqual(handlers.bar.context, { id: '789' }, 'bar should have redirected to bar 789');
 
     // Try setting foo's context to 200; this should redirect
     // bar to '789' but preserve the new foo 200.
@@ -3930,11 +3687,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     transitionTo(router, 'fooIndex', '200');
 
     assert.deepEqual(handlers.foo.context, { id: '200' });
-    assert.deepEqual(
-      handlers.bar.context,
-      { id: '789' },
-      'bar should have redirected to bar 789'
-    );
+    assert.deepEqual(handlers.bar.context, { id: '789' }, 'bar should have redirected to bar 789');
   });
 
   /* TODO revisit
@@ -3950,7 +3703,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     });
   });
 
-  var error = new Error("blorg");
+  let error = new Error("blorg");
 
   handlers = {
     articles: {
@@ -3991,33 +3744,30 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       });
     });
 
-    var peopleModels = [null, {}, {}];
-    var peopleBeforeModelCalled = false;
+    let peopleModels: any[] = [null, {}, {}];
+    let peopleBeforeModelCalled = false;
 
     handlers = {
-      people: {
+      people: createHandler('people', {
         beforeModel: function() {
-          assert.ok(
-            !peopleBeforeModelCalled,
-            'people#beforeModel should only be called once'
-          );
+          assert.ok(!peopleBeforeModelCalled, 'people#beforeModel should only be called once');
           peopleBeforeModelCalled = true;
         },
-        model: function(params) {
+        model: function(params: Dict<unknown>) {
           assert.ok(params.id, 'people#model called');
-          return peopleModels[params.id];
+          return peopleModels[params.id as number];
         },
-      },
-      peopleIndex: {
+      }),
+      peopleIndex: createHandler('peopleIndex', {
         afterModel: function() {
           router.transitionTo('peopleHome');
         },
-      },
-      peopleHome: {
+      }),
+      peopleHome: createHandler('peopleHome', {
         setup: function() {
           assert.ok(true, 'I was entered');
         },
-      },
+      }),
     };
 
     transitionTo(router, '/');
@@ -4025,7 +3775,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
   });
 
   module('URL-less routes (' + scenario.name + ')', {
-    setup: function(assert) {
+    setup: function(assert: Assert) {
       handlers = {};
       expectedUrl = null;
 
@@ -4043,9 +3793,9 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.expect(1);
 
     handlers = {
-      adminPosts: {
+      adminPosts: createHandler('adminPosts', {
         inaccessibleByURL: true,
-      },
+      }),
     };
 
     router
@@ -4063,9 +3813,9 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.expect(2);
 
     handlers = {
-      admin: {
+      admin: createHandler('admin', {
         inaccessibleByURL: true,
-      },
+      }),
     };
 
     transitionTo(router, '/index');
@@ -4080,9 +3830,9 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.expect(1);
 
     handlers = {
-      admin: {
+      admin: createHandler('admin', {
         inaccessibleByURL: true,
-      },
+      }),
     };
 
     router
@@ -4090,17 +3840,13 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       .then(function() {
         return router.handleURL('/admin/posts');
       })
-      .then(shouldNotHappen(assert), function(e) {
-        assert.equal(
-          e.name,
-          'UnrecognizedURLError',
-          'error.name is UnrecognizedURLError'
-        );
+      .then(shouldNotHappen(assert), function(e: Error) {
+        assert.equal(e.name, 'UnrecognizedURLError', 'error.name is UnrecognizedURLError');
       });
   });
 
   module('Intermediate transitions (' + scenario.name + ')', {
-    setup: function(assert) {
+    setup: function(assert: Assert) {
       handlers = {};
       expectedUrl = null;
 
@@ -4117,35 +3863,27 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
   test("intermediateTransitionTo() forces an immediate intermediate transition that doesn't cancel currently active async transitions", function(assert) {
     assert.expect(11);
 
-    var counter = 1,
-      willResolves,
+    let counter = 1,
+      willResolves: IHandler[],
       appModel = {},
       fooModel = {};
 
-    function counterAt(expectedValue, description) {
-      assert.equal(
-        counter,
-        expectedValue,
-        'Step ' + expectedValue + ': ' + description
-      );
+    function counterAt(expectedValue: number, description: string) {
+      assert.equal(counter, expectedValue, 'Step ' + expectedValue + ': ' + description);
       counter++;
     }
 
     handlers = {
-      application: {
+      application: createHandler('application', {
         model: function() {
           return appModel;
         },
-        setup: function(obj) {
+        setup: function(obj: Dict<unknown>) {
           counterAt(1, 'application#setup');
-          assert.equal(
-            obj,
-            appModel,
-            'application#setup is passed the return value from model'
-          );
+          assert.equal(obj, appModel, 'application#setup is passed the return value from model');
         },
         events: {
-          willResolveModel: function(transition, handler) {
+          willResolveModel: function(_transition: Transition, handler: IHandler) {
             assert.equal(
               willResolves.shift(),
               handler,
@@ -4153,8 +3891,8 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
             );
           },
         },
-      },
-      foo: {
+      }),
+      foo: createHandler('foo', {
         model: function() {
           router.intermediateTransitionTo('loading');
           counterAt(3, 'intermediate transition finished within foo#model');
@@ -4164,16 +3902,12 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
             resolve(fooModel);
           });
         },
-        setup: function(obj) {
+        setup: function(obj: Dict<unknown>) {
           counterAt(6, 'foo#setup');
-          assert.equal(
-            obj,
-            fooModel,
-            'foo#setup is passed the resolve model promise'
-          );
+          assert.equal(obj, fooModel, 'foo#setup is passed the resolve model promise');
         },
-      },
-      loading: {
+      }),
+      loading: createHandler('loading', {
         model: function() {
           assert.ok(false, "intermediate transitions don't call model hooks");
         },
@@ -4183,7 +3917,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
         exit: function() {
           counterAt(5, 'loading state exited');
         },
-      },
+      }),
     };
 
     willResolves = [handlers.application, handlers.foo];
@@ -4200,15 +3934,12 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/bar').to('bar');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0;
 
     router.updateURL = function(updateUrl) {
       url = updateUrl;
-      assert.ok(
-        false,
-        'The url was not correctly replaced on initial transition'
-      );
+      assert.ok(false, 'The url was not correctly replaced on initial transition');
     };
 
     router.replaceURL = function(replaceURL) {
@@ -4216,18 +3947,18 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(true, 'The url was replaced correctly on initial transition');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.transitionTo('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4249,16 +3980,13 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/baz').to('baz');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0,
       bazModelCount = 0;
 
     router.updateURL = function(updateUrl) {
       url = updateUrl;
-      assert.ok(
-        false,
-        'The url was not correctly replaced on initial transition'
-      );
+      assert.ok(false, 'The url was not correctly replaced on initial transition');
     };
 
     router.replaceURL = function(replaceURL) {
@@ -4266,25 +3994,25 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(true, 'The url was replaced correctly on initial transition');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.transitionTo('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
         router.transitionTo('/baz');
       },
-    };
+    });
 
-    var bazHandler = {
+    let bazHandler = createHandler('baz', {
       model: function() {
         bazModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4308,7 +4036,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/bar').to('bar');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0;
 
     router.updateURL = function(updateUrl) {
@@ -4321,18 +4049,18 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(false, 'replaceURL should not be used');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.transitionTo('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4361,7 +4089,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/baz').to('baz');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0,
       bazModelCount = 0;
 
@@ -4375,25 +4103,25 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(false, 'replaceURL should not be used');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.transitionTo('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
         router.transitionTo('/baz');
       },
-    };
+    });
 
-    var bazHandler = {
+    let bazHandler = createHandler('baz', {
       model: function() {
         bazModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4423,15 +4151,12 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/bar').to('bar');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0;
 
     router.updateURL = function(updateUrl) {
       url = updateUrl;
-      assert.ok(
-        false,
-        'The url was not correctly replaced on initial transition'
-      );
+      assert.ok(false, 'The url was not correctly replaced on initial transition');
     };
 
     router.replaceURL = function(replaceURL) {
@@ -4439,18 +4164,18 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(true, 'The url was replaced correctly on initial transition');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.replaceWith('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4472,16 +4197,13 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/baz').to('baz');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0,
       bazModelCount = 0;
 
     router.updateURL = function(updateUrl) {
       url = updateUrl;
-      assert.ok(
-        false,
-        'The url was not correctly replaced on initial transition'
-      );
+      assert.ok(false, 'The url was not correctly replaced on initial transition');
     };
 
     router.replaceURL = function(replaceURL) {
@@ -4489,25 +4211,25 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(true, 'The url was replaced correctly on initial transition');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.replaceWith('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
         router.replaceWith('/baz');
       },
-    };
+    });
 
-    var bazHandler = {
+    let bazHandler = createHandler('baz', {
       model: function() {
         bazModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4531,7 +4253,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/bar').to('bar');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0;
 
     router.updateURL = function(updateUrl) {
@@ -4544,17 +4266,17 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(false, 'replaceURL should not be used');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.replaceWith('/bar');
       },
-    };
-    var barHandler = {
+    });
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4583,7 +4305,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/baz').to('baz');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0,
       bazModelCount = 0;
 
@@ -4597,25 +4319,25 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(false, 'replaceURL should not be used');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.replaceWith('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
         router.replaceWith('/baz');
       },
-    };
+    });
 
-    var bazHandler = {
+    let bazHandler = createHandler('baz', {
       model: function() {
         bazModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4646,10 +4368,10 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/qux').to('qux');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0,
       bazModelCount = 0,
-      history = [];
+      history: string[] = [];
 
     router.updateURL = function(updateUrl) {
       url = updateUrl;
@@ -4664,29 +4386,29 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       history[history.length - 1] = url;
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.replaceWith('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
         router.replaceWith('/baz');
       },
-    };
+    });
 
-    var bazHandler = {
+    let bazHandler = createHandler('baz', {
       model: function() {
         bazModelCount++;
       },
-    };
+    });
 
-    var quxHandler = {
+    let quxHandler = createHandler('qux', {
       model: function() {},
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4702,11 +4424,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
 
     replaceWith(router, '/foo');
 
-    assert.equal(
-      history.length,
-      1,
-      'still only one history item, replaced the previous'
-    );
+    assert.equal(history.length, 1, 'still only one history item, replaced the previous');
     assert.equal(history[0], '/baz', 'history item is /foo');
     assert.equal(fooModelCount, 1, 'Foo model should be called once');
     assert.equal(barModelCount, 1, 'Bar model should be called once');
@@ -4722,7 +4440,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/baz').to('baz');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0,
       bazModelCount = 0;
 
@@ -4736,25 +4454,25 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(false, 'replaceURL should not be used');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.replaceWith('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
         router.transitionTo('/baz');
       },
-    };
+    });
 
-    var bazHandler = {
+    let bazHandler = createHandler('baz', {
       model: function() {
         bazModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4786,7 +4504,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/baz').to('baz');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0,
       bazModelCount = 0,
       updateUrlCount = 0,
@@ -4802,25 +4520,25 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       replaceUrlCount++;
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
         router.replaceWith('/bar');
       },
-    };
+    });
 
-    var barHandler = {
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
         router.transitionTo('/baz');
       },
-    };
+    });
 
-    var bazHandler = {
+    let bazHandler = createHandler('baz', {
       model: function() {
         bazModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4833,11 +4551,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     // transition to a route that the page loaded on, so it's a no-op and doesn't
     // cause a problem
     assert.equal(replaceUrlCount, 0, 'replaceURL should not be used');
-    assert.equal(
-      updateUrlCount,
-      1,
-      'updateURL should be used for initial transition'
-    );
+    assert.equal(updateUrlCount, 1, 'updateURL should be used for initial transition');
     assert.equal(url, '/baz');
     assert.equal(bazModelCount, 1, 'Baz model should be called once');
     assert.equal(fooModelCount, 0, 'Foo model should not be called');
@@ -4846,11 +4560,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     transitionTo(router, '/foo');
 
     assert.equal(replaceUrlCount, 0, 'replaceURL should not be used');
-    assert.equal(
-      updateUrlCount,
-      2,
-      'updateURL should be used for subsequent transition'
-    );
+    assert.equal(updateUrlCount, 2, 'updateURL should be used for subsequent transition');
     assert.equal(url, '/baz');
     assert.equal(bazModelCount, 2, 'Baz model should be called twice');
     assert.equal(fooModelCount, 1, 'Foo model should be called once');
@@ -4865,7 +4575,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/bar').to('bar');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0;
 
     router.updateURL = function(updateUrl) {
@@ -4878,16 +4588,16 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.equal(replaceUrl, '/bar', 'incorrect url for replaceURL');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
       },
-    };
-    var barHandler = {
+    });
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4915,7 +4625,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/bar').to('bar');
     });
 
-    var fooModelCount = 0,
+    let fooModelCount = 0,
       barModelCount = 0;
 
     router.updateURL = function(updateUrl) {
@@ -4928,16 +4638,16 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       assert.ok(false, 'replaceURL should not be used');
     };
 
-    var fooHandler = {
+    let fooHandler = createHandler('foo', {
       model: function() {
         fooModelCount++;
       },
-    };
-    var barHandler = {
+    });
+    let barHandler = createHandler('bar', {
       model: function() {
         barModelCount++;
       },
-    };
+    });
 
     handlers = {
       foo: fooHandler,
@@ -4961,10 +4671,10 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/project/:project_id').to('project');
     });
 
-    var projectEnterCount = 0;
-    var projectSetupCount = 0;
-    var projectHandler = {
-      model: function(params) {
+    let projectEnterCount = 0;
+    let projectSetupCount = 0;
+    let projectHandler = createHandler('project', {
+      model: function(params: Dict<unknown>) {
         delete params.queryParams;
         return params;
       },
@@ -4974,35 +4684,19 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       setup: function() {
         projectSetupCount++;
       },
-    };
+    });
 
     handlers = {
       project: projectHandler,
     };
 
     transitionTo(router, '/project/1');
-    assert.equal(
-      projectEnterCount,
-      1,
-      'project handler should have been entered once'
-    );
-    assert.equal(
-      projectSetupCount,
-      1,
-      'project handler should have been setup once'
-    );
+    assert.equal(projectEnterCount, 1, 'project handler should have been entered once');
+    assert.equal(projectSetupCount, 1, 'project handler should have been setup once');
 
     transitionTo(router, '/project/2');
-    assert.equal(
-      projectEnterCount,
-      1,
-      'project handler should still have been entered only once'
-    );
-    assert.equal(
-      projectSetupCount,
-      2,
-      'project handler should have been setup twice'
-    );
+    assert.equal(projectEnterCount, 1, 'project handler should still have been entered only once');
+    assert.equal(projectSetupCount, 2, 'project handler should have been setup twice');
   });
 
   test('synchronous transition errors can be detected synchronously', function(assert) {

@@ -1,19 +1,24 @@
-import TransitionIntent from '../transition-intent';
+import RouteRecognizer from 'route-recognizer';
+import { IHandler, UnresolvedHandlerInfoByParam } from '../handler-info';
+import { GetHandlerFunc } from '../router';
+import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
-import handlerInfoFactory from '../handler-info/factory';
-import { merge } from '../utils';
 import UnrecognizedURLError from '../unrecognized-url-error';
+import { merge } from '../utils';
 
 export default class URLTransitionIntent extends TransitionIntent {
-  constructor(props) {
-    super(props);
-    this.url = props.url;
+  preTransitionState?: TransitionState;
+  url: string;
+  constructor(url: string) {
+    super();
+    this.url = url;
+    this.preTransitionState = undefined;
   }
 
-  applyToState(oldState, recognizer, getHandler) {
-    var newState = new TransitionState();
+  applyToState(oldState: TransitionState, recognizer: RouteRecognizer, getHandler: GetHandlerFunc) {
+    let newState = new TransitionState();
 
-    var results = recognizer.recognize(this.url),
+    let results = recognizer.recognize(this.url),
       i,
       len;
 
@@ -21,13 +26,13 @@ export default class URLTransitionIntent extends TransitionIntent {
       throw new UnrecognizedURLError(this.url);
     }
 
-    var statesDiffer = false;
-    var url = this.url;
+    let statesDiffer = false;
+    let url = this.url;
 
     // Checks if a handler is accessible by URL. If it is not, an error is thrown.
     // For the case where the handler is loaded asynchronously, the error will be
     // thrown once it is loaded.
-    function checkHandlerAccessibility(handler) {
+    function checkHandlerAccessibility(handler: IHandler) {
       if (handler && handler.inaccessibleByURL) {
         throw new UnrecognizedURLError(url);
       }
@@ -36,14 +41,12 @@ export default class URLTransitionIntent extends TransitionIntent {
     }
 
     for (i = 0, len = results.length; i < len; ++i) {
-      var result = results[i];
-      var name = result.handler;
-      var newHandlerInfo = handlerInfoFactory('param', {
-        name: name,
-        getHandler: getHandler,
-        params: result.params,
-      });
-      var handler = newHandlerInfo.handler;
+      let result = results[i]!;
+      let name = result.handler as string;
+
+      let newHandlerInfo = new UnresolvedHandlerInfoByParam(name, getHandler, result.params);
+
+      let handler = newHandlerInfo.handler;
 
       if (handler) {
         checkHandlerAccessibility(handler);
@@ -55,7 +58,7 @@ export default class URLTransitionIntent extends TransitionIntent {
         );
       }
 
-      var oldHandlerInfo = oldState.handlerInfos[i];
+      let oldHandlerInfo = oldState.handlerInfos[i];
       if (statesDiffer || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
         statesDiffer = true;
         newState.handlerInfos[i] = newHandlerInfo;

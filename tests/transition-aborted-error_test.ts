@@ -1,10 +1,10 @@
-import { module, test } from './test_helpers';
 import TransitionAbortedError from 'router/transition-aborted-error';
+import { module, test } from './test_helpers';
 
 module('transition-aborted-error');
 
 test('correct inheritance and name', function(assert) {
-  var error;
+  let error;
 
   try {
     throw new TransitionAbortedError('Message');
