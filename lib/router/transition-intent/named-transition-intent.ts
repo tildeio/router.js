@@ -1,10 +1,10 @@
 import RouteRecognizer from 'route-recognizer';
 import { Dict } from '../core';
-import HandlerInfo, {
+import RouteInfo, {
   IHandler,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
-} from '../handler-info';
+} from '../route-info';
 import { GetHandlerFunc, GetSerializerFunc, SerializerFunc } from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
@@ -171,7 +171,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     return newState;
   }
 
-  invalidateChildren(handlerInfos: HandlerInfo[], invalidateIndex: number) {
+  invalidateChildren(handlerInfos: RouteInfo[], invalidateIndex: number) {
     for (let i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
       let handlerInfo = handlerInfos[i];
       handlerInfos[i] = handlerInfo.getUnresolved();
@@ -183,7 +183,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     getHandler: GetHandlerFunc,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: HandlerInfo,
+    oldHandlerInfo: RouteInfo,
     _targetRouteName: string,
     i: number,
     serializer: SerializerFunc
@@ -224,7 +224,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     getHandler: GetHandlerFunc,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: HandlerInfo
+    oldHandlerInfo: RouteInfo
   ) {
     let params: Dict<unknown> = {};
 

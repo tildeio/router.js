@@ -1,11 +1,11 @@
 import { Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, {
+import RouteInfo, {
   noopGetHandler,
   ResolvedHandlerInfo,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
-} from 'router/handler-info';
+} from 'router/route-info';
 import { reject, resolve } from 'rsvp';
 import { createHandler, createHandlerInfo, module, test } from './test_helpers';
 
@@ -49,11 +49,9 @@ test('HandlerInfo#resolve resolves with a ResolvedHandlerInfo', function(assert)
   assert.expect(1);
 
   let handlerInfo = createHandlerInfo('stub');
-  handlerInfo
-    .resolve(() => false, {} as Transition)
-    .then(function(resolvedHandlerInfo: HandlerInfo) {
-      assert.ok(resolvedHandlerInfo instanceof ResolvedHandlerInfo);
-    });
+  handlerInfo.resolve(() => false, {} as Transition).then(function(resolvedHandlerInfo: RouteInfo) {
+    assert.ok(resolvedHandlerInfo instanceof ResolvedHandlerInfo);
+  });
 });
 
 test('HandlerInfo#resolve runs beforeModel hook on handler', function(assert) {
@@ -111,7 +109,7 @@ test('HandlerInfo#resolve runs afterModel hook on handler', function(assert) {
 
   handlerInfo
     .resolve(noop, transition as Transition)
-    .then(function(resolvedHandlerInfo: HandlerInfo) {
+    .then(function(resolvedHandlerInfo: RouteInfo) {
       assert.equal(resolvedHandlerInfo.context, model, 'HandlerInfo resolved with correct model');
     });
 });
@@ -157,7 +155,7 @@ test('UnresolvedHandlerInfoByObject does NOT get its model hook called', functio
     resolve({ name: 'dorkletons' })
   );
 
-  handlerInfo.resolve(noop, {} as Transition).then(function(resolvedHandlerInfo: HandlerInfo) {
+  handlerInfo.resolve(noop, {} as Transition).then(function(resolvedHandlerInfo: RouteInfo) {
     assert.equal(resolvedHandlerInfo.context!.name, 'dorkletons');
   });
 });

@@ -1,7 +1,7 @@
 import { MatchCallback } from 'route-recognizer';
 import Router, { IHandler, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
-import HandlerInfo from 'router/handler-info';
+import RouteInfo from 'router/route-info';
 import { GetSerializerFunc, SerializerFunc } from 'router/router';
 import { Promise, reject } from 'rsvp';
 import {
@@ -128,7 +128,7 @@ scenarios.forEach(function(scenario) {
     );
   });
 
-  function routePath(infos: HandlerInfo[]) {
+  function routePath(infos: RouteInfo[]) {
     let path = [];
 
     for (let i = 0, l = infos.length; i < l; i++) {
@@ -1175,11 +1175,7 @@ scenarios.forEach(function(scenario) {
         },
       }),
     };
-    router.triggerEvent = function(
-      handlerInfos: HandlerInfo[],
-      ignoreFailure: boolean,
-      args: any[]
-    ) {
+    router.triggerEvent = function(handlerInfos: RouteInfo[], ignoreFailure: boolean, args: any[]) {
       let name: string = args.shift();
 
       if (!handlerInfos) {

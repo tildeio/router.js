@@ -1,7 +1,7 @@
 import Backburner from 'backburner';
 import Router, { IHandler, Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, { noopGetHandler, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+import RouteInfo, { noopGetHandler, UnresolvedHandlerInfoByParam } from 'router/route-info';
 import TransitionAbortedError from 'router/transition-aborted-error';
 import { configure, resolve } from 'rsvp';
 
@@ -120,8 +120,8 @@ export function createHandler(name: string, options?: Dict<unknown>): IHandler {
   );
 }
 
-export function createHandlerInfo(name: string, options: Dict<unknown> = {}): HandlerInfo {
-  class Stub extends HandlerInfo {
+export function createHandlerInfo(name: string, options: Dict<unknown> = {}): RouteInfo {
+  class Stub extends RouteInfo {
     constructor(name: string, handler?: IHandler) {
       super(name, handler);
     }

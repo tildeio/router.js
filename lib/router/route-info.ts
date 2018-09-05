@@ -31,7 +31,7 @@ export interface HandlerInfoArgs {
   handler?: any;
 }
 
-export interface HandlerHooks {
+export interface RouteHooks {
   model?(
     params: Dict<unknown>,
     transition: Transition
@@ -69,7 +69,7 @@ export interface HandlerHooks {
   _redirect?(context: Dict<unknown>, transition: Transition): void;
 }
 
-export interface IHandler extends HandlerHooks {
+export interface IHandler extends RouteHooks {
   inaccessibleByURL?: boolean;
   _handlerName: string;
   context: unknown;
@@ -85,7 +85,13 @@ export interface IResolvedModel {
   [key: string]: unknown;
 }
 
-export default abstract class HandlerInfo {
+const privateRouteInfos = new WeakMap();
+
+export function privateAccess(routeInfo: RouteInfo) {
+  return privateRouteInfos.get(routeInfo);
+}
+
+export default abstract class RouteInfo {
   private _handlerPromise?: Promise<IHandler>;
   private _handler?: IHandler | undefined;
   name: string;
@@ -166,7 +172,7 @@ export default abstract class HandlerInfo {
     return new ResolvedHandlerInfo(this.name, this.handler, params, context);
   }
 
-  shouldSupercede(other?: HandlerInfo) {
+  shouldSupercede(other?: RouteInfo) {
     // Prefer this newer handlerInfo over `other` if:
     // 1) The other one doesn't exist
     // 2) The names don't match
@@ -321,7 +327,7 @@ export default abstract class HandlerInfo {
   }
 }
 
-export class ResolvedHandlerInfo extends HandlerInfo {
+export class ResolvedHandlerInfo extends RouteInfo {
   isResolved: boolean;
   constructor(
     name: string,
@@ -356,7 +362,7 @@ export class ResolvedHandlerInfo extends HandlerInfo {
   }
 }
 
-export class UnresolvedHandlerInfoByParam extends HandlerInfo {
+export class UnresolvedHandlerInfoByParam extends RouteInfo {
   getHandler: GetHandlerFunc;
   params: Dict<unknown> = {};
   constructor(name: string, getHandler: GetHandlerFunc, params: Dict<unknown>, handler?: IHandler) {
@@ -402,7 +408,7 @@ export class UnresolvedHandlerInfoByParam extends HandlerInfo {
   }
 }
 
-export class UnresolvedHandlerInfoByObject extends HandlerInfo {
+export class UnresolvedHandlerInfoByObject extends RouteInfo {
   names: string[] = [];
   serializer?: SerializerFunc;
   getHandler: GetHandlerFunc;

@@ -1,5 +1,5 @@
 import RouteRecognizer from 'route-recognizer';
-import { IHandler, UnresolvedHandlerInfoByParam } from '../handler-info';
+import { IHandler, UnresolvedHandlerInfoByParam } from '../route-info';
 import { GetHandlerFunc } from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';

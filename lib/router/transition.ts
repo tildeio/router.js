@@ -1,6 +1,6 @@
 import { OnFulfilled, OnRejected, Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import HandlerInfo, { IHandler } from './handler-info';
+import RouteInfo, { IHandler } from './route-info';
 import Router from './router';
 import TransitionAborted from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -34,7 +34,7 @@ export class Transition {
   promise?: Promise<any>; // Todo: Fix this shit its actually TransitionState | IHandler | undefined | Error
   error: Maybe<Error>;
   params: Dict<unknown>;
-  handlerInfos: HandlerInfo[];
+  handlerInfos: RouteInfo[];
   targetName: Maybe<string>;
   pivotHandler: Maybe<IHandler>;
   sequence: number;

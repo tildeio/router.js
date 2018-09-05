@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import HandlerInfo, { Continuation, IHandler } from './handler-info';
+import RouteInfo, { Continuation, IHandler } from './route-info';
 import { Transition } from './transition';
 import { forEach, promiseLabel } from './utils';
 
@@ -9,7 +9,7 @@ interface IParams {
 }
 
 export default class TransitionState {
-  handlerInfos: HandlerInfo[] = [];
+  handlerInfos: RouteInfo[] = [];
   queryParams: Dict<unknown> = {};
   params: IParams = {};
 
@@ -75,7 +75,7 @@ export default class TransitionState {
       );
     }
 
-    function proceed(resolvedHandlerInfo: HandlerInfo): Promise<HandlerInfo> {
+    function proceed(resolvedHandlerInfo: RouteInfo): Promise<RouteInfo> {
       let wasAlreadyResolved = currentState.handlerInfos[transition.resolveIndex].isResolved;
 
       // Swap the previously unresolved handlerInfo with

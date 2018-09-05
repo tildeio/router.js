@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import HandlerInfo, { IHandler } from './handler-info';
+import RouteInfo, { IHandler } from './route-info';
 import Router from './router';
 import { Transition } from './transition';
 import { UnrecognizedURLError } from './unrecognized-url-error';
@@ -102,14 +102,14 @@ export function forEach<T>(array: T[], callback: (item: T) => boolean) {
 //
 export function trigger(
   router: Router,
-  handlerInfos: HandlerInfo[],
+  handlerInfos: RouteInfo[],
   ignoreFailure: boolean,
   name: string,
   transition?: Transition
 ): void;
 export function trigger(
   router: Router,
-  handlerInfos: HandlerInfo[],
+  handlerInfos: RouteInfo[],
   ignoreFailure: boolean,
   name: string,
   changedQueryParams?: Dict<unknown>,
@@ -118,7 +118,7 @@ export function trigger(
 ): void;
 export function trigger(
   router: Router,
-  handlerInfos: HandlerInfo[],
+  handlerInfos: RouteInfo[],
   ignoreFailure: boolean,
   name: string,
   newQueryParams?: Dict<unknown>,
@@ -127,7 +127,7 @@ export function trigger(
 ): void;
 export function trigger(
   router: Router,
-  handlerInfos: HandlerInfo[],
+  handlerInfos: RouteInfo[],
   ignoreFailure: boolean,
   name: string,
   err?: Error,
@@ -136,7 +136,7 @@ export function trigger(
 ): void;
 export function trigger(
   router: Router,
-  handlerInfos: HandlerInfo[],
+  handlerInfos: RouteInfo[],
   ignoreFailure: boolean,
   name: string,
   transition?: Transition,
@@ -144,7 +144,7 @@ export function trigger(
 ): void;
 export function trigger(
   router: Router,
-  handlerInfos: HandlerInfo[],
+  handlerInfos: RouteInfo[],
   ignoreFailure: boolean,
   name: string,
   ...args: any[]

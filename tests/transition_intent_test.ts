@@ -5,12 +5,12 @@ import { createHandler, module, test } from './test_helpers';
 
 import { IHandler } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, {
+import RouteInfo, {
   noopGetHandler,
   ResolvedHandlerInfo,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
-} from 'router/handler-info';
+} from 'router/route-info';
 import { Promise } from 'rsvp';
 
 let handlers: Dict<IHandler>, recognizer: any;
@@ -41,7 +41,7 @@ let scenarios = [
 scenarios.forEach(function(scenario) {
   // Asserts that a handler from a handlerInfo equals an expected valued.
   // Returns a promise during async scenarios to wait until the handler is ready.
-  function assertHandlerEquals(assert: Assert, handlerInfo: HandlerInfo, expected: IHandler) {
+  function assertHandlerEquals(assert: Assert, handlerInfo: RouteInfo, expected: IHandler) {
     if (!scenario.async) {
       return assert.equal(handlerInfo.handler, expected);
     } else {

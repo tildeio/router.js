@@ -1,7 +1,7 @@
 import RouteRecognizer, { Delegate, MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import HandlerInfo, { IHandler } from './handler-info';
+import RouteInfo, { IHandler } from './route-info';
 import { logAbort, Transition } from './transition';
 import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -31,7 +31,7 @@ export interface GetHandlerFunc {
 }
 
 export interface DidTransitionFunc {
-  (handlerInfos: HandlerInfo[]): void;
+  (handlerInfos: RouteInfo[]): void;
 }
 
 export interface RouterArgs {
@@ -40,13 +40,13 @@ export interface RouterArgs {
   updateURL(url: string): void;
   delegate: Delegate;
   willTransition?(
-    oldHandlerInfos: HandlerInfo[],
-    newHandlerInfos: HandlerInfo[],
+    oldHandlerInfos: RouteInfo[],
+    newHandlerInfos: RouteInfo[],
     transition: Transition
   ): void;
   didTransition?: DidTransitionFunc;
   replaceURL?(url: string): void;
-  triggerEvent?(handlerInfos: HandlerInfo[], ignoreFailure: boolean, args: unknown[]): void;
+  triggerEvent?(handlerInfos: RouteInfo[], ignoreFailure: boolean, args: unknown[]): void;
   log?(message: string): void;
 }
 
@@ -58,18 +58,18 @@ class Router {
   updateURL: (url: string) => void;
   delegate: Delegate;
   willTransition?: (
-    oldHandlerInfos: HandlerInfo[],
-    newHandlerInfos: HandlerInfo[],
+    oldHandlerInfos: RouteInfo[],
+    newHandlerInfos: RouteInfo[],
     transition: Transition
   ) => void;
   didTransition?: DidTransitionFunc;
   replaceURL?: (url: string) => void;
-  triggerEvent?: (handlerInfos: HandlerInfo[], ignoreFailure: boolean, args: unknown[]) => void;
+  triggerEvent?: (handlerInfos: RouteInfo[], ignoreFailure: boolean, args: unknown[]) => void;
   log?: (message: string) => void;
   state?: TransitionState = undefined;
   oldState: Maybe<TransitionState> = undefined;
   activeTransition?: Transition = undefined;
-  currentHandlerInfos?: HandlerInfo[] = undefined;
+  currentHandlerInfos?: RouteInfo[] = undefined;
   _changedQueryParams?: Dict<unknown> = undefined;
   currentSequence = 0;
   recognizer: RouteRecognizer;
@@ -183,7 +183,7 @@ class Router {
   */
   reset() {
     if (this.state) {
-      forEach<HandlerInfo>(this.state.handlerInfos.slice().reverse(), function(handlerInfo) {
+      forEach<RouteInfo>(this.state.handlerInfos.slice().reverse(), function(handlerInfo) {
         let handler = handlerInfo.handler;
         if (handler !== undefined) {
           if (handler._exit !== undefined) {
@@ -615,8 +615,8 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
   that may happen in enter/setup.
 */
 function handlerEnteredOrUpdated(
-  currentHandlerInfos: HandlerInfo[],
-  handlerInfo: HandlerInfo,
+  currentHandlerInfos: RouteInfo[],
+  handlerInfo: RouteInfo,
   enter: boolean,
   transition: Transition
 ) {
@@ -701,10 +701,10 @@ function handlerEnteredOrUpdated(
     longer active.
   * `unchanged`: a list of `HanderInfo` objects that remain active.
 
-  @param {Array[HandlerInfo]} oldHandlers a list of the handler
+  @param {Array[RouteInfo]} oldHandlers a list of the handler
     information for the previous URL (or `[]` if this is the
     first handled transition)
-  @param {Array[HandlerInfo]} newHandlers a list of the handler
+  @param {Array[RouteInfo]} newHandlers a list of the handler
     information for the new URL
 
   @return {Partition}
@@ -925,7 +925,7 @@ function doTransition(
   return router.transitionByIntent(intent, isIntermediate);
 }
 
-function handlerInfosEqual(handlerInfos: HandlerInfo[], otherHandlerInfos: HandlerInfo[]) {
+function handlerInfosEqual(handlerInfos: RouteInfo[], otherHandlerInfos: RouteInfo[]) {
   if (handlerInfos.length !== otherHandlerInfos.length) {
     return false;
   }
@@ -939,8 +939,8 @@ function handlerInfosEqual(handlerInfos: HandlerInfo[], otherHandlerInfos: Handl
 }
 
 function handlerInfosSameExceptQueryParams(
-  handlerInfos: HandlerInfo[],
-  otherHandlerInfos: HandlerInfo[]
+  handlerInfos: RouteInfo[],
+  otherHandlerInfos: RouteInfo[]
 ) {
   if (handlerInfos.length !== otherHandlerInfos.length) {
     return false;
@@ -985,7 +985,7 @@ function paramsEqual(params: Dict<unknown>, otherParams: Dict<unknown>) {
 
 function finalizeQueryParamChange(
   router: Router,
-  resolvedHandlers: HandlerInfo[],
+  resolvedHandlers: RouteInfo[],
   newQueryParams: Dict<unknown>,
   transition: Transition
 ) {
@@ -1067,11 +1067,11 @@ function notifyExistingHandlers(
 }
 
 export interface HandlerPartition {
-  updatedContext: HandlerInfo[];
-  exited: HandlerInfo[];
-  entered: HandlerInfo[];
-  unchanged: HandlerInfo[];
-  reset: HandlerInfo[];
+  updatedContext: RouteInfo[];
+  exited: RouteInfo[];
+  entered: RouteInfo[];
+  unchanged: RouteInfo[];
+  reset: RouteInfo[];
 }
 
 export default Router;
