@@ -1,4 +1,4 @@
-import RouteRecognizer, { Delegate, MatchCallback, Params } from 'route-recognizer';
+import RouteRecognizer, { MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
 import HandlerInfo, { IHandler } from './handler-info';
@@ -16,14 +16,13 @@ import {
   log,
   merge,
   promiseLabel,
-  trigger,
 } from './utils';
 
 export interface SerializerFunc {
   (model: Dict<unknown>, params: Dict<unknown>): unknown;
 }
 export interface GetSerializerFunc {
-  (name: string): SerializerFunc;
+  (name: string): SerializerFunc | undefined;
 }
 
 export interface GetHandlerFunc {
@@ -34,37 +33,7 @@ export interface DidTransitionFunc {
   (handlerInfos: HandlerInfo[]): void;
 }
 
-export interface RouterArgs {
-  getHandler: GetHandlerFunc;
-  getSerializer: GetSerializerFunc;
-  updateURL(url: string): void;
-  delegate?: Delegate;
-  willTransition?(
-    oldHandlerInfos: HandlerInfo[],
-    newHandlerInfos: HandlerInfo[],
-    transition: Transition
-  ): void;
-  didTransition?: DidTransitionFunc;
-  replaceURL?(url: string): void;
-  triggerEvent?(handlerInfos: HandlerInfo[], ignoreFailure: boolean, args: unknown[]): void;
-  log?(message: string): void;
-}
-
-// Todo:
-// this should just be an abstract class
-class Router {
-  getHandler: GetHandlerFunc;
-  getSerializer: GetSerializerFunc;
-  updateURL: (url: string) => void;
-  delegate: Delegate;
-  willTransition?: (
-    oldHandlerInfos: HandlerInfo[],
-    newHandlerInfos: HandlerInfo[],
-    transition: Transition
-  ) => void;
-  didTransition?: DidTransitionFunc;
-  replaceURL?: (url: string) => void;
-  triggerEvent?: (handlerInfos: HandlerInfo[], ignoreFailure: boolean, args: unknown[]) => void;
+export default abstract class Router {
   log?: (message: string) => void;
   state?: TransitionState = undefined;
   oldState: Maybe<TransitionState> = undefined;
@@ -73,26 +42,29 @@ class Router {
   _changedQueryParams?: Dict<unknown> = undefined;
   currentSequence = 0;
   recognizer: RouteRecognizer;
-  dslCallBacks: unknown[] = []; // TODO: set by ember. Please refactor.
 
-  constructor(options: RouterArgs) {
-    this.getHandler = options.getHandler;
-    this.getSerializer = options.getSerializer;
-    this.updateURL = options.updateURL;
-    this.replaceURL =
-      options.replaceURL ||
-      ((url: string) => {
-        this.updateURL(url);
-      });
-    this.didTransition = options.didTransition;
-    this.willTransition = options.willTransition;
-    this.delegate = options.delegate;
-    this.triggerEvent = options.triggerEvent || this.triggerEvent;
-    this.log = options.log || this.log;
-
+  constructor(logger?: (message: string) => void) {
+    this.log = logger;
     this.recognizer = new RouteRecognizer();
     this.reset();
   }
+
+  abstract getHandler(name: string): IHandler | Promise<IHandler>;
+  abstract getSerializer(name: string): SerializerFunc | undefined;
+  abstract updateURL(url: string): void;
+  abstract replaceURL(url: string): void;
+  abstract willTransition(
+    oldHandlerInfos: HandlerInfo[],
+    newHandlerInfos: HandlerInfo[],
+    transition: Transition
+  ): void;
+  abstract didTransition(handlerInfos: HandlerInfo[]): void;
+  abstract triggerEvent(
+    handlerInfos: HandlerInfo[],
+    ignoreFailure: boolean,
+    name: string,
+    args: unknown[]
+  ): void;
 
   /**
     The main entry point into the router. The API is essentially
@@ -104,8 +76,6 @@ class Router {
     @param {Function} callback
   */
   map(callback: MatchCallback) {
-    this.recognizer.delegate = this.delegate;
-
     this.recognizer.map(callback, function(recognizer, routes) {
       for (let i = routes.length - 1, proceed = true; i >= 0 && proceed; --i) {
         let route = routes[i];
@@ -401,7 +371,7 @@ class Router {
   }
 
   trigger(name: string, ...args: any[]) {
-    trigger(this, this.currentHandlerInfos!, false, name, ...args);
+    this.triggerEvent(this.currentHandlerInfos!, false, name, args);
   }
 }
 
@@ -494,15 +464,11 @@ function fireQueryParamDidChange(
     // changed query params given that no activeTransition
     // is guaranteed to have occurred.
     router._changedQueryParams = queryParamChangelist.all;
-    trigger(
-      router,
-      newState.handlerInfos,
-      true,
-      'queryParamsDidChange',
+    router.triggerEvent(newState.handlerInfos, true, 'queryParamsDidChange', [
       queryParamChangelist.changed,
       queryParamChangelist.all,
-      queryParamChangelist.removed
-    );
+      queryParamChangelist.removed,
+    ]);
     router._changedQueryParams = undefined;
   }
 }
@@ -855,7 +821,7 @@ function finalizeTransition(
     transition.isActive = false;
     router.activeTransition = undefined;
 
-    trigger(router, router.currentHandlerInfos!, true, 'didTransition');
+    router.triggerEvent(router.currentHandlerInfos!, true, 'didTransition', []);
 
     if (router.didTransition) {
       router.didTransition(router.currentHandlerInfos!);
@@ -1008,15 +974,12 @@ function finalizeQueryParamChange(
     value: string;
     visible: boolean;
   }[] = [];
-  trigger(
-    router,
-    resolvedHandlers,
-    true,
-    'finalizeQueryParamChange',
+
+  router.triggerEvent(resolvedHandlers, true, 'finalizeQueryParamChange', [
     newQueryParams,
     finalQueryParamsArray,
-    transition
-  );
+    transition,
+  ]);
 
   if (transition) {
     transition._visibleQueryParams = {};
@@ -1059,7 +1022,7 @@ function notifyExistingHandlers(
     }
   }
 
-  trigger(router, oldHandlers, true, 'willTransition', newTransition);
+  router.triggerEvent(oldHandlers, true, 'willTransition', [newTransition]);
 
   if (router.willTransition) {
     router.willTransition(oldHandlers, newState.handlerInfos, newTransition);
@@ -1073,5 +1036,3 @@ export interface HandlerPartition {
   unchanged: HandlerInfo[];
   reset: HandlerInfo[];
 }
-
-export default Router;

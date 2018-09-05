@@ -2,7 +2,7 @@ import { MatchCallback } from 'route-recognizer';
 import Router, { IHandler, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
 import HandlerInfo from 'router/handler-info';
-import { GetSerializerFunc, SerializerFunc } from 'router/router';
+import { SerializerFunc } from 'router/router';
 import { Promise, reject } from 'rsvp';
 import {
   assertAbort,
@@ -15,6 +15,7 @@ import {
   test,
   transitionTo,
   transitionToWithAbort,
+  trigger,
 } from './test_helpers';
 
 let router: Router;
@@ -22,7 +23,6 @@ let url: string;
 let handlers: Dict<IHandler>;
 
 let serializers: Dict<SerializerFunc>, expectedUrl: Maybe<string>;
-
 let scenarios = [
   {
     name: 'Sync Get Handler',
@@ -30,8 +30,8 @@ let scenarios = [
     getHandler: function(name: string) {
       return handlers[name] || (handlers[name] = createHandler('empty'));
     },
-    getSerializer: function() {
-      return;
+    getSerializer: function(_name: string) {
+      return undefined;
     },
   },
   {
@@ -83,20 +83,34 @@ scenarios.forEach(function(scenario) {
   });
 
   function map(assert: Assert, fn: MatchCallback) {
-    router = new Router({
-      delegate: {},
-      getHandler: scenario.getHandler,
+    class TestRouter extends Router {
+      didTransition() {}
+      willTransition() {}
+      replaceURL(name: string) {
+        this.updateURL(name);
+      }
+      triggerEvent(handlerInfos: HandlerInfo[], ignoreFailure: boolean, name: string, args: any[]) {
+        trigger(handlerInfos, ignoreFailure, name, ...args);
+      }
 
-      getSerializer: scenario.getSerializer as GetSerializerFunc,
+      getHandler(name: string) {
+        return scenario.getHandler(name);
+      }
 
-      updateURL: function(newUrl) {
+      getSerializer(name: string) {
+        return scenario.getSerializer(name);
+      }
+
+      updateURL(newUrl: string) {
         if (expectedUrl) {
           assert.equal(newUrl, expectedUrl, 'The url is ' + newUrl + ' as expected');
         }
 
         url = newUrl;
-      },
-    });
+      }
+    }
+
+    router = new TestRouter();
 
     router.map(fn);
   }
@@ -337,58 +351,6 @@ scenarios.forEach(function(scenario) {
       .then(function() {
         assert.deepEqual(contexts, [{ id: 1 }], 'parent context is available');
       }, shouldNotHappen(assert));
-  });
-
-  test('A delegate provided to router.js is passed along to route-recognizer', function(assert) {
-    router = new Router({
-      getHandler() {
-        throw new Error('never');
-      },
-      getSerializer() {
-        throw new Error('never');
-      },
-      updateURL() {
-        throw new Error('never');
-      },
-      delegate: {
-        willAddRoute: function(context, route) {
-          if (!context) {
-            return route;
-          }
-
-          if (context === 'application') {
-            return route;
-          }
-
-          return context + '.' + route;
-        },
-
-        // Test that both delegates work together
-        contextEntered: function(_name: string, match) {
-          match('/').to('index');
-        },
-      },
-    });
-
-    router.map(function(match) {
-      match('/').to('application', function(match) {
-        match('/posts').to('posts', function(match) {
-          match('/:post_id').to('post');
-        });
-      });
-    });
-
-    let handlers: string[] = [];
-
-    router.getHandler = function(handler: string) {
-      handlers.push(handler);
-      let h = createHandler('empty');
-      return scenario.async ? Promise.resolve(h) : h;
-    };
-
-    router.handleURL('/posts').then(function() {
-      assert.deepEqual(handlers, ['application', 'posts', 'posts.index']);
-    });
   });
 
   test('handleURL: Handling a nested URL triggers each handler', function(assert) {
@@ -1178,10 +1140,9 @@ scenarios.forEach(function(scenario) {
     router.triggerEvent = function(
       handlerInfos: HandlerInfo[],
       ignoreFailure: boolean,
+      name: string,
       args: any[]
     ) {
-      let name: string = args.shift();
-
       if (!handlerInfos) {
         if (ignoreFailure) {
           return;

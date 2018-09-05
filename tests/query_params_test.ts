@@ -1,8 +1,16 @@
 import { MatchCallback } from 'route-recognizer';
 import Router, { IHandler, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
+import HandlerInfo from 'router/handler-info';
 import { Promise } from 'rsvp';
-import { createHandler, flushBackburner, module, test, transitionTo } from './test_helpers';
+import {
+  createHandler,
+  flushBackburner,
+  module,
+  test,
+  transitionTo,
+  trigger,
+} from './test_helpers';
 
 let router: Router, handlers: Dict<IHandler>, expectedUrl: Maybe<string>;
 let scenarios = [
@@ -37,27 +45,29 @@ scenarios.forEach(function(scenario) {
   });
 
   function map(assert: Assert, fn: MatchCallback) {
-    router = new Router({
-      getHandler() {
-        throw new Error('never');
-      },
-      getSerializer() {
-        throw new Error('never');
-      },
-      updateURL() {
-        throw new Error('never');
-      },
-      delegate: {},
-    });
-    router.map(fn);
-
-    router.getHandler = scenario.getHandler;
-
-    router.updateURL = function(newUrl) {
-      if (expectedUrl) {
-        assert.equal(newUrl, expectedUrl, 'The url is ' + newUrl + ' as expected');
+    class TestRouter extends Router {
+      didTransition() {}
+      willTransition() {}
+      triggerEvent(handlerInfos: HandlerInfo[], ignoreFailure: boolean, name: string, args: any[]) {
+        trigger(handlerInfos, ignoreFailure, name, ...args);
       }
-    };
+      replaceURL(name: string) {
+        this.updateURL(name);
+      }
+      getHandler(name: string) {
+        return scenario.getHandler(name);
+      }
+      getSerializer(): never {
+        throw new Error('never');
+      }
+      updateURL(newUrl: string) {
+        if (expectedUrl) {
+          assert.equal(newUrl, expectedUrl, 'The url is ' + newUrl + ' as expected');
+        }
+      }
+    }
+    router = new TestRouter();
+    router.map(fn);
   }
 
   function consumeAllFinalQueryParams(params: Dict<unknown>, finalParams: Dict<unknown>[]) {
