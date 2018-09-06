@@ -38,7 +38,7 @@ export interface RouterArgs {
   getHandler: GetHandlerFunc;
   getSerializer: GetSerializerFunc;
   updateURL(url: string): void;
-  delegate: Delegate;
+  delegate?: Delegate;
   willTransition?(
     oldHandlerInfos: HandlerInfo[],
     newHandlerInfos: HandlerInfo[],
