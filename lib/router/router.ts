@@ -275,9 +275,9 @@ export default abstract class Router {
     let state = intent.applyToState(
       this.state!,
       this.recognizer,
-      this.getHandler,
+      this.getHandler.bind(this),
       false,
-      this.getSerializer
+      this.getSerializer.bind(this)
     );
 
     let params: Params = {};
@@ -296,7 +296,13 @@ export default abstract class Router {
 
     let state = (this.activeTransition && this.activeTransition.state) || this.state!;
 
-    return intent.applyToState(state, this.recognizer, this.getHandler, false, this.getSerializer);
+    return intent.applyToState(
+      state,
+      this.recognizer,
+      this.getHandler.bind(this),
+      false,
+      this.getSerializer
+    );
   }
 
   isActiveIntent(
@@ -339,11 +345,11 @@ export default abstract class Router {
     let newState = intent.applyToHandlers(
       testState,
       recogHandlers,
-      this.getHandler,
+      this.getHandler.bind(this),
       targetHandler,
       true,
       true,
-      this.getSerializer
+      this.getSerializer.bind(this)
     );
 
     let handlersEqual = handlerInfosEqual(newState.handlerInfos, testState.handlerInfos);
@@ -383,9 +389,9 @@ function getTransitionByIntent(this: Router, intent: TransitionIntent, isInterme
   let newState = intent.applyToState(
     oldState!,
     this.recognizer,
-    this.getHandler,
+    this.getHandler.bind(this),
     isIntermediate,
-    this.getSerializer
+    this.getSerializer.bind(this)
   );
   let queryParamChangelist = getChangelist(oldState!.queryParams, newState.queryParams);
 
