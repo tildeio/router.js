@@ -410,7 +410,7 @@ export class UnresolvedHandlerInfoByObject extends HandlerInfo {
     name: string,
     names: string[],
     getHandler: GetHandlerFunc,
-    serializer: SerializerFunc,
+    serializer: SerializerFunc | undefined,
     context: Dict<unknown>
   ) {
     super(name);

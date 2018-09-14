@@ -186,7 +186,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     oldHandlerInfo: HandlerInfo,
     _targetRouteName: string,
     i: number,
-    serializer: SerializerFunc
+    serializer?: SerializerFunc
   ) {
     let objectToUse: Dict<unknown>;
     if (objects.length > 0) {

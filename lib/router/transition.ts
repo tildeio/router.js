@@ -5,7 +5,7 @@ import Router from './router';
 import TransitionAborted from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
 import TransitionState, { TransitionError } from './transition-state';
-import { log, promiseLabel, trigger } from './utils';
+import { log, promiseLabel } from './utils';
 
 export { default as TransitionAborted } from './transition-aborted-error';
 
@@ -329,13 +329,12 @@ export class Transition {
     @param {String} name the name of the event to fire
     @public
    */
-  trigger(ignoreFailure: boolean, _name: string, ...args: any[]) {
-    trigger(
-      this.router,
+  trigger(ignoreFailure: boolean, name: string, ...args: any[]) {
+    this.router.triggerEvent(
       this.state!.handlerInfos.slice(0, this.resolveIndex + 1),
       ignoreFailure,
-      _name,
-      ...args
+      name,
+      args
     );
   }
 

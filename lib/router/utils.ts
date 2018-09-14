@@ -1,9 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import HandlerInfo, { IHandler } from './handler-info';
 import Router from './router';
-import { Transition } from './transition';
-import { UnrecognizedURLError } from './unrecognized-url-error';
 
 export const slice = Array.prototype.slice;
 const hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -98,102 +95,6 @@ export function forEach<T>(array: T[], callback: (item: T) => boolean) {
   }
 }
 
-// name:string,
-//
-export function trigger(
-  router: Router,
-  handlerInfos: HandlerInfo[],
-  ignoreFailure: boolean,
-  name: string,
-  transition?: Transition
-): void;
-export function trigger(
-  router: Router,
-  handlerInfos: HandlerInfo[],
-  ignoreFailure: boolean,
-  name: string,
-  changedQueryParams?: Dict<unknown>,
-  allQueryParams?: Dict<unknown>,
-  removedQueryParams?: Dict<unknown>
-): void;
-export function trigger(
-  router: Router,
-  handlerInfos: HandlerInfo[],
-  ignoreFailure: boolean,
-  name: string,
-  newQueryParams?: Dict<unknown>,
-  finalQueryParams?: Dict<unknown>[],
-  transition?: Transition
-): void;
-export function trigger(
-  router: Router,
-  handlerInfos: HandlerInfo[],
-  ignoreFailure: boolean,
-  name: string,
-  err?: Error,
-  transition?: Transition,
-  handler?: IHandler
-): void;
-export function trigger(
-  router: Router,
-  handlerInfos: HandlerInfo[],
-  ignoreFailure: boolean,
-  name: string,
-  transition?: Transition,
-  handler?: IHandler
-): void;
-export function trigger(
-  router: Router,
-  handlerInfos: HandlerInfo[],
-  ignoreFailure: boolean,
-  name: string,
-  ...args: any[]
-) {
-  if (router.triggerEvent) {
-    router.triggerEvent(handlerInfos, ignoreFailure, [name, ...args]);
-    return;
-  }
-
-  if (!handlerInfos) {
-    if (ignoreFailure) {
-      return;
-    }
-    throw new Error("Could not trigger event '" + name + "'. There are no active handlers");
-  }
-
-  let eventWasHandled = false;
-
-  for (let i = handlerInfos.length - 1; i >= 0; i--) {
-    let currentHandlerInfo = handlerInfos[i],
-      currentHandler = currentHandlerInfo.handler;
-
-    // If there is no handler, it means the handler hasn't resolved yet which
-    // means that we should trigger the event later when the handler is available
-    if (!currentHandler) {
-      currentHandlerInfo.handlerPromise!.then(function(resolvedHandler) {
-        resolvedHandler.events![name].apply(resolvedHandler, args);
-      });
-      continue;
-    }
-
-    if (currentHandler.events && currentHandler.events[name]) {
-      if (currentHandler.events[name].apply(currentHandler, args) === true) {
-        eventWasHandled = true;
-      } else {
-        return;
-      }
-    }
-  }
-
-  // In the case that we got an UnrecognizedURLError as an event with no handler,
-  // let it bubble up
-  if (name === 'error' && (args[0] as UnrecognizedURLError)!.name === 'UnrecognizedURLError') {
-    throw args[0];
-  } else if (!eventWasHandled && !ignoreFailure) {
-    throw new Error("Nothing handled the event '" + name + "'.");
-  }
-}
-
 export interface ChangeList {
   all: Dict<unknown>;
   changed: Dict<unknown>;
@@ -261,8 +162,3 @@ function isArray(obj: unknown): obj is ArrayLike<unknown> {
 export function promiseLabel(label: string) {
   return 'Router: ' + label;
 }
-
-// export function callHook(obj: any, _hookName: string, arg1?: unknown, arg2?: unknown) {
-//   let hookName = resolveHook(obj, _hookName);
-//   return hookName && obj[hookName].call(obj, arg1, arg2);
-// }

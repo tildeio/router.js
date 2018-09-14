@@ -13,16 +13,23 @@ QUnit.module('Async Get Handler', {
     QUnit.config.testTimeout = 60000;
 
     handlers = {};
-    router = new Router({
-      getHandler: () => {
+
+    class TestRouter extends Router {
+      didTransition() {}
+      willTransition() {}
+      replaceURL() {}
+      triggerEvent() {}
+      getHandler(_name: string): never {
         throw new Error('never');
-      },
-      delegate: {},
-      getSerializer: () => {
+      }
+
+      getSerializer(_name: string): never {
         throw new Error('never');
-      },
-      updateURL: () => {},
-    });
+      }
+
+      updateURL(_name: string) {}
+    }
+    router = new TestRouter();
     router.map(function(match) {
       match('/index').to('index');
       match('/foo').to('foo', function(match) {
