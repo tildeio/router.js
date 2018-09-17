@@ -2,10 +2,10 @@ import { Transition } from 'router';
 import { Dict } from 'router/core';
 import HandlerInfo, {
   noopGetHandler,
-  ResolvedHandlerInfo,
+  ResolvedRouteInfo,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
-} from 'router/handler-info';
+} from 'router/route-info';
 import { reject, resolve } from 'rsvp';
 import { createHandler, createHandlerInfo, module, test } from './test_helpers';
 
@@ -16,7 +16,7 @@ function noop() {
 module('HandlerInfo');
 
 test('ResolvedHandlerInfos resolve to themselves', function(assert) {
-  let handlerInfo = new ResolvedHandlerInfo('foo', createHandler('empty'), {});
+  let handlerInfo = new ResolvedRouteInfo('foo', createHandler('empty'), {});
   handlerInfo.resolve().then(function(resolvedHandlerInfo) {
     assert.equal(handlerInfo, resolvedHandlerInfo);
   });
@@ -52,7 +52,7 @@ test('HandlerInfo#resolve resolves with a ResolvedHandlerInfo', function(assert)
   handlerInfo
     .resolve(() => false, {} as Transition)
     .then(function(resolvedHandlerInfo: HandlerInfo) {
-      assert.ok(resolvedHandlerInfo instanceof ResolvedHandlerInfo);
+      assert.ok(resolvedHandlerInfo instanceof ResolvedRouteInfo);
     });
 });
 
@@ -143,7 +143,7 @@ test('UnresolvedHandlerInfoByObject does NOT get its model hook called', functio
   assert.expect(1);
 
   class Handler extends UnresolvedHandlerInfoByObject {
-    handler = createHandler('uresolved', {
+    route = createHandler('uresolved', {
       model: function() {
         assert.ok(false, "I shouldn't be called because I already have a context/model");
       },

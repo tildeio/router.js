@@ -3,17 +3,17 @@ import URLTransitionIntent from 'router/transition-intent/url-transition-intent'
 import TransitionState from 'router/transition-state';
 import { createHandler, module, test } from './test_helpers';
 
-import { IHandler } from 'router';
+import { Route } from 'router';
 import { Dict } from 'router/core';
 import HandlerInfo, {
   noopGetHandler,
-  ResolvedHandlerInfo,
+  ResolvedRouteInfo,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
-} from 'router/handler-info';
+} from 'router/route-info';
 import { Promise } from 'rsvp';
 
-let handlers: Dict<IHandler>, recognizer: any;
+let handlers: Dict<Route>, recognizer: any;
 
 let scenarios = [
   {
@@ -41,12 +41,12 @@ let scenarios = [
 scenarios.forEach(function(scenario) {
   // Asserts that a handler from a handlerInfo equals an expected valued.
   // Returns a promise during async scenarios to wait until the handler is ready.
-  function assertHandlerEquals(assert: Assert, handlerInfo: HandlerInfo, expected: IHandler) {
+  function assertHandlerEquals(assert: Assert, handlerInfo: HandlerInfo, expected: Route) {
     if (!scenario.async) {
-      return assert.equal(handlerInfo.handler, expected);
+      return assert.equal(handlerInfo.route, expected);
     } else {
-      assert.equal(handlerInfo.handler, undefined);
-      return handlerInfo.handlerPromise.then(function(handler) {
+      assert.equal(handlerInfo.route, undefined);
+      return handlerInfo.routePromise.then(function(handler) {
         assert.equal(handler, expected);
       });
     }
@@ -171,7 +171,7 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to an already-resolved handlerInfo', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new ResolvedHandlerInfo('foo', handlers.foo, {});
+    let startingHandlerInfo = new ResolvedRouteInfo('foo', handlers.foo, {});
 
     state.handlerInfos = [startingHandlerInfo];
 
@@ -197,7 +197,7 @@ scenarios.forEach(function(scenario) {
 
     let article = {};
 
-    let startingHandlerInfo = new ResolvedHandlerInfo(
+    let startingHandlerInfo = new ResolvedRouteInfo(
       'articles',
       createHandler('articles'),
       { article_id: 'some-other-id' },
@@ -225,7 +225,7 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to an already-resolved handlerInfo of different route', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new ResolvedHandlerInfo('alex', handlers.foo, {});
+    let startingHandlerInfo = new ResolvedRouteInfo('alex', handlers.foo, {});
 
     state.handlerInfos = [startingHandlerInfo];
 
@@ -251,7 +251,7 @@ scenarios.forEach(function(scenario) {
     let article = {};
     let comment = {};
 
-    let startingHandlerInfo = new ResolvedHandlerInfo(
+    let startingHandlerInfo = new ResolvedRouteInfo(
       'articles',
       createHandler('articles'),
       { article_id: 'some-other-id' },

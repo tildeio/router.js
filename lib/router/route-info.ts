@@ -1,8 +1,8 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import { GetHandlerFunc, SerializerFunc } from './router';
+import Router, { GetHandlerFunc, SerializerFunc } from './router';
 import { isTransition, prepareResult, Transition } from './transition';
-import { isParam, isPromise, merge, promiseLabel } from './utils';
+import { isParam, isPromise, merge } from './utils';
 
 interface IModel {
   id?: string | number;
@@ -16,15 +16,8 @@ const stubHandler = {
 };
 
 export const noopGetHandler = () => {
-  return Promise.resolve<IHandler>(stubHandler);
+  return Promise.resolve<Route>(stubHandler);
 };
-
-export const DEFAULT_HANDLER: IHandler = Object.freeze({
-  _handlerName: '',
-  context: undefined,
-  handler: '',
-  names: [],
-});
 
 export interface HandlerInfoArgs {
   name: string;
@@ -69,9 +62,9 @@ export interface HandlerHooks {
   _redirect?(context: Dict<unknown>, transition: Transition): void;
 }
 
-export interface IHandler extends HandlerHooks {
+export interface Route extends HandlerHooks {
   inaccessibleByURL?: boolean;
-  _handlerName: string;
+  routeName: string;
   context: unknown;
   names: string[];
   name?: string;
@@ -85,69 +78,54 @@ export interface IResolvedModel {
   [key: string]: unknown;
 }
 
-export default abstract class HandlerInfo {
-  private _handlerPromise?: Promise<IHandler>;
-  private _handler?: IHandler | undefined;
+// class RouteInfo {
+//   constructor(
+//     routeName: string,
+//     childRoute: unknown,
+//     params: Dict<unknown>,
+//     queryParams: Dict<unknown>,
+//     data: Dict<unknown>
+//   ) {}
+// }
+
+export default abstract class PrivateRouteInfo {
+  private _routePromise?: Promise<Route> = undefined;
+  private _route?: Route = undefined;
+  private router: Router;
   name: string;
   params: Dict<unknown> = {};
   queryParams?: Dict<unknown>;
   context?: Dict<unknown>;
   isResolved = false;
 
-  constructor(name: string, handler?: IHandler) {
-    // initialize local properties to ensure consistent object shape
-    this._handler = DEFAULT_HANDLER;
-    this._handlerPromise = undefined;
+  constructor(name: string, router: Router, route?: Route) {
     this.name = name;
-
-    if (handler) {
-      this._processHandler(handler);
+    this.router = router;
+    if (route) {
+      this._processRoute(route);
     }
   }
 
   abstract getModel(transition: Transition): Promise<Dict<unknown> | undefined> | Dict<unknown>;
 
-  abstract getUnresolved(): UnresolvedHandlerInfoByParam | UnresolvedHandlerInfoByObject;
-
-  abstract getHandler: GetHandlerFunc;
-
   serialize(_context?: Dict<unknown>) {
     return this.params || {};
   }
 
-  resolve(shouldContinue: Continuation, transition: Transition): Promise<ResolvedHandlerInfo> {
-    return Promise.resolve(this.handlerPromise, this.promiseLabel('Start handler'))
-      .then(
-        (handler: IHandler) => this.checkForAbort(shouldContinue, handler),
-        null,
-        this.promiseLabel('Check for abort')
-      )
-      .then(
-        () => {
-          return this.runBeforeModelHook(transition);
-        },
-        null,
-        this.promiseLabel('Before model')
-      )
-      .then(
-        () => this.checkForAbort(shouldContinue, null),
-        null,
-        this.promiseLabel("Check if aborted during 'beforeModel' hook")
-      )
+  resolve(shouldContinue: Continuation, transition: Transition): Promise<ResolvedRouteInfo> {
+    return Promise.resolve(this.routePromise)
+      .then((handler: Route) => this.checkForAbort(shouldContinue, handler), null)
+      .then(() => {
+        return this.runBeforeModelHook(transition);
+      }, null)
+      .then(() => this.checkForAbort(shouldContinue, null), null)
       .then(() => this.getModel(transition))
-      .then(
-        resolvedModel => this.checkForAbort(shouldContinue, resolvedModel),
-        null,
-        this.promiseLabel("Check if aborted in 'model' hook")
-      )
+      .then(resolvedModel => this.checkForAbort(shouldContinue, resolvedModel), null)
       .then(resolvedModel => this.runAfterModelHook(transition, resolvedModel))
       .then(resolvedModel => this.becomeResolved(transition, resolvedModel));
   }
 
-  becomeResolved(
-    transition: Transition | null,
-    resolvedContext: Dict<unknown>
-  ): ResolvedHandlerInfo {
+  becomeResolved(transition: Transition | null, resolvedContext: Dict<unknown>): ResolvedRouteInfo {
     let params = this.serialize(resolvedContext);
 
     if (transition) {
@@ -163,58 +141,54 @@ export default abstract class HandlerInfo {
       context = resolvedContext;
     }
 
-    return new ResolvedHandlerInfo(this.name, this.handler, params, context);
+    return new ResolvedRouteInfo(this.name, this.router, this.route!, params, context);
   }
 
-  shouldSupercede(other?: HandlerInfo) {
+  shouldSupercede(routeInfo?: PrivateRouteInfo) {
     // Prefer this newer handlerInfo over `other` if:
     // 1) The other one doesn't exist
     // 2) The names don't match
     // 3) This handler has a context that doesn't match
     //    the other one (or the other one doesn't have one).
     // 4) This handler has parameters that don't match the other.
-    if (!other) {
+    if (!routeInfo) {
       return true;
     }
 
-    let contextsMatch = other.context === this.context;
+    let contextsMatch = routeInfo.context === this.context;
     return (
-      other.name !== this.name ||
+      routeInfo.name !== this.name ||
       ('context' in this && !contextsMatch) ||
-      (this.hasOwnProperty('params') && !paramsMatch(this.params, other.params))
+      (this.hasOwnProperty('params') && !paramsMatch(this.params, routeInfo.params))
     );
   }
 
-  get handler(): IHandler | undefined {
+  get route(): Route | undefined {
     // _handler could be set to either a handler object or undefined, so we
     // compare against a default reference to know when it's been set
-    if (this._handler !== DEFAULT_HANDLER) {
-      return this._handler!;
+    if (this._route !== undefined) {
+      return this._route!;
     }
 
-    return this.fetchHandler();
+    return this.fetchRoute();
   }
 
-  set handler(handler: IHandler | undefined) {
-    this._handler = handler;
+  set route(route: Route | undefined) {
+    this._route = route;
   }
 
-  get handlerPromise(): Promise<IHandler> {
-    if (this._handlerPromise) {
-      return this._handlerPromise;
+  get routePromise(): Promise<Route> {
+    if (this._routePromise) {
+      return this._routePromise;
     }
 
-    this.fetchHandler();
+    this.fetchRoute();
 
-    return this._handlerPromise!;
+    return this._routePromise!;
   }
 
-  set handlerPromise(handlerPromise: Promise<IHandler>) {
-    this._handlerPromise = handlerPromise;
-  }
-
-  protected promiseLabel(label: string) {
-    return promiseLabel("'" + this.name + "' " + label);
+  set routePromise(handlerPromise: Promise<Route>) {
+    this._routePromise = handlerPromise;
   }
 
   protected log(transition: Transition, message: string) {
@@ -223,23 +197,23 @@ export default abstract class HandlerInfo {
     }
   }
 
-  private updateHandler(handler: IHandler) {
+  private updateRoute(route: Route) {
     // Store the name of the handler on the handler for easy checks later
-    handler._handlerName = this.name;
-    return (this.handler = handler);
+    route.routeName = this.name;
+    return (this.route = route);
   }
 
   private runBeforeModelHook(transition: Transition) {
     if (transition.trigger) {
-      transition.trigger(true, 'willResolveModel', transition, this.handler);
+      transition.trigger(true, 'willResolveModel', transition, this.route);
     }
 
     let result;
-    if (this.handler) {
-      if (this.handler._beforeModel !== undefined) {
-        result = this.handler._beforeModel(transition);
-      } else if (this.handler.beforeModel !== undefined) {
-        result = this.handler.beforeModel(transition);
+    if (this.route) {
+      if (this.route._beforeModel !== undefined) {
+        result = this.route._beforeModel(transition);
+      } else if (this.route.beforeModel !== undefined) {
+        result = this.route.beforeModel(transition);
       }
     }
 
@@ -261,11 +235,11 @@ export default abstract class HandlerInfo {
     this.stashResolvedModel(transition, resolvedModel!);
 
     let result;
-    if (this.handler !== undefined) {
-      if (this.handler._afterModel !== undefined) {
-        result = this.handler._afterModel(resolvedModel!, transition);
-      } else if (this.handler.afterModel !== undefined) {
-        result = this.handler.afterModel(resolvedModel!, transition);
+    if (this.route !== undefined) {
+      if (this.route._afterModel !== undefined) {
+        result = this.route._afterModel(resolvedModel!, transition);
+      } else if (this.route.afterModel !== undefined) {
+        result = this.route.afterModel(resolvedModel!, transition);
       }
     }
 
@@ -280,15 +254,11 @@ export default abstract class HandlerInfo {
   }
 
   private checkForAbort<T>(shouldContinue: Continuation, value: T) {
-    return Promise.resolve(shouldContinue(), this.promiseLabel('Check for abort')).then(
-      function() {
-        // We don't care about shouldContinue's resolve value;
-        // pass along the original value passed to this fn.
-        return value;
-      },
-      null,
-      this.promiseLabel('Ignore fulfillment value and continue')
-    );
+    return Promise.resolve(shouldContinue()).then(function() {
+      // We don't care about shouldContinue's resolve value;
+      // pass along the original value passed to this fn.
+      return value;
+    }, null);
   }
 
   private stashResolvedModel(transition: Transition, resolvedModel?: Dict<unknown>) {
@@ -296,40 +266,41 @@ export default abstract class HandlerInfo {
     transition.resolvedModels[this.name] = resolvedModel;
   }
 
-  private fetchHandler() {
-    let handler = this.getHandler(this.name);
-    return this._processHandler(handler);
+  private fetchRoute() {
+    let route = this.router.getRoute(this.name);
+    return this._processRoute(route);
   }
 
-  private _processHandler(handler: IHandler | Promise<IHandler>) {
-    // Setup a handlerPromise so that we can wait for asynchronously loaded handlers
-    this.handlerPromise = Promise.resolve(handler);
+  private _processRoute(route: Route | Promise<Route>) {
+    // Setup a routePromise so that we can wait for asynchronously loaded handlers
+    this.routePromise = Promise.resolve(route);
 
-    // Wait until the 'handler' property has been updated when chaining to a handler
+    // Wait until the 'route' property has been updated when chaining to a route
     // that is a promise
-    if (isPromise(handler)) {
-      this.handlerPromise = this.handlerPromise.then(h => {
-        return this.updateHandler(h);
+    if (isPromise(route)) {
+      this.routePromise = this.routePromise.then(h => {
+        return this.updateRoute(h);
       });
-      // set to undefined to avoid recursive loop in the handler getter
-      return (this.handler = undefined);
-    } else if (handler) {
-      return this.updateHandler(handler);
+      // set to undefined to avoid recursive loop in the route getter
+      return (this.route = undefined);
+    } else if (route) {
+      return this.updateRoute(route);
     }
 
     return undefined;
   }
 }
 
-export class ResolvedHandlerInfo extends HandlerInfo {
+export class ResolvedRouteInfo extends PrivateRouteInfo {
   isResolved: boolean;
   constructor(
     name: string,
-    handler: IHandler | undefined,
+    router: Router,
+    handler: Route,
     params: Dict<unknown>,
     context?: Dict<unknown>
   ) {
-    super(name, handler);
+    super(name, router, handler);
     this.params = params;
     this.isResolved = true;
     this.context = context;
@@ -340,33 +311,15 @@ export class ResolvedHandlerInfo extends HandlerInfo {
     if (transition && transition.resolvedModels) {
       transition.resolvedModels[this.name] = this.context!;
     }
-    return Promise.resolve<this>(this, this.promiseLabel('Resolve'));
-  }
-
-  getUnresolved() {
-    return new UnresolvedHandlerInfoByParam(this.name, noopGetHandler, this.params, this.handler);
-  }
-
-  getHandler = (_name: string) => {
-    throw new Error('Method not implemented.');
-  };
-
-  getModel(): never {
-    throw new Error('Method not implemented.');
+    return Promise.resolve<this>(this);
   }
 }
 
-export class UnresolvedHandlerInfoByParam extends HandlerInfo {
-  getHandler: GetHandlerFunc;
+export class UnresolvedHandlerInfoByParam extends PrivateRouteInfo {
   params: Dict<unknown> = {};
-  constructor(name: string, getHandler: GetHandlerFunc, params: Dict<unknown>, handler?: IHandler) {
-    super(name, handler);
+  constructor(name: string, router: Router, params: Dict<unknown>, handler?: Route) {
+    super(name, router, handler);
     this.params = params;
-    this.getHandler = getHandler;
-  }
-
-  getUnresolved() {
-    return this;
   }
 
   getModel(transition: Transition) {
@@ -377,7 +330,7 @@ export class UnresolvedHandlerInfoByParam extends HandlerInfo {
       fullParams.queryParams = transition.queryParams;
     }
 
-    let handler = this.handler!;
+    let handler = this.route!;
 
     let result: Dict<unknown> | undefined = undefined;
 
@@ -395,27 +348,16 @@ export class UnresolvedHandlerInfoByParam extends HandlerInfo {
       result = undefined;
     }
 
-    return Promise.resolve(
-      result,
-      this.promiseLabel('Resolve value returned from one of the model hooks')
-    );
+    return Promise.resolve(result);
   }
 }
 
-export class UnresolvedHandlerInfoByObject extends HandlerInfo {
+export class UnresolvedHandlerInfoByObject extends PrivateRouteInfo {
   names: string[] = [];
   serializer?: SerializerFunc;
-  getHandler: GetHandlerFunc;
-  constructor(
-    name: string,
-    names: string[],
-    getHandler: GetHandlerFunc,
-    serializer: SerializerFunc | undefined,
-    context: Dict<unknown>
-  ) {
-    super(name);
+  constructor(name: string, names: string[], router: Router, context: Dict<unknown>) {
+    super(name, router);
     this.names = names;
-    this.getHandler = getHandler;
     this.serializer = serializer;
     this.context = context;
     this.names = this.names || [];
@@ -424,10 +366,6 @@ export class UnresolvedHandlerInfoByObject extends HandlerInfo {
   getModel(transition: Transition) {
     this.log(transition, this.name + ': resolving provided model');
     return Promise.resolve(this.context);
-  }
-
-  getUnresolved() {
-    return this;
   }
 
   /**
@@ -456,13 +394,13 @@ export class UnresolvedHandlerInfoByObject extends HandlerInfo {
     if (this.serializer) {
       // invoke this.serializer unbound (getSerializer returns a stateless function)
       return this.serializer.call(null, model, names);
-    } else if (this.handler) {
-      if (this.handler._serialize) {
-        return this.handler._serialize(model, names);
+    } else if (this.route !== undefined) {
+      if (this.route._serialize) {
+        return this.route._serialize(model, names);
       }
 
-      if (this.handler.serialize) {
-        return this.handler.serialize(model, names);
+      if (this.route.serialize) {
+        return this.route.serialize(model, names);
       }
     }
 

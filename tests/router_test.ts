@@ -1,7 +1,7 @@
 import { MatchCallback } from 'route-recognizer';
-import Router, { IHandler, Transition } from 'router';
+import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
-import HandlerInfo from 'router/handler-info';
+import HandlerInfo from 'router/route-info';
 import { SerializerFunc } from 'router/router';
 import { Promise, reject } from 'rsvp';
 import {
@@ -20,7 +20,7 @@ import {
 
 let router: Router;
 let url: string;
-let handlers: Dict<IHandler>;
+let handlers: Dict<Route>;
 
 let serializers: Dict<SerializerFunc>, expectedUrl: Maybe<string>;
 let scenarios = [
@@ -93,7 +93,7 @@ scenarios.forEach(function(scenario) {
         trigger(handlerInfos, ignoreFailure, name, ...args);
       }
 
-      getHandler(name: string) {
+      getRoute(name: string) {
         return scenario.getHandler(name);
       }
 
@@ -748,7 +748,7 @@ scenarios.forEach(function(scenario) {
         },
 
         setup: function(posts: Dict<unknown>, transition: Transition) {
-          assert.ok(!transition.isExiting(this as IHandler));
+          assert.ok(!transition.isExiting(this as Route));
           assert.equal(
             posts,
             allPosts,
@@ -758,7 +758,7 @@ scenarios.forEach(function(scenario) {
         },
 
         exit: function(transition: Transition) {
-          assert.ok(transition.isExiting(this as IHandler));
+          assert.ok(transition.isExiting(this as Route));
         },
       }),
 
@@ -1152,7 +1152,7 @@ scenarios.forEach(function(scenario) {
 
       for (let i = handlerInfos.length - 1; i >= 0; i--) {
         let handlerInfo = handlerInfos[i],
-          handler = handlerInfo.handler as any;
+          handler = handlerInfo.route as any;
 
         if (handler.actions && handler.actions[name]) {
           if (handler.actions[name].apply(handler, args) !== true) {
@@ -3054,7 +3054,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     router
       .transitionTo('/index')
       .followRedirects()
-      .then(function(handler: IHandler) {
+      .then(function(handler: Route) {
         assert.equal(
           handler,
           handlers.index,
@@ -3063,14 +3063,14 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
 
         return router.transitionTo('about').followRedirects();
       })
-      .then(function(handler: IHandler) {
+      .then(function(handler: Route) {
         assert.equal(
           handler,
           handlers.faq,
           'followRedirects promise resolved with redirected faq handler'
         );
 
-        (handlers.about as IHandler).beforeModel = function(transition: Transition) {
+        (handlers.about as Route).beforeModel = function(transition: Transition) {
           transition.abort();
           return undefined;
         };
@@ -3117,8 +3117,8 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
 
   if (scenario.async) {
     test('Generate does not invoke getHandler', function(assert) {
-      let originalGetHandler = router.getHandler;
-      router.getHandler = function() {
+      let originalGetHandler = router.getRoute;
+      router.getRoute = function() {
         assert.ok(false, 'getHandler should not be called');
         return createHandler('empty');
       };
@@ -3135,7 +3135,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
         'just index'
       );
 
-      router.getHandler = originalGetHandler;
+      router.getRoute = originalGetHandler;
     });
   }
 
@@ -3373,11 +3373,17 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
       let count = 0;
       let handlerCount = 2;
 
-      router.getHandler = function() {
+      handlers = {
+        postIndex: createHandler('postIndex'),
+        showAllPosts: createHandler('showAllPosts'),
+      };
+
+      router.getRoute = function() {
         count++;
 
-        return scenario.getHandler.apply(null, arguments).then(function() {
+        return scenario.getHandler.apply(null, arguments).then(function(handler: Route) {
           assert.equal(count, handlerCount);
+          return handler;
         });
       };
 
@@ -3825,7 +3831,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
     assert.expect(11);
 
     let counter = 1,
-      willResolves: IHandler[],
+      willResolves: Route[],
       appModel = {},
       fooModel = {};
 
@@ -3844,7 +3850,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
           assert.equal(obj, appModel, 'application#setup is passed the return value from model');
         },
         events: {
-          willResolveModel: function(_transition: Transition, handler: IHandler) {
+          willResolveModel: function(_transition: Transition, handler: Route) {
             assert.equal(
               willResolves.shift(),
               handler,
@@ -4665,7 +4671,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       match('/').to('root');
     });
 
-    router.getHandler = function() {
+    router.getRoute = function() {
       throw new Error('boom!');
     };
 

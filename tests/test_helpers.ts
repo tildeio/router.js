@@ -1,7 +1,7 @@
 import Backburner from 'backburner';
-import Router, { IHandler, Transition } from 'router';
+import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, { noopGetHandler, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+import HandlerInfo, { noopGetHandler, UnresolvedHandlerInfoByParam } from 'router/route-info';
 import TransitionAbortedError from 'router/transition-aborted-error';
 import { UnrecognizedURLError } from 'router/unrecognized-url-error';
 import { configure, resolve } from 'rsvp';
@@ -114,16 +114,16 @@ export {
   assertAbort,
 };
 
-export function createHandler(name: string, options?: Dict<unknown>): IHandler {
+export function createHandler(name: string, options?: Dict<unknown>): Route {
   return Object.assign(
-    { name, _handlerName: name, context: undefined, names: [], handler: name },
+    { name, routeName: name, context: undefined, names: [], handler: name },
     options
   );
 }
 
 export function createHandlerInfo(name: string, options: Dict<unknown> = {}): HandlerInfo {
   class Stub extends HandlerInfo {
-    constructor(name: string, handler?: IHandler) {
+    constructor(name: string, handler?: Route) {
       super(name, handler);
     }
     getModel(_transition: Transition) {
@@ -132,12 +132,12 @@ export function createHandlerInfo(name: string, options: Dict<unknown> = {}): Ha
     getUnresolved() {
       return new UnresolvedHandlerInfoByParam('empty', noopGetHandler, {});
     }
-    getHandler = (name: string) => {
+    getRoute = (name: string) => {
       return createHandler(name);
     };
   }
 
-  let handler = (options.handler as IHandler) || createHandler('foo');
+  let handler = (options.handler as Route) || createHandler('foo');
   delete options.handler;
 
   Object.assign(Stub.prototype, options);
@@ -162,12 +162,12 @@ export function trigger(
 
   for (let i = handlerInfos.length - 1; i >= 0; i--) {
     let currentHandlerInfo = handlerInfos[i],
-      currentHandler = currentHandlerInfo.handler;
+      currentHandler = currentHandlerInfo.route;
 
     // If there is no handler, it means the handler hasn't resolved yet which
     // means that we should trigger the event later when the handler is available
     if (!currentHandler) {
-      currentHandlerInfo.handlerPromise!.then(function(resolvedHandler) {
+      currentHandlerInfo.routePromise!.then(function(resolvedHandler) {
         resolvedHandler.events![name].apply(resolvedHandler, args);
       });
       continue;

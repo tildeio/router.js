@@ -5,7 +5,7 @@ import {
   noopGetHandler,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
-} from 'router/handler-info';
+} from 'router/route-info';
 import TransitionState, { TransitionError } from 'router/transition-state';
 import { Promise, reject, resolve } from 'rsvp';
 import { createHandler, createHandlerInfo, flushBackburner, module, test } from './test_helpers';

@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import HandlerInfo, { Continuation, IHandler } from './handler-info';
+import HandlerInfo, { Continuation, Route } from './route-info';
 import { Transition } from './transition';
 import { forEach, promiseLabel } from './utils';
 
@@ -68,7 +68,7 @@ export default class TransitionState {
       return Promise.reject(
         new TransitionError(
           error,
-          currentState.handlerInfos[errorHandlerIndex].handler!,
+          currentState.handlerInfos[errorHandlerIndex].route!,
           wasAborted,
           currentState
         )
@@ -87,7 +87,7 @@ export default class TransitionState {
         // vs. afterModel is so that redirects into child
         // routes don't re-run the model hooks for this
         // already-resolved route.
-        let handler = resolvedHandlerInfo.handler;
+        let handler = resolvedHandlerInfo.route;
         if (handler !== undefined) {
           if (handler._redirect) {
             handler._redirect(resolvedHandlerInfo.context!, transition);
@@ -125,7 +125,7 @@ export default class TransitionState {
 export class TransitionError {
   constructor(
     public error: Error,
-    public handler: IHandler,
+    public handler: Route,
     public wasAborted: boolean,
     public state: TransitionState
   ) {}

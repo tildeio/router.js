@@ -1,7 +1,7 @@
 import RouteRecognizer, { MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import HandlerInfo, { IHandler } from './handler-info';
+import HandlerInfo, { Route } from './route-info';
 import { logAbort, Transition } from './transition';
 import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -26,7 +26,7 @@ export interface GetSerializerFunc {
 }
 
 export interface GetHandlerFunc {
-  (name: string): IHandler | Promise<IHandler>;
+  (name: string): Route | Promise<Route>;
 }
 
 export interface DidTransitionFunc {
@@ -49,7 +49,7 @@ export default abstract class Router {
     this.reset();
   }
 
-  abstract getHandler(name: string): IHandler | Promise<IHandler>;
+  abstract getRoute(name: string): Route | Promise<Route>;
   abstract getSerializer(name: string): SerializerFunc | undefined;
   abstract updateURL(url: string): void;
   abstract replaceURL(url: string): void;
@@ -121,7 +121,7 @@ export default abstract class Router {
       );
 
       newTransition.promise = newTransition.promise!.then(
-        (result: TransitionState | IHandler | Error | undefined) => {
+        (result: TransitionState | Route | Error | undefined) => {
           updateURL(newTransition, oldState);
           if (this.didTransition) {
             this.didTransition(this.currentHandlerInfos!);
@@ -154,7 +154,7 @@ export default abstract class Router {
   reset() {
     if (this.state) {
       forEach<HandlerInfo>(this.state.handlerInfos.slice().reverse(), function(handlerInfo) {
-        let handler = handlerInfo.handler;
+        let handler = handlerInfo.route;
         if (handler !== undefined) {
           if (handler._exit !== undefined) {
             handler._exit();
@@ -214,19 +214,20 @@ export default abstract class Router {
     return doTransition(this, name, args, true);
   }
 
-  refresh(pivotHandler?: IHandler) {
+  refresh(pivotHandler?: Route) {
     let previousTransition = this.activeTransition;
     let state = previousTransition ? previousTransition.state : this.state;
     let handlerInfos = state!.handlerInfos;
 
     if (pivotHandler === undefined) {
-      pivotHandler = handlerInfos[0].handler;
+      pivotHandler = handlerInfos[0].route;
     }
 
     log(this, 'Starting a refresh transition');
     let name = handlerInfos[handlerInfos.length - 1].name;
     let intent = new NamedTransitionIntent(
       name,
+      this,
       pivotHandler,
       [],
       this._changedQueryParams || state!.queryParams
@@ -271,14 +272,8 @@ export default abstract class Router {
 
     // Construct a TransitionIntent with the provided params
     // and apply it to the present state of the router.
-    let intent = new NamedTransitionIntent(handlerName, undefined, suppliedParams);
-    let state = intent.applyToState(
-      this.state!,
-      this.recognizer,
-      this.getHandler.bind(this),
-      false,
-      this.getSerializer.bind(this)
-    );
+    let intent = new NamedTransitionIntent(handlerName, this, suppliedParams);
+    let state = intent.applyToState(this.state!, false);
 
     let params: Params = {};
     for (let i = 0, len = state.handlerInfos.length; i < len; ++i) {
@@ -292,17 +287,11 @@ export default abstract class Router {
   }
 
   applyIntent(handlerName: string, contexts: Dict<unknown>[]) {
-    let intent = new NamedTransitionIntent(handlerName, undefined, contexts);
+    let intent = new NamedTransitionIntent(handlerName, this, undefined, contexts);
 
     let state = (this.activeTransition && this.activeTransition.state) || this.state!;
 
-    return intent.applyToState(
-      state,
-      this.recognizer,
-      this.getHandler.bind(this),
-      false,
-      this.getSerializer.bind(this)
-    );
+    return intent.applyToState(state, false);
   }
 
   isActiveIntent(
@@ -321,7 +310,7 @@ export default abstract class Router {
     }
 
     let targetHandler = targetHandlerInfos[targetHandlerInfos.length - 1].name;
-    let recogHandlers = this.recognizer.handlersFor(targetHandler) as IHandler[];
+    let recogHandlers = this.recognizer.handlersFor(targetHandler) as Route[];
 
     let index = 0;
     for (len = recogHandlers.length; index < len; ++index) {
@@ -340,17 +329,9 @@ export default abstract class Router {
     testState.handlerInfos = targetHandlerInfos.slice(0, index + 1);
     recogHandlers = recogHandlers.slice(0, index + 1);
 
-    let intent = new NamedTransitionIntent(targetHandler, undefined, contexts);
+    let intent = new NamedTransitionIntent(targetHandler, this, undefined, contexts);
 
-    let newState = intent.applyToHandlers(
-      testState,
-      recogHandlers,
-      this.getHandler.bind(this),
-      targetHandler,
-      true,
-      true,
-      this.getSerializer.bind(this)
-    );
+    let newState = intent.applyToHandlers(testState, recogHandlers, targetHandler, true, true);
 
     let handlersEqual = handlerInfosEqual(newState.handlerInfos, testState.handlerInfos);
     if (!queryParams || !handlersEqual) {
@@ -386,13 +367,7 @@ function getTransitionByIntent(this: Router, intent: TransitionIntent, isInterme
   let oldState = wasTransitioning ? this.activeTransition!.state : this.state;
   let newTransition: Transition;
 
-  let newState = intent.applyToState(
-    oldState!,
-    this.recognizer,
-    this.getHandler.bind(this),
-    isIntermediate,
-    this.getSerializer.bind(this)
-  );
+  let newState = intent.applyToState(oldState!, isIntermediate);
   let queryParamChangelist = getChangelist(oldState!.queryParams, newState.queryParams);
 
   if (handlerInfosEqual(newState.handlerInfos, oldState!.handlerInfos)) {
@@ -437,7 +412,7 @@ function getTransitionByIntent(this: Router, intent: TransitionIntent, isInterme
   // Transition promises by default resolve with resolved state.
   // For our purposes, swap out the promise to resolve
   // after the transition has been finalized.
-  newTransition.promise = newTransition.promise!.then<IHandler>(
+  newTransition.promise = newTransition.promise!.then<Route>(
     (result: TransitionState) => {
       return finalizeTransition(newTransition, result);
     },
@@ -525,7 +500,7 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
   let i, l, handler;
 
   for (i = 0, l = partition.exited.length; i < l; i++) {
-    handler = partition.exited[i].handler;
+    handler = partition.exited[i].route;
     delete handler!.context;
 
     if (handler !== undefined) {
@@ -549,7 +524,7 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
 
   try {
     for (i = 0, l = partition.reset.length; i < l; i++) {
-      handler = partition.reset[i].handler;
+      handler = partition.reset[i].route;
       if (handler !== undefined) {
         if (handler._reset !== undefined) {
           handler._reset(false, transition);
@@ -592,10 +567,10 @@ function handlerEnteredOrUpdated(
   enter: boolean,
   transition: Transition
 ) {
-  let handler = handlerInfo.handler,
+  let handler = handlerInfo.route,
     context = handlerInfo.context;
 
-  function _handlerEnteredOrUpdated(handler: IHandler) {
+  function _handlerEnteredOrUpdated(handler: Route) {
     if (enter) {
       if (handler._enter !== undefined) {
         handler._enter(transition);
@@ -632,7 +607,7 @@ function handlerEnteredOrUpdated(
 
   // If the handler doesn't exist, it means we haven't resolved the handler promise yet
   if (!handler) {
-    handlerInfo.handlerPromise = handlerInfo.handlerPromise.then(_handlerEnteredOrUpdated);
+    handlerInfo.routePromise = handlerInfo.routePromise.then(_handlerEnteredOrUpdated);
   } else {
     _handlerEnteredOrUpdated(handler);
   }
@@ -702,7 +677,7 @@ function partitionHandlers(oldState: TransitionState, newState: TransitionState)
     let oldHandlerInfo = oldHandlerInfos[i],
       newHandlerInfo = newHandlerInfos[i];
 
-    if (!oldHandlerInfo || oldHandlerInfo.handler !== newHandlerInfo.handler) {
+    if (!oldHandlerInfo || oldHandlerInfo.route !== newHandlerInfo.route) {
       handlerChanged = true;
     }
 
@@ -744,7 +719,7 @@ function updateURL(transition: Transition, state: TransitionState, _inputUrl?: s
   for (let i = handlerInfos.length - 1; i >= 0; --i) {
     let handlerInfo = handlerInfos[i];
     merge(params, handlerInfo.params);
-    if (handlerInfo.handler!.inaccessibleByURL) {
+    if (handlerInfo.route!.inaccessibleByURL) {
       urlMethod = null;
     }
   }
@@ -801,7 +776,7 @@ function updateURL(transition: Transition, state: TransitionState, _inputUrl?: s
 function finalizeTransition(
   transition: Transition,
   newState: TransitionState
-): IHandler | Promise<never> {
+): Route | Promise<never> {
   try {
     log(
       transition.router,
@@ -836,12 +811,12 @@ function finalizeTransition(
     log(router, transition.sequence, 'TRANSITION COMPLETE.');
 
     // Resolve with the final handler.
-    return handlerInfos[handlerInfos.length - 1].handler!;
+    return handlerInfos[handlerInfos.length - 1].route!;
   } catch (e) {
     if (!(e instanceof TransitionAbortedError)) {
       //let erroneousHandler = handlerInfos.pop();
       let infos = transition.state!.handlerInfos;
-      transition.trigger(true, 'error', e, transition, infos[infos.length - 1].handler);
+      transition.trigger(true, 'error', e, transition, infos[infos.length - 1].route);
       transition.abort();
     }
 
@@ -882,16 +857,17 @@ function doTransition(
     let { handlerInfos } = router.state!;
     intent = new NamedTransitionIntent(
       handlerInfos[handlerInfos.length - 1].name,
+      router,
       undefined,
       [],
       queryParams
     );
   } else if (name.charAt(0) === '/') {
     log(router, 'Attempting URL transition to ' + name);
-    intent = new URLTransitionIntent(name);
+    intent = new URLTransitionIntent(name, router);
   } else {
     log(router, 'Attempting transition to ' + name);
-    intent = new NamedTransitionIntent(name, undefined, modelsArray, queryParams);
+    intent = new NamedTransitionIntent(name, router, undefined, modelsArray, queryParams);
   }
 
   return router.transitionByIntent(intent, isIntermediate);
