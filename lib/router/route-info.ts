@@ -27,23 +27,6 @@ export interface RouteHooks {
   contextDidChange?(): void;
   // Underscore methods for some reason
   redirect?(context: Dict<unknown>, transition: Transition): void;
-  _model?(
-    params: Dict<unknown>,
-    transition: Transition
-  ): Promise<Dict<unknown> | null | undefined> | undefined | Dict<unknown>;
-  _deserialize?(params: Dict<unknown>, transition: Transition): Dict<unknown>;
-  _serialize?(model: Dict<unknown>, params: string[]): Dict<unknown>;
-  _beforeModel?(transition: Transition): Promise<Dict<unknown> | null | undefined> | undefined;
-  _afterModel?(
-    resolvedModel: Dict<unknown>,
-    transition: Transition
-  ): Promise<Dict<unknown> | null | undefined>;
-  _setup?(context: Dict<unknown>, transition: Transition): void;
-  _enter?(transition: Transition): void;
-  _exit?(transition?: Transition): void;
-  _reset?(wasReset: boolean, transition?: Transition): void;
-  _contextDidChange?(): void;
-  _redirect?(context: Dict<unknown>, transition: Transition): void;
 }
 
 export interface Route extends RouteHooks {
@@ -193,9 +176,7 @@ export default abstract class PrivateRouteInfo {
 
     let result;
     if (this.route) {
-      if (this.route._beforeModel !== undefined) {
-        result = this.route._beforeModel(transition);
-      } else if (this.route.beforeModel !== undefined) {
+      if (this.route.beforeModel !== undefined) {
         result = this.route.beforeModel(transition);
       }
     }
@@ -219,9 +200,7 @@ export default abstract class PrivateRouteInfo {
 
     let result;
     if (this.route !== undefined) {
-      if (this.route._afterModel !== undefined) {
-        result = this.route._afterModel(resolvedModel!, transition);
-      } else if (this.route.afterModel !== undefined) {
+      if (this.route.afterModel !== undefined) {
         result = this.route.afterModel(resolvedModel!, transition);
       }
     }
@@ -317,12 +296,8 @@ export class UnresolvedRouteInfoByParam extends PrivateRouteInfo {
 
     let result: Dict<unknown> | undefined = undefined;
 
-    if (route._deserialize) {
-      result = route._deserialize(fullParams, transition);
-    } else if (route.deserialize) {
+    if (route.deserialize) {
       result = route.deserialize(fullParams, transition);
-    } else if (route._model) {
-      result = route._model(fullParams, transition);
     } else if (route.model) {
       result = route.model(fullParams, transition);
     }
@@ -380,10 +355,6 @@ export class UnresolvedRouteInfoByObject extends PrivateRouteInfo {
       // invoke this.serializer unbound (getSerializer returns a stateless function)
       return this.serializer.call(null, model, names);
     } else if (this.route !== undefined) {
-      if (this.route._serialize) {
-        return this.route._serialize(model, names);
-      }
-
       if (this.route.serialize) {
         return this.route.serialize(model, names);
       }

@@ -161,9 +161,7 @@ export default abstract class Router {
       forEach<HandlerInfo>(this.state.handlerInfos.slice().reverse(), function(handlerInfo) {
         let handler = handlerInfo.route;
         if (handler !== undefined) {
-          if (handler._exit !== undefined) {
-            handler._exit();
-          } else if (handler.exit !== undefined) {
+          if (handler.exit !== undefined) {
             handler.exit();
           }
         }
@@ -509,15 +507,11 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
     delete handler!.context;
 
     if (handler !== undefined) {
-      if (handler._reset !== undefined) {
-        handler._reset(true, transition);
-      } else if (handler.reset !== undefined) {
+      if (handler.reset !== undefined) {
         handler.reset(true, transition);
       }
 
-      if (handler._exit !== undefined) {
-        handler._exit(transition);
-      } else if (handler.exit !== undefined) {
+      if (handler.exit !== undefined) {
         handler.exit(transition);
       }
     }
@@ -531,9 +525,7 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
     for (i = 0, l = partition.reset.length; i < l; i++) {
       handler = partition.reset[i].route;
       if (handler !== undefined) {
-        if (handler._reset !== undefined) {
-          handler._reset(false, transition);
-        } else if (handler.reset !== undefined) {
+        if (handler.reset !== undefined) {
           handler.reset(false, transition);
         }
       }
@@ -577,9 +569,7 @@ function handlerEnteredOrUpdated(
 
   function _handlerEnteredOrUpdated(handler: Route) {
     if (enter) {
-      if (handler._enter !== undefined) {
-        handler._enter(transition);
-      } else if (handler.enter !== undefined) {
+      if (handler.enter !== undefined) {
         handler.enter(transition);
       }
     }
@@ -590,15 +580,11 @@ function handlerEnteredOrUpdated(
 
     handler.context = context;
 
-    if (handler._contextDidChange !== undefined) {
-      handler._contextDidChange();
-    } else if (handler.contextDidChange !== undefined) {
+    if (handler.contextDidChange !== undefined) {
       handler.contextDidChange();
     }
 
-    if (handler._setup !== undefined) {
-      handler._setup(context!, transition);
-    } else if (handler.setup !== undefined) {
+    if (handler.setup !== undefined) {
       handler.setup(context!, transition);
     }
 

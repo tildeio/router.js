@@ -3298,25 +3298,6 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
     flushBackburner();
   });
 
-  test('underscore-prefixed hooks are preferred over non-prefixed', function(assert) {
-    assert.expect(2);
-
-    handlers = {
-      showPost: createHandler('showPost', {
-        _model: function() {
-          assert.ok(true);
-          return {};
-        },
-
-        _setup: function() {
-          assert.ok(true);
-        },
-      }),
-    };
-
-    router.handleURL('/posts/1');
-  });
-
   test('A successful transition calls the finally callback', function(assert) {
     assert.expect(1);
 

@@ -89,9 +89,7 @@ export default class TransitionState {
         // already-resolved route.
         let handler = resolvedHandlerInfo.route;
         if (handler !== undefined) {
-          if (handler._redirect) {
-            handler._redirect(resolvedHandlerInfo.context!, transition);
-          } else if (handler.redirect) {
+          if (handler.redirect) {
             handler.redirect(resolvedHandlerInfo.context!, transition);
           }
         }
