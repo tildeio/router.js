@@ -2,13 +2,19 @@ import { Transition } from 'router';
 import { Dict } from 'router/core';
 import {
   Continuation,
-  noopGetHandler,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
 } from 'router/route-info';
 import TransitionState, { TransitionError } from 'router/transition-state';
 import { Promise, reject, resolve } from 'rsvp';
-import { createHandler, createHandlerInfo, flushBackburner, module, test } from './test_helpers';
+import {
+  createHandler,
+  createHandlerInfo,
+  flushBackburner,
+  module,
+  StubRouter,
+  test,
+} from './test_helpers';
 
 module('TransitionState');
 
@@ -89,7 +95,7 @@ test('Integration w/ HandlerInfos', function(assert) {
   assert.expect(4);
 
   let state = new TransitionState();
-
+  let router = new StubRouter();
   let fooModel = {};
   let barModel = {};
   let transition = {};
@@ -97,7 +103,7 @@ test('Integration w/ HandlerInfos', function(assert) {
   state.handlerInfos = [
     new UnresolvedHandlerInfoByParam(
       'foo',
-      noopGetHandler,
+      router,
       { foo_id: '123' },
       createHandler('foo', {
         model: function(params: Dict<unknown>, payload: Dict<unknown>) {
@@ -107,13 +113,7 @@ test('Integration w/ HandlerInfos', function(assert) {
         },
       })
     ),
-    new UnresolvedHandlerInfoByObject(
-      'bar',
-      ['bar_id'],
-      noopGetHandler,
-      () => {},
-      resolve(barModel)
-    ),
+    new UnresolvedHandlerInfoByObject('bar', ['bar_id'], router, resolve(barModel)),
   ];
 
   function noop() {

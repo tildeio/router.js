@@ -4,7 +4,7 @@ import HandlerInfo, {
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
 } from '../route-info';
-import Router, { SerializerFunc } from '../router';
+import Router from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import { extractQueryParams, isParam, merge } from '../utils';

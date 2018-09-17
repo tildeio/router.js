@@ -91,7 +91,7 @@ export interface IResolvedModel {
 export default abstract class PrivateRouteInfo {
   private _routePromise?: Promise<Route> = undefined;
   private _route?: Route = undefined;
-  private router: Router;
+  protected router: Router;
   name: string;
   params: Dict<unknown> = {};
   queryParams?: Dict<unknown>;
@@ -317,8 +317,8 @@ export class ResolvedRouteInfo extends PrivateRouteInfo {
 
 export class UnresolvedHandlerInfoByParam extends PrivateRouteInfo {
   params: Dict<unknown> = {};
-  constructor(name: string, router: Router, params: Dict<unknown>, handler?: Route) {
-    super(name, router, handler);
+  constructor(name: string, router: Router, params: Dict<unknown>, route?: Route) {
+    super(name, router, route);
     this.params = params;
   }
 
@@ -358,9 +358,9 @@ export class UnresolvedHandlerInfoByObject extends PrivateRouteInfo {
   constructor(name: string, names: string[], router: Router, context: Dict<unknown>) {
     super(name, router);
     this.names = names;
-    this.serializer = serializer;
     this.context = context;
     this.names = this.names || [];
+    this.serializer = this.router.getSerializer(name);
   }
 
   getModel(transition: Transition) {

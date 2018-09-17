@@ -1,13 +1,12 @@
 import { Transition } from 'router';
 import { Dict } from 'router/core';
 import HandlerInfo, {
-  noopGetHandler,
   ResolvedRouteInfo,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
 } from 'router/route-info';
 import { reject, resolve } from 'rsvp';
-import { createHandler, createHandlerInfo, module, test } from './test_helpers';
+import { createHandler, createHandlerInfo, module, StubRouter, test } from './test_helpers';
 
 function noop() {
   return resolve(true);
@@ -16,17 +15,19 @@ function noop() {
 module('HandlerInfo');
 
 test('ResolvedHandlerInfos resolve to themselves', function(assert) {
-  let handlerInfo = new ResolvedRouteInfo('foo', createHandler('empty'), {});
+  let router = new StubRouter();
+  let handlerInfo = new ResolvedRouteInfo('foo', router, createHandler('empty'), {});
   handlerInfo.resolve().then(function(resolvedHandlerInfo) {
     assert.equal(handlerInfo, resolvedHandlerInfo);
   });
 });
 
 test('UnresolvedHandlerInfoByParam defaults params to {}', function(assert) {
-  let handlerInfo = new UnresolvedHandlerInfoByParam('empty', noopGetHandler, {});
+  let router = new StubRouter();
+  let handlerInfo = new UnresolvedHandlerInfoByParam('empty', router, {});
   assert.deepEqual(handlerInfo.params, {});
 
-  let handlerInfo2 = new UnresolvedHandlerInfoByParam('empty', noopGetHandler, { foo: 5 });
+  let handlerInfo2 = new UnresolvedHandlerInfoByParam('empty', router, { foo: 5 });
   assert.deepEqual(handlerInfo2.params, { foo: 5 });
 });
 
@@ -118,12 +119,13 @@ test('HandlerInfo#resolve runs afterModel hook on handler', function(assert) {
 
 test('UnresolvedHandlerInfoByParam gets its model hook called', function(assert) {
   assert.expect(2);
+  let router = new StubRouter();
 
   let transition = {};
 
   let handlerInfo = new UnresolvedHandlerInfoByParam(
     'empty',
-    noopGetHandler,
+    router,
     { first_name: 'Alex', last_name: 'Matchnerd' },
     createHandler('h', {
       model: function(params: Dict<unknown>, payload: Dict<unknown>) {
@@ -152,8 +154,7 @@ test('UnresolvedHandlerInfoByObject does NOT get its model hook called', functio
   let handlerInfo = new Handler(
     'unresolved',
     ['wat'],
-    noopGetHandler,
-    () => {},
+    new StubRouter(),
     resolve({ name: 'dorkletons' })
   );
 

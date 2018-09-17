@@ -121,27 +121,57 @@ export function createHandler(name: string, options?: Dict<unknown>): Route {
   );
 }
 
+export class StubRouter extends Router {
+  getRoute(_name: string) {
+    return {} as Route;
+  }
+  getSerializer(_name: string) {
+    return () => {};
+  }
+  updateURL(_url: string): void {
+    throw new Error('Method not implemented.');
+  }
+  replaceURL(_url: string): void {
+    throw new Error('Method not implemented.');
+  }
+  willTransition(
+    _oldHandlerInfos: HandlerInfo[],
+    _newHandlerInfos: HandlerInfo[],
+    _transition: Transition
+  ): void {
+    throw new Error('Method not implemented.');
+  }
+  didTransition(_handlerInfos: HandlerInfo[]): void {
+    throw new Error('Method not implemented.');
+  }
+  triggerEvent(
+    _handlerInfos: HandlerInfo[],
+    _ignoreFailure: boolean,
+    _name: string,
+    _args: unknown[]
+  ): void {
+    throw new Error('Method not implemented.');
+  }
+}
+
 export function createHandlerInfo(name: string, options: Dict<unknown> = {}): HandlerInfo {
   class Stub extends HandlerInfo {
-    constructor(name: string, handler?: Route) {
-      super(name, handler);
+    constructor(name: string, router: Router, handler?: Route) {
+      super(name, router, handler);
     }
     getModel(_transition: Transition) {
       return {};
     }
     getUnresolved() {
-      return new UnresolvedHandlerInfoByParam('empty', noopGetHandler, {});
+      return new UnresolvedHandlerInfoByParam('empty', this.router, {});
     }
-    getRoute = (name: string) => {
-      return createHandler(name);
-    };
   }
 
   let handler = (options.handler as Route) || createHandler('foo');
   delete options.handler;
 
   Object.assign(Stub.prototype, options);
-  let stub = new Stub(name, handler);
+  let stub = new Stub(name, new StubRouter(), handler);
   return stub;
 }
 

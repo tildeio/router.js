@@ -3,10 +3,9 @@ import URLTransitionIntent from 'router/transition-intent/url-transition-intent'
 import TransitionState from 'router/transition-state';
 import { createHandler, module, test } from './test_helpers';
 
-import { Route } from 'router';
+import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
 import HandlerInfo, {
-  noopGetHandler,
   ResolvedRouteInfo,
   UnresolvedHandlerInfoByObject,
   UnresolvedHandlerInfoByParam,
@@ -22,9 +21,6 @@ let scenarios = [
     getHandler: function(name: string) {
       return handlers[name] || (handlers[name] = createHandler(name));
     },
-    getSerializer: function() {
-      return function() {};
-    },
   },
   {
     name: 'Async Get Handler',
@@ -32,13 +28,45 @@ let scenarios = [
     getHandler: function(name: string) {
       return Promise.resolve(handlers[name] || (handlers[name] = createHandler(name)));
     },
-    getSerializer: function() {
-      return function() {};
-    },
   },
 ];
 
 scenarios.forEach(function(scenario) {
+  class TestRouter extends Router {
+    getSerializer(_name: string) {
+      return () => {};
+    }
+    updateURL(_url: string): void {
+      throw new Error('Method not implemented.');
+    }
+    replaceURL(_url: string): void {
+      throw new Error('Method not implemented.');
+    }
+    willTransition(
+      _oldHandlerInfos: HandlerInfo[],
+      _newHandlerInfos: HandlerInfo[],
+      _transition: Transition
+    ): void {
+      throw new Error('Method not implemented.');
+    }
+    didTransition(_handlerInfos: HandlerInfo[]): void {
+      throw new Error('Method not implemented.');
+    }
+    triggerEvent(
+      _handlerInfos: HandlerInfo[],
+      _ignoreFailure: boolean,
+      _name: string,
+      _args: unknown[]
+    ): void {
+      throw new Error('Method not implemented.');
+    }
+    getRoute(name: string) {
+      return scenario.getHandler(name);
+    }
+  }
+
+  let router: Router;
+
   // Asserts that a handler from a handlerInfo equals an expected valued.
   // Returns a promise during async scenarios to wait until the handler is ready.
   function assertHandlerEquals(assert: Assert, handlerInfo: HandlerInfo, expected: Route) {
@@ -110,13 +138,16 @@ scenarios.forEach(function(scenario) {
           return;
         },
       };
+
+      router = new TestRouter();
+      router.recognizer = recognizer;
     },
   });
 
   test('URLTransitionIntent can be applied to an empty state', function(assert) {
     let state = new TransitionState();
-    let intent = new URLTransitionIntent('/foo/bar');
-    let newState = intent.applyToState(state, recognizer, scenario.getHandler);
+    let intent = new URLTransitionIntent('/foo/bar', router);
+    let newState = intent.applyToState(state);
     let handlerInfos = newState.handlerInfos;
 
     assert.equal(handlerInfos.length, 2);
@@ -137,12 +168,7 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to single unresolved URL handlerInfo', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new UnresolvedHandlerInfoByParam(
-      'foo',
-      noopGetHandler,
-      {},
-      handlers.foo
-    );
+    let startingHandlerInfo = new UnresolvedHandlerInfoByParam('foo', router, {}, handlers.foo);
 
     // This single unresolved handler info will be preserved
     // in the new array of handlerInfos.
@@ -151,8 +177,8 @@ scenarios.forEach(function(scenario) {
     // different.
     state.handlerInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/foo/bar');
-    let newState = intent.applyToState(state, recognizer, scenario.getHandler);
+    let intent = new URLTransitionIntent('/foo/bar', router);
+    let newState = intent.applyToState(state);
     let handlerInfos = newState.handlerInfos;
 
     assert.equal(handlerInfos.length, 2);
@@ -171,12 +197,12 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to an already-resolved handlerInfo', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new ResolvedRouteInfo('foo', handlers.foo, {});
+    let startingHandlerInfo = new ResolvedRouteInfo('foo', router, handlers.foo, {});
 
     state.handlerInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/foo/bar');
-    let newState = intent.applyToState(state, recognizer, scenario.getHandler);
+    let intent = new URLTransitionIntent('/foo/bar', router);
+    let newState = intent.applyToState(state);
     let handlerInfos = newState.handlerInfos;
 
     assert.equal(handlerInfos.length, 2);
@@ -194,11 +220,11 @@ scenarios.forEach(function(scenario) {
 
   test('URLTransitionIntent applied to an already-resolved handlerInfo (non-empty params)', function(assert) {
     let state = new TransitionState();
-
     let article = {};
 
     let startingHandlerInfo = new ResolvedRouteInfo(
       'articles',
+      router,
       createHandler('articles'),
       { article_id: 'some-other-id' },
       article
@@ -206,8 +232,8 @@ scenarios.forEach(function(scenario) {
 
     state.handlerInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/articles/123/comments/456');
-    let newState = intent.applyToState(state, recognizer, scenario.getHandler);
+    let intent = new URLTransitionIntent('/articles/123/comments/456', router);
+    let newState = intent.applyToState(state);
     let handlerInfos = newState.handlerInfos;
 
     assert.equal(handlerInfos.length, 2);
@@ -219,18 +245,19 @@ scenarios.forEach(function(scenario) {
       handlerInfos[1] instanceof UnresolvedHandlerInfoByParam,
       'generated state consists of UnresolvedHandlerInfoByParam, 2'
     );
+
     assertHandlerEquals(assert, handlerInfos[1], handlers.comments);
   });
 
   test('URLTransitionIntent applied to an already-resolved handlerInfo of different route', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new ResolvedRouteInfo('alex', handlers.foo, {});
+    let startingHandlerInfo = new ResolvedRouteInfo('alex', router, handlers.foo, {});
 
     state.handlerInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/foo/bar');
-    let newState = intent.applyToState(state, recognizer, scenario.getHandler);
+    let intent = new URLTransitionIntent('/foo/bar', router);
+    let newState = intent.applyToState(state);
     let handlerInfos = newState.handlerInfos;
 
     assert.equal(handlerInfos.length, 2);
@@ -253,6 +280,7 @@ scenarios.forEach(function(scenario) {
 
     let startingHandlerInfo = new ResolvedRouteInfo(
       'articles',
+      router,
       createHandler('articles'),
       { article_id: 'some-other-id' },
       article
@@ -260,15 +288,9 @@ scenarios.forEach(function(scenario) {
 
     state.handlerInfos = [startingHandlerInfo];
 
-    let intent = new NamedTransitionIntent('comments', undefined, [article, comment]);
+    let intent = new NamedTransitionIntent('comments', router, undefined, [article, comment]);
 
-    let newState = intent.applyToState(
-      state,
-      recognizer,
-      scenario.getHandler,
-      false,
-      scenario.getSerializer
-    );
+    let newState = intent.applyToState(state, false);
     let handlerInfos = newState.handlerInfos;
 
     assert.equal(handlerInfos.length, 2);

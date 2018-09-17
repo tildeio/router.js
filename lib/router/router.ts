@@ -272,7 +272,7 @@ export default abstract class Router {
 
     // Construct a TransitionIntent with the provided params
     // and apply it to the present state of the router.
-    let intent = new NamedTransitionIntent(handlerName, this, suppliedParams);
+    let intent = new NamedTransitionIntent(handlerName, this, undefined, suppliedParams);
     let state = intent.applyToState(this.state!, false);
 
     let params: Params = {};
