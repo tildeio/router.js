@@ -38,10 +38,6 @@ export interface Route extends RouteHooks {
 
 export type Continuation = () => PromiseLike<boolean> | boolean;
 
-export interface IResolvedModel {
-  [key: string]: unknown;
-}
-
 // class RouteInfo {
 //   constructor(
 //     routeName: string,
@@ -52,7 +48,7 @@ export interface IResolvedModel {
 //   ) {}
 // }
 
-export default abstract class PrivateRouteInfo {
+export default class PrivateRouteInfo {
   private _routePromise?: Promise<Route> = undefined;
   private _route?: Route = undefined;
   protected router: Router;

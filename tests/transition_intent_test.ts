@@ -148,7 +148,7 @@ scenarios.forEach(function(scenario) {
     let state = new TransitionState();
     let intent = new URLTransitionIntent('/foo/bar', router);
     let newState = intent.applyToState(state);
-    let handlerInfos = newState.handlerInfos;
+    let handlerInfos = newState.routeInfos;
 
     assert.equal(handlerInfos.length, 2);
     assert.notOk(
@@ -175,11 +175,11 @@ scenarios.forEach(function(scenario) {
     // Reason: if it were resolved, we wouldn't want to replace it.
     // So we only want to replace if it's actually known to be
     // different.
-    state.handlerInfos = [startingHandlerInfo];
+    state.routeInfos = [startingHandlerInfo];
 
     let intent = new URLTransitionIntent('/foo/bar', router);
     let newState = intent.applyToState(state);
-    let handlerInfos = newState.handlerInfos;
+    let handlerInfos = newState.routeInfos;
 
     assert.equal(handlerInfos.length, 2);
     assert.equal(
@@ -199,11 +199,11 @@ scenarios.forEach(function(scenario) {
 
     let startingHandlerInfo = new ResolvedRouteInfo('foo', router, handlers.foo, {});
 
-    state.handlerInfos = [startingHandlerInfo];
+    state.routeInfos = [startingHandlerInfo];
 
     let intent = new URLTransitionIntent('/foo/bar', router);
     let newState = intent.applyToState(state);
-    let handlerInfos = newState.handlerInfos;
+    let handlerInfos = newState.routeInfos;
 
     assert.equal(handlerInfos.length, 2);
     assert.equal(
@@ -230,11 +230,11 @@ scenarios.forEach(function(scenario) {
       article
     );
 
-    state.handlerInfos = [startingHandlerInfo];
+    state.routeInfos = [startingHandlerInfo];
 
     let intent = new URLTransitionIntent('/articles/123/comments/456', router);
     let newState = intent.applyToState(state);
-    let handlerInfos = newState.handlerInfos;
+    let handlerInfos = newState.routeInfos;
 
     assert.equal(handlerInfos.length, 2);
     assert.ok(
@@ -254,11 +254,11 @@ scenarios.forEach(function(scenario) {
 
     let startingHandlerInfo = new ResolvedRouteInfo('alex', router, handlers.foo, {});
 
-    state.handlerInfos = [startingHandlerInfo];
+    state.routeInfos = [startingHandlerInfo];
 
     let intent = new URLTransitionIntent('/foo/bar', router);
     let newState = intent.applyToState(state);
-    let handlerInfos = newState.handlerInfos;
+    let handlerInfos = newState.routeInfos;
 
     assert.equal(handlerInfos.length, 2);
     assert.ok(
@@ -286,12 +286,12 @@ scenarios.forEach(function(scenario) {
       article
     );
 
-    state.handlerInfos = [startingHandlerInfo];
+    state.routeInfos = [startingHandlerInfo];
 
     let intent = new NamedTransitionIntent('comments', router, undefined, [article, comment]);
 
     let newState = intent.applyToState(state, false);
-    let handlerInfos = newState.handlerInfos;
+    let handlerInfos = newState.routeInfos;
 
     assert.equal(handlerInfos.length, 2);
     assert.equal(handlerInfos[0], startingHandlerInfo);

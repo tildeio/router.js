@@ -730,7 +730,7 @@ scenarios.forEach(function(scenario) {
   test('applyIntent returns a tentative state based on a named transition', function(assert) {
     transitionTo(router, '/posts');
     let state = router.applyIntent('faq', []);
-    assert.ok(state.handlerInfos.length);
+    assert.ok(state.routeInfos.length);
   });
 
   test('Moving to a new top-level route triggers exit callbacks', function(assert) {
@@ -787,7 +787,7 @@ scenarios.forEach(function(scenario) {
         return router.transitionTo('showPost', postsStore[1]);
       }, shouldNotHappen(assert))
       .then(function() {
-        assert.equal(routePath(router.currentHandlerInfos!), currentPath);
+        assert.equal(routePath(router.currentRouteInfos!), currentPath);
       }, shouldNotHappen(assert));
   });
 
@@ -1675,7 +1675,7 @@ scenarios.forEach(function(scenario) {
 
     assert.ok(postIndexExited, 'Post index handler did not exit');
     assert.ok(showAllPostsExited, 'Show all posts handler did not exit');
-    assert.equal(router.currentHandlerInfos, null, 'currentHandlerInfos should be null');
+    assert.equal(router.currentRouteInfos, null, 'currentHandlerInfos should be null');
   });
 
   test('any of the model hooks can redirect with or without promise', function(assert) {
@@ -2848,7 +2848,7 @@ scenarios.forEach(function(scenario) {
     });
 
     function assertOnRoute(name: string) {
-      let last = router.currentHandlerInfos![router.currentHandlerInfos!.length - 1];
+      let last = router.currentRouteInfos![router.currentRouteInfos!.length - 1];
       assert.equal(last.name, name);
     }
 

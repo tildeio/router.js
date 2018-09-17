@@ -101,15 +101,15 @@ export class Transition {
     if (state) {
       this.params = state.params;
       this.queryParams = state.queryParams;
-      this.handlerInfos = state.handlerInfos;
+      this.handlerInfos = state.routeInfos;
 
-      let len = state.handlerInfos.length;
+      let len = state.routeInfos.length;
       if (len) {
-        this.targetName = state.handlerInfos[len - 1].name;
+        this.targetName = state.routeInfos[len - 1].name;
       }
 
       for (let i = 0; i < len; ++i) {
-        let handlerInfo = state.handlerInfos[i];
+        let handlerInfo = state.routeInfos[i];
 
         // TODO: this all seems hacky
         if (!handlerInfo.isResolved) {
@@ -131,7 +131,7 @@ export class Transition {
           if (result.wasAborted || this.isAborted) {
             return Promise.reject(logAbort(this));
           } else {
-            this.trigger(false, 'error', result.error, this, result.handler);
+            this.trigger(false, 'error', result.error, this, result.route);
             this.abort();
             return Promise.reject(result.error);
           }
@@ -338,7 +338,7 @@ export class Transition {
    */
   trigger(ignoreFailure: boolean, name: string, ...args: any[]) {
     this.router.triggerEvent(
-      this.state!.handlerInfos.slice(0, this.resolveIndex + 1),
+      this.state!.routeInfos.slice(0, this.resolveIndex + 1),
       ignoreFailure,
       name,
       args

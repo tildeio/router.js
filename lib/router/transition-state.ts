@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import HandlerInfo, { Continuation, Route } from './route-info';
+import RouteInfo, { Continuation, Route } from './route-info';
 import { Transition } from './transition';
 import { forEach, promiseLabel } from './utils';
 
@@ -9,17 +9,17 @@ interface IParams {
 }
 
 export default class TransitionState {
-  handlerInfos: HandlerInfo[] = [];
+  routeInfos: RouteInfo[] = [];
   queryParams: Dict<unknown> = {};
   params: IParams = {};
 
   promiseLabel(label: string) {
     let targetName = '';
-    forEach(this.handlerInfos, function(handlerInfo) {
+    forEach(this.routeInfos, function(routeInfo) {
       if (targetName !== '') {
         targetName += '.';
       }
-      targetName += handlerInfo.name;
+      targetName += routeInfo.name;
       return true;
     });
     return promiseLabel("'" + targetName + "': " + label);
@@ -29,8 +29,8 @@ export default class TransitionState {
     // First, calculate params for this state. This is useful
     // information to provide to the various route hooks.
     let params = this.params;
-    forEach(this.handlerInfos, handlerInfo => {
-      params[handlerInfo.name] = handlerInfo.params || {};
+    forEach(this.routeInfos, routeInfo => {
+      params[routeInfo.name] = routeInfo.params || {};
       return true;
     });
 
@@ -41,7 +41,7 @@ export default class TransitionState {
 
     // The prelude RSVP.resolve() asyncs us into the promise land.
     return Promise.resolve(null, this.promiseLabel('Start transition'))
-      .then(resolveOneHandlerInfo, null, this.promiseLabel('Resolve handler'))
+      .then(resolveOneRouteInfo, null, this.promiseLabel('Resolve route'))
       .catch(handleError, this.promiseLabel('Handle error'));
 
     function innerShouldContinue() {
@@ -60,37 +60,37 @@ export default class TransitionState {
     function handleError(error: Error) {
       // This is the only possible
       // reject value of TransitionState#resolve
-      let handlerInfos = currentState.handlerInfos;
+      let routeInfos = currentState.routeInfos;
       let errorHandlerIndex =
-        transition.resolveIndex >= handlerInfos.length
-          ? handlerInfos.length - 1
+        transition.resolveIndex >= routeInfos.length
+          ? routeInfos.length - 1
           : transition.resolveIndex;
       return Promise.reject(
         new TransitionError(
           error,
-          currentState.handlerInfos[errorHandlerIndex].route!,
+          currentState.routeInfos[errorHandlerIndex].route!,
           wasAborted,
           currentState
         )
       );
     }
 
-    function proceed(resolvedHandlerInfo: HandlerInfo): Promise<HandlerInfo> {
-      let wasAlreadyResolved = currentState.handlerInfos[transition.resolveIndex].isResolved;
+    function proceed(resolvedRouteInfo: RouteInfo): Promise<RouteInfo> {
+      let wasAlreadyResolved = currentState.routeInfos[transition.resolveIndex].isResolved;
 
-      // Swap the previously unresolved handlerInfo with
-      // the resolved handlerInfo
-      currentState.handlerInfos[transition.resolveIndex++] = resolvedHandlerInfo;
+      // Swap the previously unresolved routeInfo with
+      // the resolved routeInfo
+      currentState.routeInfos[transition.resolveIndex++] = resolvedRouteInfo;
 
       if (!wasAlreadyResolved) {
         // Call the redirect hook. The reason we call it here
         // vs. afterModel is so that redirects into child
         // routes don't re-run the model hooks for this
         // already-resolved route.
-        let handler = resolvedHandlerInfo.route;
-        if (handler !== undefined) {
-          if (handler.redirect) {
-            handler.redirect(resolvedHandlerInfo.context!, transition);
+        let { route } = resolvedRouteInfo;
+        if (route !== undefined) {
+          if (route.redirect) {
+            route.redirect(resolvedRouteInfo.context!, transition);
           }
         }
       }
@@ -98,22 +98,22 @@ export default class TransitionState {
       // Proceed after ensuring that the redirect hook
       // didn't abort this transition by transitioning elsewhere.
       return innerShouldContinue().then(
-        resolveOneHandlerInfo,
+        resolveOneRouteInfo,
         null,
-        currentState.promiseLabel('Resolve handler')
+        currentState.promiseLabel('Resolve route')
       );
     }
 
-    function resolveOneHandlerInfo(): TransitionState | Promise<any> {
-      if (transition.resolveIndex === currentState.handlerInfos.length) {
+    function resolveOneRouteInfo(): TransitionState | Promise<any> {
+      if (transition.resolveIndex === currentState.routeInfos.length) {
         // This is is the only possible
         // fulfill value of TransitionState#resolve
         return currentState;
       }
 
-      let handlerInfo = currentState.handlerInfos[transition.resolveIndex];
+      let routeInfo = currentState.routeInfos[transition.resolveIndex];
 
-      return handlerInfo
+      return routeInfo
         .resolve(innerShouldContinue, transition)
         .then(proceed, null, currentState.promiseLabel('Proceed'));
     }
@@ -123,7 +123,7 @@ export default class TransitionState {
 export class TransitionError {
   constructor(
     public error: Error,
-    public handler: Route,
+    public route: Route,
     public wasAborted: boolean,
     public state: TransitionState
   ) {}

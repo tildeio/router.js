@@ -55,12 +55,12 @@ export default class URLTransitionIntent extends TransitionIntent {
         newHandlerInfo.routePromise = newHandlerInfo.routePromise.then(checkHandlerAccessibility);
       }
 
-      let oldHandlerInfo = oldState.handlerInfos[i];
+      let oldHandlerInfo = oldState.routeInfos[i];
       if (statesDiffer || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
         statesDiffer = true;
-        newState.handlerInfos[i] = newHandlerInfo;
+        newState.routeInfos[i] = newHandlerInfo;
       } else {
-        newState.handlerInfos[i] = oldHandlerInfo;
+        newState.routeInfos[i] = oldHandlerInfo;
       }
     }
 

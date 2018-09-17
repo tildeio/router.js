@@ -68,7 +68,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
       let result = parsedHandlers[i];
       let name = result.handler;
 
-      let oldHandlerInfo = oldState.handlerInfos[i];
+      let oldHandlerInfo = oldState.routeInfos[i];
       let newHandlerInfo = null;
 
       if (result.names.length > 0) {
@@ -121,7 +121,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
         handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context!);
       }
 
-      newState.handlerInfos.unshift(handlerToUse);
+      newState.routeInfos.unshift(handlerToUse);
     }
 
     if (objects.length > 0) {
@@ -132,7 +132,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     }
 
     if (!isIntermediate) {
-      this.invalidateChildren(newState.handlerInfos, invalidateIndex);
+      this.invalidateChildren(newState.routeInfos, invalidateIndex);
     }
 
     merge(newState.queryParams, this.queryParams || {});
@@ -172,7 +172,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
       return oldHandlerInfo;
     } else {
       if (this.preTransitionState) {
-        let preTransitionHandlerInfo = this.preTransitionState.handlerInfos[i];
+        let preTransitionHandlerInfo = this.preTransitionState.routeInfos[i];
         objectToUse = preTransitionHandlerInfo && preTransitionHandlerInfo.context!;
       } else {
         // Ideally we should throw this error to provide maximal
