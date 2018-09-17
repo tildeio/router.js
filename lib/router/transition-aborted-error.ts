@@ -1,9 +1,9 @@
 export interface TransitionAbortedErrorContructor {
-  new (message?: string): TransitionAbortedError;
-  readonly prototype: TransitionAbortedError;
+  new (message?: string): ITransitionAbortedError;
+  readonly prototype: ITransitionAbortedError;
 }
 
-export interface TransitionAbortedError extends Error {
+export interface ITransitionAbortedError extends Error {
   constructor: TransitionAbortedErrorContructor;
 }
 
@@ -11,7 +11,7 @@ const TransitionAbortedError: TransitionAbortedErrorContructor = (function() {
   TransitionAbortedError.prototype = Object.create(Error.prototype);
   TransitionAbortedError.prototype.constructor = TransitionAbortedError;
 
-  function TransitionAbortedError(this: TransitionAbortedError, message?: string) {
+  function TransitionAbortedError(this: ITransitionAbortedError, message?: string) {
     let error = Error.call(this, message);
     this.name = 'TransitionAborted';
     this.message = message || 'TransitionAborted';

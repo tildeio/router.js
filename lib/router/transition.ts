@@ -1,13 +1,20 @@
-import { OnFulfilled, OnRejected, Promise } from 'rsvp';
+import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
 import HandlerInfo, { IHandler } from './handler-info';
 import Router from './router';
-import TransitionAborted from './transition-aborted-error';
+import TransitionAborted, { ITransitionAbortedError } from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
 import TransitionState, { TransitionError } from './transition-state';
 import { log, promiseLabel } from './utils';
 
-export { default as TransitionAborted } from './transition-aborted-error';
+export type OnFulfilled<T, TResult1> =
+  | ((value: T) => TResult1 | PromiseLike<TResult1>)
+  | undefined
+  | null;
+export type OnRejected<T, TResult2> =
+  | ((reason: T) => TResult2 | PromiseLike<TResult2>)
+  | undefined
+  | null;
 
 /**
   A Transition is a thennable (a promise-like object) that represents
@@ -377,7 +384,7 @@ export class Transition {
 
   Logs and returns an instance of TransitionAborted.
  */
-export function logAbort(transition: Transition) {
+export function logAbort(transition: Transition): ITransitionAbortedError {
   log(transition.router, transition.sequence, 'detected abort.');
   return new TransitionAborted();
 }
