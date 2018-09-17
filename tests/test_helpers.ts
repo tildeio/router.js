@@ -1,7 +1,7 @@
 import Backburner from 'backburner';
 import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, { noopGetHandler, UnresolvedHandlerInfoByParam } from 'router/route-info';
+import HandlerInfo, { UnresolvedRouteInfoByParam } from 'router/route-info';
 import TransitionAbortedError from 'router/transition-aborted-error';
 import { UnrecognizedURLError } from 'router/unrecognized-url-error';
 import { configure, resolve } from 'rsvp';
@@ -160,10 +160,10 @@ export function createHandlerInfo(name: string, options: Dict<unknown> = {}): Ha
       super(name, router, handler);
     }
     getModel(_transition: Transition) {
-      return {};
+      return {} as any;
     }
     getUnresolved() {
-      return new UnresolvedHandlerInfoByParam('empty', this.router, {});
+      return new UnresolvedRouteInfoByParam('empty', this.router, {});
     }
   }
 

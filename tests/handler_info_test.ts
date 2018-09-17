@@ -2,8 +2,8 @@ import { Transition } from 'router';
 import { Dict } from 'router/core';
 import HandlerInfo, {
   ResolvedRouteInfo,
-  UnresolvedHandlerInfoByObject,
-  UnresolvedHandlerInfoByParam,
+  UnresolvedRouteInfoByObject,
+  UnresolvedRouteInfoByParam,
 } from 'router/route-info';
 import { reject, resolve } from 'rsvp';
 import { createHandler, createHandlerInfo, module, StubRouter, test } from './test_helpers';
@@ -24,10 +24,10 @@ test('ResolvedHandlerInfos resolve to themselves', function(assert) {
 
 test('UnresolvedHandlerInfoByParam defaults params to {}', function(assert) {
   let router = new StubRouter();
-  let handlerInfo = new UnresolvedHandlerInfoByParam('empty', router, {});
+  let handlerInfo = new UnresolvedRouteInfoByParam('empty', router, {});
   assert.deepEqual(handlerInfo.params, {});
 
-  let handlerInfo2 = new UnresolvedHandlerInfoByParam('empty', router, { foo: 5 });
+  let handlerInfo2 = new UnresolvedRouteInfoByParam('empty', router, { foo: 5 });
   assert.deepEqual(handlerInfo2.params, { foo: 5 });
 });
 
@@ -123,7 +123,7 @@ test('UnresolvedHandlerInfoByParam gets its model hook called', function(assert)
 
   let transition = {};
 
-  let handlerInfo = new UnresolvedHandlerInfoByParam(
+  let handlerInfo = new UnresolvedRouteInfoByParam(
     'empty',
     router,
     { first_name: 'Alex', last_name: 'Matchnerd' },
@@ -144,7 +144,7 @@ test('UnresolvedHandlerInfoByParam gets its model hook called', function(assert)
 test('UnresolvedHandlerInfoByObject does NOT get its model hook called', function(assert) {
   assert.expect(1);
 
-  class Handler extends UnresolvedHandlerInfoByObject {
+  class Handler extends UnresolvedRouteInfoByObject {
     route = createHandler('uresolved', {
       model: function() {
         assert.ok(false, "I shouldn't be called because I already have a context/model");

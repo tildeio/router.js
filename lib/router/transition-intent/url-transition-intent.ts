@@ -1,4 +1,4 @@
-import { Route, UnresolvedHandlerInfoByParam } from '../route-info';
+import { Route, UnresolvedRouteInfoByParam } from '../route-info';
 import Router from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
@@ -43,7 +43,7 @@ export default class URLTransitionIntent extends TransitionIntent {
       let result = results[i]!;
       let name = result.handler as string;
 
-      let newHandlerInfo = new UnresolvedHandlerInfoByParam(name, this.router, result.params);
+      let newHandlerInfo = new UnresolvedRouteInfoByParam(name, this.router, result.params);
 
       let handler = newHandlerInfo.route;
 

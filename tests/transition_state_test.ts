@@ -2,8 +2,8 @@ import { Transition } from 'router';
 import { Dict } from 'router/core';
 import {
   Continuation,
-  UnresolvedHandlerInfoByObject,
-  UnresolvedHandlerInfoByParam,
+  UnresolvedRouteInfoByObject,
+  UnresolvedRouteInfoByParam,
 } from 'router/route-info';
 import TransitionState, { TransitionError } from 'router/transition-state';
 import { Promise, reject, resolve } from 'rsvp';
@@ -101,7 +101,7 @@ test('Integration w/ HandlerInfos', function(assert) {
   let transition = {};
 
   state.handlerInfos = [
-    new UnresolvedHandlerInfoByParam(
+    new UnresolvedRouteInfoByParam(
       'foo',
       router,
       { foo_id: '123' },
@@ -113,7 +113,7 @@ test('Integration w/ HandlerInfos', function(assert) {
         },
       })
     ),
-    new UnresolvedHandlerInfoByObject('bar', ['bar_id'], router, resolve(barModel)),
+    new UnresolvedRouteInfoByObject('bar', ['bar_id'], router, resolve(barModel)),
   ];
 
   function noop() {

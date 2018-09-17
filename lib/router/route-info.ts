@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import Router, { GetHandlerFunc, SerializerFunc } from './router';
+import Router, { SerializerFunc } from './router';
 import { isTransition, prepareResult, Transition } from './transition';
 import { isParam, isPromise, merge } from './utils';
 
@@ -8,23 +8,7 @@ interface IModel {
   id?: string | number;
 }
 
-const stubHandler = {
-  _handlerName: '',
-  context: undefined,
-  handler: '',
-  names: [],
-};
-
-export const noopGetHandler = () => {
-  return Promise.resolve<Route>(stubHandler);
-};
-
-export interface HandlerInfoArgs {
-  name: string;
-  handler?: any;
-}
-
-export interface HandlerHooks {
+export interface RouteHooks {
   model?(
     params: Dict<unknown>,
     transition: Transition
@@ -62,13 +46,10 @@ export interface HandlerHooks {
   _redirect?(context: Dict<unknown>, transition: Transition): void;
 }
 
-export interface Route extends HandlerHooks {
+export interface Route extends RouteHooks {
   inaccessibleByURL?: boolean;
   routeName: string;
   context: unknown;
-  names: string[];
-  name?: string;
-  handler: string;
   events?: Dict<Function>;
 }
 
@@ -106,7 +87,9 @@ export default abstract class PrivateRouteInfo {
     }
   }
 
-  abstract getModel(transition: Transition): Promise<Dict<unknown> | undefined> | Dict<unknown>;
+  getModel(_transition: Transition) {
+    return Promise.resolve(this.context);
+  }
 
   serialize(_context?: Dict<unknown>) {
     return this.params || {};
@@ -114,7 +97,7 @@ export default abstract class PrivateRouteInfo {
 
   resolve(shouldContinue: Continuation, transition: Transition): Promise<ResolvedRouteInfo> {
     return Promise.resolve(this.routePromise)
-      .then((handler: Route) => this.checkForAbort(shouldContinue, handler), null)
+      .then((route: Route) => this.checkForAbort(shouldContinue, route), null)
       .then(() => {
         return this.runBeforeModelHook(transition);
       }, null)
@@ -145,12 +128,12 @@ export default abstract class PrivateRouteInfo {
   }
 
   shouldSupercede(routeInfo?: PrivateRouteInfo) {
-    // Prefer this newer handlerInfo over `other` if:
+    // Prefer this newer routeInfo over `other` if:
     // 1) The other one doesn't exist
     // 2) The names don't match
-    // 3) This handler has a context that doesn't match
+    // 3) This route has a context that doesn't match
     //    the other one (or the other one doesn't have one).
-    // 4) This handler has parameters that don't match the other.
+    // 4) This route has parameters that don't match the other.
     if (!routeInfo) {
       return true;
     }
@@ -164,7 +147,7 @@ export default abstract class PrivateRouteInfo {
   }
 
   get route(): Route | undefined {
-    // _handler could be set to either a handler object or undefined, so we
+    // _route could be set to either a route object or undefined, so we
     // compare against a default reference to know when it's been set
     if (this._route !== undefined) {
       return this._route!;
@@ -187,8 +170,8 @@ export default abstract class PrivateRouteInfo {
     return this._routePromise!;
   }
 
-  set routePromise(handlerPromise: Promise<Route>) {
-    this._routePromise = handlerPromise;
+  set routePromise(routePromise: Promise<Route>) {
+    this._routePromise = routePromise;
   }
 
   protected log(transition: Transition, message: string) {
@@ -198,7 +181,7 @@ export default abstract class PrivateRouteInfo {
   }
 
   private updateRoute(route: Route) {
-    // Store the name of the handler on the handler for easy checks later
+    // Store the name of the route on the route for easy checks later
     route.routeName = this.name;
     return (this.route = route);
   }
@@ -272,7 +255,7 @@ export default abstract class PrivateRouteInfo {
   }
 
   private _processRoute(route: Route | Promise<Route>) {
-    // Setup a routePromise so that we can wait for asynchronously loaded handlers
+    // Setup a routePromise so that we can wait for asynchronously loaded routes
     this.routePromise = Promise.resolve(route);
 
     // Wait until the 'route' property has been updated when chaining to a route
@@ -296,18 +279,18 @@ export class ResolvedRouteInfo extends PrivateRouteInfo {
   constructor(
     name: string,
     router: Router,
-    handler: Route,
+    route: Route,
     params: Dict<unknown>,
     context?: Dict<unknown>
   ) {
-    super(name, router, handler);
+    super(name, router, route);
     this.params = params;
     this.isResolved = true;
     this.context = context;
   }
 
   resolve(_shouldContinue?: Continuation, transition?: Transition): Promise<this> {
-    // A ResolvedHandlerInfo just resolved with itself.
+    // A ResolvedRouteInfo just resolved with itself.
     if (transition && transition.resolvedModels) {
       transition.resolvedModels[this.name] = this.context!;
     }
@@ -315,7 +298,7 @@ export class ResolvedRouteInfo extends PrivateRouteInfo {
   }
 }
 
-export class UnresolvedHandlerInfoByParam extends PrivateRouteInfo {
+export class UnresolvedRouteInfoByParam extends PrivateRouteInfo {
   params: Dict<unknown> = {};
   constructor(name: string, router: Router, params: Dict<unknown>, route?: Route) {
     super(name, router, route);
@@ -330,18 +313,18 @@ export class UnresolvedHandlerInfoByParam extends PrivateRouteInfo {
       fullParams.queryParams = transition.queryParams;
     }
 
-    let handler = this.route!;
+    let route = this.route!;
 
     let result: Dict<unknown> | undefined = undefined;
 
-    if (handler._deserialize) {
-      result = handler._deserialize(fullParams, transition);
-    } else if (handler.deserialize) {
-      result = handler.deserialize(fullParams, transition);
-    } else if (handler._model) {
-      result = handler._model(fullParams, transition);
-    } else if (handler.model) {
-      result = handler.model(fullParams, transition);
+    if (route._deserialize) {
+      result = route._deserialize(fullParams, transition);
+    } else if (route.deserialize) {
+      result = route.deserialize(fullParams, transition);
+    } else if (route._model) {
+      result = route._model(fullParams, transition);
+    } else if (route.model) {
+      result = route.model(fullParams, transition);
     }
 
     if (result && isTransition(result)) {
@@ -352,7 +335,7 @@ export class UnresolvedHandlerInfoByParam extends PrivateRouteInfo {
   }
 }
 
-export class UnresolvedHandlerInfoByObject extends PrivateRouteInfo {
+export class UnresolvedRouteInfoByObject extends PrivateRouteInfo {
   names: string[] = [];
   serializer?: SerializerFunc;
   constructor(name: string, names: string[], router: Router, context: Dict<unknown>) {
@@ -364,18 +347,20 @@ export class UnresolvedHandlerInfoByObject extends PrivateRouteInfo {
   }
 
   getModel(transition: Transition) {
-    this.log(transition, this.name + ': resolving provided model');
-    return Promise.resolve(this.context);
+    if (this.router.log !== undefined) {
+      this.router.log(this.name + ': resolving provided model');
+    }
+    return super.getModel(transition);
   }
 
   /**
     @private
 
-    Serializes a handler using its custom `serialize` method or
+    Serializes a route using its custom `serialize` method or
     by a default that looks up the expected property name from
     the dynamic segment.
 
-    @param {Object} model the model to be serialized for this handler
+    @param {Object} model the model to be serialized for this route
   */
   serialize(model?: IModel) {
     let { names, context } = this;
@@ -432,7 +417,7 @@ function paramsMatch(a: Dict<unknown>, b: Dict<unknown>) {
 
   // Note: this assumes that both params have the same
   // number of keys, but since we're comparing the
-  // same handlers, they should.
+  // same routes, they should.
   for (let k in a) {
     if (a.hasOwnProperty(k) && a[k] !== b[k]) {
       return false;

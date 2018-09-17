@@ -33,6 +33,11 @@ export interface DidTransitionFunc {
   (handlerInfos: HandlerInfo[]): void;
 }
 
+export interface ParsedHandler {
+  handler: string;
+  names: string[];
+}
+
 export default abstract class Router {
   log?: (message: string) => void;
   state?: TransitionState = undefined;
@@ -310,7 +315,7 @@ export default abstract class Router {
     }
 
     let targetHandler = targetHandlerInfos[targetHandlerInfos.length - 1].name;
-    let recogHandlers = this.recognizer.handlersFor(targetHandler) as Route[];
+    let recogHandlers: ParsedHandler[] = this.recognizer.handlersFor(targetHandler);
 
     let index = 0;
     for (len = recogHandlers.length; index < len; ++index) {

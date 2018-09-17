@@ -7,8 +7,8 @@ import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
 import HandlerInfo, {
   ResolvedRouteInfo,
-  UnresolvedHandlerInfoByObject,
-  UnresolvedHandlerInfoByParam,
+  UnresolvedRouteInfoByObject,
+  UnresolvedRouteInfoByParam,
 } from 'router/route-info';
 import { Promise } from 'rsvp';
 
@@ -168,7 +168,7 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to single unresolved URL handlerInfo', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new UnresolvedHandlerInfoByParam('foo', router, {}, handlers.foo);
+    let startingHandlerInfo = new UnresolvedRouteInfoByParam('foo', router, {}, handlers.foo);
 
     // This single unresolved handler info will be preserved
     // in the new array of handlerInfos.
@@ -188,7 +188,7 @@ scenarios.forEach(function(scenario) {
       "The starting foo handlerInfo wasn't overridden because the new one wasn't any different"
     );
     assert.ok(
-      handlerInfos[1] instanceof UnresolvedHandlerInfoByParam,
+      handlerInfos[1] instanceof UnresolvedRouteInfoByParam,
       'generated state consists of UnresolvedHandlerInfoByParam, 2'
     );
     assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
@@ -212,7 +212,7 @@ scenarios.forEach(function(scenario) {
       "The starting foo resolved handlerInfo wasn't overridden because the new one wasn't any different"
     );
     assert.ok(
-      handlerInfos[1] instanceof UnresolvedHandlerInfoByParam,
+      handlerInfos[1] instanceof UnresolvedRouteInfoByParam,
       'generated state consists of UnresolvedHandlerInfoByParam, 2'
     );
     assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
@@ -242,7 +242,7 @@ scenarios.forEach(function(scenario) {
       'The starting foo resolved handlerInfo was overridden because the new had different params'
     );
     assert.ok(
-      handlerInfos[1] instanceof UnresolvedHandlerInfoByParam,
+      handlerInfos[1] instanceof UnresolvedRouteInfoByParam,
       'generated state consists of UnresolvedHandlerInfoByParam, 2'
     );
 
@@ -266,7 +266,7 @@ scenarios.forEach(function(scenario) {
       'The starting foo resolved handlerInfo gets overridden because the new one has a different name'
     );
     assert.ok(
-      handlerInfos[1] instanceof UnresolvedHandlerInfoByParam,
+      handlerInfos[1] instanceof UnresolvedRouteInfoByParam,
       'generated state consists of UnresolvedHandlerInfoByParam, 2'
     );
     assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
@@ -297,7 +297,7 @@ scenarios.forEach(function(scenario) {
     assert.equal(handlerInfos[0], startingHandlerInfo);
     assert.equal(handlerInfos[0].context, article);
     assert.ok(
-      handlerInfos[1] instanceof UnresolvedHandlerInfoByObject,
+      handlerInfos[1] instanceof UnresolvedRouteInfoByObject,
       'generated state consists of UnresolvedHandlerInfoByObject, 2'
     );
     assert.equal(handlerInfos[1].context, comment);

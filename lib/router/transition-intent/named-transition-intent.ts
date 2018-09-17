@@ -1,10 +1,10 @@
 import { Dict } from '../core';
 import HandlerInfo, {
   Route,
-  UnresolvedHandlerInfoByObject,
-  UnresolvedHandlerInfoByParam,
+  UnresolvedRouteInfoByObject,
+  UnresolvedRouteInfoByParam,
 } from '../route-info';
-import Router from '../router';
+import Router, { ParsedHandler } from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import { extractQueryParams, isParam, merge } from '../utils';
@@ -34,7 +34,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     // TODO: WTF fix me
     let partitionedArgs = extractQueryParams([this.name].concat(this.contexts as any)),
       pureArgs = partitionedArgs[0],
-      handlers = this.router.recognizer.handlersFor(pureArgs[0]);
+      handlers: ParsedHandler[] = this.router.recognizer.handlersFor(pureArgs[0]);
 
     let targetRouteName = handlers[handlers.length - 1].handler;
 
@@ -43,7 +43,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
 
   applyToHandlers(
     oldState: TransitionState,
-    handlers: Route[],
+    parsedHandlers: ParsedHandler[],
     targetRouteName: string,
     isIntermediate: boolean,
     checkingIfActive: boolean
@@ -52,20 +52,20 @@ export default class NamedTransitionIntent extends TransitionIntent {
     let newState = new TransitionState();
     let objects = this.contexts.slice(0);
 
-    let invalidateIndex = handlers.length;
+    let invalidateIndex = parsedHandlers.length;
 
     // Pivot handlers are provided for refresh transitions
     if (this.pivotHandler) {
-      for (i = 0, len = handlers.length; i < len; ++i) {
-        if (handlers[i].handler === this.pivotHandler.routeName) {
+      for (i = 0, len = parsedHandlers.length; i < len; ++i) {
+        if (parsedHandlers[i].handler === this.pivotHandler.routeName) {
           invalidateIndex = i;
           break;
         }
       }
     }
 
-    for (i = handlers.length - 1; i >= 0; --i) {
-      let result = handlers[i];
+    for (i = parsedHandlers.length - 1; i >= 0; --i) {
+      let result = parsedHandlers[i];
       let name = result.handler;
 
       let oldHandlerInfo = oldState.handlerInfos[i];
@@ -145,7 +145,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
       let handlerInfo = handlerInfos[i];
       if (handlerInfo.isResolved) {
         let { name, params, route } = handlerInfos[i];
-        handlerInfos[i] = new UnresolvedHandlerInfoByParam(name, this.router, params, route);
+        handlerInfos[i] = new UnresolvedRouteInfoByParam(name, this.router, params, route);
       }
     }
   }
@@ -186,7 +186,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return new UnresolvedHandlerInfoByObject(name, names, this.router, objectToUse);
+    return new UnresolvedRouteInfoByObject(name, names, this.router, objectToUse);
   }
 
   createParamHandlerInfo(
@@ -223,6 +223,6 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return new UnresolvedHandlerInfoByParam(name, this.router, params);
+    return new UnresolvedRouteInfoByParam(name, this.router, params);
   }
 }
