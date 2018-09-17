@@ -1,9 +1,14 @@
-declare module "rsvp" {
+declare module 'rsvp' {
   export interface PromiseContructor {
-    new <T>(executor: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void): Promise<T>;
+    new <T>(
+      executor: (
+        resolve: (value?: T | PromiseLike<T>) => void,
+        reject: (reason?: any) => void
+      ) => void
+    ): Promise<T>;
     resolve<T>(value: T | PromiseLike<T>, label?: string): Promise<T>;
     reject<T = never>(reason?: any, label?: string): Promise<T>;
-    all(values: any[]): Promise<any[]>
+    all(values: any[]): Promise<any[]>;
   }
 
   export const resolve: (value: any | PromiseLike<any>, label?: string) => Promise<any>;
@@ -11,8 +16,14 @@ declare module "rsvp" {
   export const configure: (key: string, value?: any) => void;
   export const Promise: PromiseContructor;
 
-  export type OnFulfilled<T, TResult1> = ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null;
-  export type OnRejected<T, TResult2> = ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null;
+  export type OnFulfilled<T, TResult1> =
+    | ((value: T) => TResult1 | PromiseLike<TResult1>)
+    | undefined
+    | null;
+  export type OnRejected<T, TResult2> =
+    | ((reason: T) => TResult2 | PromiseLike<TResult2>)
+    | undefined
+    | null;
 
   export interface Promise<T> extends PromiseLike<T> {
     then<TResult1 = T, TResult2 = never>(
@@ -27,4 +38,3 @@ declare module "rsvp" {
     finally<U>(onFinally?: U | PromiseLike<U>, label?: string): Promise<T>;
   }
 }
-
