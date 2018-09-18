@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import HandlerInfo, { Route } from './route-info';
+import HandlerInfo, { IRouteInfo, Route } from './route-info';
 import Router from './router';
 import TransitionAborted, { ITransitionAbortedError } from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -33,6 +33,8 @@ export type OnRejected<T, TResult2> =
  */
 export class Transition {
   state?: TransitionState;
+  from: Maybe<IRouteInfo> = null;
+  to: Maybe<IRouteInfo> = null;
   router: Router;
   data: Dict<unknown>;
   intent?: TransitionIntent;

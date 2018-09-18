@@ -1,7 +1,7 @@
 import RouteRecognizer, { MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import RouteInfo, { Route } from './route-info';
+import RouteInfo, { Route, toReadOnlyRouteInfo } from './route-info';
 import { logAbort, Transition } from './transition';
 import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -519,7 +519,13 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
 
   let oldState = (router.oldState = router.state);
   router.state = newState;
+  let oldRouteInfos = router.currentRouteInfos!;
   let currentRouteInfos = (router.currentRouteInfos = partition.unchanged.slice());
+
+  if (transition !== undefined && oldRouteInfos !== undefined && oldRouteInfos.length > 0) {
+    let fromInfos = toReadOnlyRouteInfo(oldRouteInfos);
+    transition!.from = fromInfos[fromInfos.length - 1];
+  }
 
   try {
     for (i = 0, l = partition.reset.length; i < l; i++) {
@@ -537,6 +543,11 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
 
     for (i = 0, l = partition.entered.length; i < l; i++) {
       routeEnteredOrUpdated(currentRouteInfos, partition.entered[i], true, transition!);
+    }
+
+    if (transition !== undefined && currentRouteInfos.length > 0) {
+      let toInfos = toReadOnlyRouteInfo(currentRouteInfos);
+      transition!.to = toInfos[toInfos.length - 1];
     }
   } catch (e) {
     router.state = oldState;

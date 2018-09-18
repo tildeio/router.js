@@ -1,5 +1,5 @@
 import { Promise } from 'rsvp';
-import { Dict } from './core';
+import { Dict, Maybe } from './core';
 import Router, { SerializerFunc } from './router';
 import { isTransition, prepareResult, Transition } from './transition';
 import { isParam, isPromise, merge } from './utils';
@@ -38,15 +38,71 @@ export interface Route extends RouteHooks {
 
 export type Continuation = () => PromiseLike<boolean> | boolean;
 
-// class RouteInfo {
-//   constructor(
-//     routeName: string,
-//     childRoute: unknown,
-//     params: Dict<unknown>,
-//     queryParams: Dict<unknown>,
-//     data: Dict<unknown>
-//   ) {}
-// }
+export interface IRouteInfo {
+  readonly name: string;
+  readonly parent: Maybe<IRouteInfo>;
+  readonly child: Maybe<IRouteInfo>;
+  readonly localName: string;
+  readonly params: Dict<unknown>;
+  find(
+    predicate: (this: void, routeInfo: IRouteInfo, i: number) => boolean,
+    thisArg: any
+  ): IRouteInfo | undefined;
+}
+
+let ROUTE_INFO_LINKS = new WeakMap<PrivateRouteInfo, IRouteInfo>();
+
+export function toReadOnlyRouteInfo(routeInfos: PrivateRouteInfo[]) {
+  return routeInfos.map((info, i) => {
+    let { name, params, queryParams } = info;
+    let publicRouteInfo = new class RouteInfo implements IRouteInfo {
+      find(predicate: (this: void, routeInfo: IRouteInfo, i: number) => boolean, thisArg: any) {
+        let routeInfo;
+        let publicInfo;
+        for (let i = 0; routeInfos.length > 0; i++) {
+          routeInfo = routeInfos[i];
+          publicInfo = ROUTE_INFO_LINKS.get(routeInfo)!;
+          if (predicate.call(thisArg, publicInfo, i)) {
+            return publicInfo;
+          }
+        }
+
+        return undefined;
+      }
+
+      get name() {
+        return name;
+      }
+
+      get parent() {
+        let parent = routeInfos[i - 1];
+        return parent === undefined ? null : ROUTE_INFO_LINKS.get(routeInfos[i - 1])!;
+      }
+
+      get child() {
+        let child = routeInfos[i + 1];
+        return child === undefined ? null : ROUTE_INFO_LINKS.get(routeInfos[i + 1])!;
+      }
+
+      get localName() {
+        let parts = this.name.split('.');
+        return parts[parts.length - 1];
+      }
+
+      get params() {
+        return params;
+      }
+
+      get queryParams() {
+        return queryParams;
+      }
+    }();
+
+    ROUTE_INFO_LINKS.set(info, publicRouteInfo);
+
+    return publicRouteInfo;
+  });
+}
 
 export default class PrivateRouteInfo {
   private _routePromise?: Promise<Route> = undefined;
