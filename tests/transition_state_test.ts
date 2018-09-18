@@ -102,8 +102,9 @@ test('Integration w/ HandlerInfos', function(assert) {
 
   state.routeInfos = [
     new UnresolvedRouteInfoByParam(
-      'foo',
       router,
+      'foo',
+      ['foo_id'],
       { foo_id: '123' },
       createHandler('foo', {
         model: function(params: Dict<unknown>, payload: Dict<unknown>) {
@@ -113,7 +114,7 @@ test('Integration w/ HandlerInfos', function(assert) {
         },
       })
     ),
-    new UnresolvedRouteInfoByObject('bar', ['bar_id'], router, resolve(barModel)),
+    new UnresolvedRouteInfoByObject(router, 'bar', ['bar_id'], resolve(barModel)),
   ];
 
   function noop() {

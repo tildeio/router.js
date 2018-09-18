@@ -157,13 +157,13 @@ export class StubRouter extends Router {
 export function createHandlerInfo(name: string, options: Dict<unknown> = {}): HandlerInfo {
   class Stub extends HandlerInfo {
     constructor(name: string, router: Router, handler?: Route) {
-      super(name, router, handler);
+      super(router, name, [], handler);
     }
     getModel(_transition: Transition) {
       return {} as any;
     }
     getUnresolved() {
-      return new UnresolvedRouteInfoByParam('empty', this.router, {});
+      return new UnresolvedRouteInfoByParam(this.router, 'empty', [], {});
     }
   }
 

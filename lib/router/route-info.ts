@@ -108,14 +108,16 @@ export default class PrivateRouteInfo {
   private _routePromise?: Promise<Route> = undefined;
   private _route?: Route = undefined;
   protected router: Router;
+  paramNames: string[];
   name: string;
   params: Dict<unknown> = {};
   queryParams?: Dict<unknown>;
   context?: Dict<unknown>;
   isResolved = false;
 
-  constructor(name: string, router: Router, route?: Route) {
+  constructor(router: Router, name: string, paramNames: string[], route?: Route) {
     this.name = name;
+    this.paramNames = paramNames;
     this.router = router;
     if (route) {
       this._processRoute(route);
@@ -159,7 +161,14 @@ export default class PrivateRouteInfo {
       context = resolvedContext;
     }
 
-    return new ResolvedRouteInfo(this.name, this.router, this.route!, params, context);
+    return new ResolvedRouteInfo(
+      this.router,
+      this.name,
+      this.paramNames,
+      params,
+      this.route!,
+      context
+    );
   }
 
   shouldSupercede(routeInfo?: PrivateRouteInfo) {
@@ -308,13 +317,14 @@ export default class PrivateRouteInfo {
 export class ResolvedRouteInfo extends PrivateRouteInfo {
   isResolved: boolean;
   constructor(
-    name: string,
     router: Router,
-    route: Route,
+    name: string,
+    paramNames: string[],
     params: Dict<unknown>,
+    route: Route,
     context?: Dict<unknown>
   ) {
-    super(name, router, route);
+    super(router, name, paramNames, route);
     this.params = params;
     this.isResolved = true;
     this.context = context;
@@ -331,8 +341,14 @@ export class ResolvedRouteInfo extends PrivateRouteInfo {
 
 export class UnresolvedRouteInfoByParam extends PrivateRouteInfo {
   params: Dict<unknown> = {};
-  constructor(name: string, router: Router, params: Dict<unknown>, route?: Route) {
-    super(name, router, route);
+  constructor(
+    router: Router,
+    name: string,
+    paramNames: string[],
+    params: Dict<unknown>,
+    route?: Route
+  ) {
+    super(router, name, paramNames, route);
     this.params = params;
   }
 
@@ -363,13 +379,10 @@ export class UnresolvedRouteInfoByParam extends PrivateRouteInfo {
 }
 
 export class UnresolvedRouteInfoByObject extends PrivateRouteInfo {
-  names: string[] = [];
   serializer?: SerializerFunc;
-  constructor(name: string, names: string[], router: Router, context: Dict<unknown>) {
-    super(name, router);
-    this.names = names;
+  constructor(router: Router, name: string, paramNames: string[], context: Dict<unknown>) {
+    super(router, name, paramNames);
     this.context = context;
-    this.names = this.names || [];
     this.serializer = this.router.getSerializer(name);
   }
 
@@ -390,7 +403,7 @@ export class UnresolvedRouteInfoByObject extends PrivateRouteInfo {
     @param {Object} model the model to be serialized for this route
   */
   serialize(model?: IModel) {
-    let { names, context } = this;
+    let { paramNames, context } = this;
 
     if (!model) {
       model = context as IModel;
@@ -398,25 +411,25 @@ export class UnresolvedRouteInfoByObject extends PrivateRouteInfo {
 
     let object: Dict<unknown> = {};
     if (isParam(model)) {
-      object[names[0]] = model;
+      object[paramNames[0]] = model;
       return object;
     }
 
     // Use custom serialize if it exists.
     if (this.serializer) {
       // invoke this.serializer unbound (getSerializer returns a stateless function)
-      return this.serializer.call(null, model, names);
+      return this.serializer.call(null, model, paramNames);
     } else if (this.route !== undefined) {
       if (this.route.serialize) {
-        return this.route.serialize(model, names);
+        return this.route.serialize(model, paramNames);
       }
     }
 
-    if (names.length !== 1) {
+    if (paramNames.length !== 1) {
       return;
     }
 
-    let name = names[0];
+    let name = paramNames[0];
 
     if (/_id$/.test(name)) {
       object[name] = model.id;

@@ -1,7 +1,7 @@
 import RouteRecognizer, { MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import RouteInfo, { Route, toReadOnlyRouteInfo } from './route-info';
+import InternalRouteInfo, { Route, toReadOnlyRouteInfo } from './route-info';
 import { logAbort, Transition } from './transition';
 import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -30,7 +30,7 @@ export interface GetHandlerFunc {
 }
 
 export interface DidTransitionFunc {
-  (routeInfos: RouteInfo[]): void;
+  (routeInfos: InternalRouteInfo[]): void;
 }
 
 export interface ParsedHandler {
@@ -43,7 +43,7 @@ export default abstract class Router {
   state?: TransitionState = undefined;
   oldState: Maybe<TransitionState> = undefined;
   activeTransition?: Transition = undefined;
-  currentRouteInfos?: RouteInfo[] = undefined;
+  currentRouteInfos?: InternalRouteInfo[] = undefined;
   _changedQueryParams?: Dict<unknown> = undefined;
   currentSequence = 0;
   recognizer: RouteRecognizer;
@@ -59,13 +59,13 @@ export default abstract class Router {
   abstract updateURL(url: string): void;
   abstract replaceURL(url: string): void;
   abstract willTransition(
-    oldRouteInfos: RouteInfo[],
-    newRouteInfos: RouteInfo[],
+    oldRouteInfos: InternalRouteInfo[],
+    newRouteInfos: InternalRouteInfo[],
     transition: Transition
   ): void;
-  abstract didTransition(routeInfos: RouteInfo[]): void;
+  abstract didTransition(routeInfos: InternalRouteInfo[]): void;
   abstract triggerEvent(
-    routeInfos: RouteInfo[],
+    routeInfos: InternalRouteInfo[],
     ignoreFailure: boolean,
     name: string,
     args: unknown[]
@@ -158,7 +158,7 @@ export default abstract class Router {
   */
   reset() {
     if (this.state) {
-      forEach<RouteInfo>(this.state.routeInfos.slice().reverse(), function(routeInfo) {
+      forEach<InternalRouteInfo>(this.state.routeInfos.slice().reverse(), function(routeInfo) {
         let route = routeInfo.route;
         if (route !== undefined) {
           if (route.exit !== undefined) {
@@ -570,10 +570,10 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
   that may happen in enter/setup.
 */
 function routeEnteredOrUpdated(
-  currentRouteInfos: RouteInfo[],
-  routeInfo: RouteInfo,
+  currentRouteInfos: InternalRouteInfo[],
+  routeInfo: InternalRouteInfo,
   enter: boolean,
-  transition: Transition
+  transition?: Transition
 ) {
   let route = routeInfo.route,
     context = routeInfo.context;
@@ -581,7 +581,7 @@ function routeEnteredOrUpdated(
   function _routeEnteredOrUpdated(route: Route) {
     if (enter) {
       if (route.enter !== undefined) {
-        route.enter(transition);
+        route.enter(transition!);
       }
     }
 
@@ -596,7 +596,7 @@ function routeEnteredOrUpdated(
     }
 
     if (route.setup !== undefined) {
-      route.setup(context!, transition);
+      route.setup(context!, transition!);
     }
 
     if (transition && transition.isAborted) {
@@ -608,7 +608,7 @@ function routeEnteredOrUpdated(
   }
 
   // If the route doesn't exist, it means we haven't resolved the route promise yet
-  if (!route) {
+  if (route === undefined) {
     routeInfo.routePromise = routeInfo.routePromise.then(_routeEnteredOrUpdated);
   } else {
     _routeEnteredOrUpdated(route);
@@ -650,10 +650,10 @@ function routeEnteredOrUpdated(
     longer active.
   * `unchanged`: a list of `RouteInfo` objects that remain active.
 
-  @param {Array[RouteInfo]} oldRoutes a list of the route
+  @param {Array[InternalRouteInfo]} oldRoutes a list of the route
     information for the previous URL (or `[]` if this is the
     first handled transition)
-  @param {Array[RouteInfo]} newRoutes a list of the route
+  @param {Array[InternalRouteInfo]} newRoutes a list of the route
     information for the new URL
 
   @return {Partition}
@@ -815,6 +815,7 @@ function finalizeTransition(
     // Resolve with the final route.
     return routeInfos[routeInfos.length - 1].route!;
   } catch (e) {
+    console.log(e);
     if (!(e instanceof TransitionAbortedError)) {
       //let erroneousHandler = routeInfos.pop();
       let infos = transition.state!.routeInfos;
@@ -875,7 +876,7 @@ function doTransition(
   return router.transitionByIntent(intent, isIntermediate);
 }
 
-function routeInfosEqual(routeInfos: RouteInfo[], otherRouteInfos: RouteInfo[]) {
+function routeInfosEqual(routeInfos: InternalRouteInfo[], otherRouteInfos: InternalRouteInfo[]) {
   if (routeInfos.length !== otherRouteInfos.length) {
     return false;
   }
@@ -888,7 +889,10 @@ function routeInfosEqual(routeInfos: RouteInfo[], otherRouteInfos: RouteInfo[]) 
   return true;
 }
 
-function routeInfosSameExceptQueryParams(routeInfos: RouteInfo[], otherRouteInfos: RouteInfo[]) {
+function routeInfosSameExceptQueryParams(
+  routeInfos: InternalRouteInfo[],
+  otherRouteInfos: InternalRouteInfo[]
+) {
   if (routeInfos.length !== otherRouteInfos.length) {
     return false;
   }
@@ -932,7 +936,7 @@ function paramsEqual(params: Dict<unknown>, otherParams: Dict<unknown>) {
 
 function finalizeQueryParamChange(
   router: Router,
-  resolvedHandlers: RouteInfo[],
+  resolvedHandlers: InternalRouteInfo[],
   newQueryParams: Dict<unknown>,
   transition: Transition
 ) {
@@ -1011,9 +1015,9 @@ function notifyExistingHandlers(
 }
 
 export interface RoutePartition {
-  updatedContext: RouteInfo[];
-  exited: RouteInfo[];
-  entered: RouteInfo[];
-  unchanged: RouteInfo[];
-  reset: RouteInfo[];
+  updatedContext: InternalRouteInfo[];
+  exited: InternalRouteInfo[];
+  entered: InternalRouteInfo[];
+  unchanged: InternalRouteInfo[];
+  reset: InternalRouteInfo[];
 }

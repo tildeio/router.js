@@ -16,7 +16,7 @@ module('HandlerInfo');
 
 test('ResolvedHandlerInfos resolve to themselves', function(assert) {
   let router = new StubRouter();
-  let handlerInfo = new ResolvedRouteInfo('foo', router, createHandler('empty'), {});
+  let handlerInfo = new ResolvedRouteInfo(router, 'foo', [], {}, createHandler('empty'));
   handlerInfo.resolve().then(function(resolvedHandlerInfo) {
     assert.equal(handlerInfo, resolvedHandlerInfo);
   });
@@ -24,10 +24,10 @@ test('ResolvedHandlerInfos resolve to themselves', function(assert) {
 
 test('UnresolvedHandlerInfoByParam defaults params to {}', function(assert) {
   let router = new StubRouter();
-  let handlerInfo = new UnresolvedRouteInfoByParam('empty', router, {});
+  let handlerInfo = new UnresolvedRouteInfoByParam(router, 'empty', [], {});
   assert.deepEqual(handlerInfo.params, {});
 
-  let handlerInfo2 = new UnresolvedRouteInfoByParam('empty', router, { foo: 5 });
+  let handlerInfo2 = new UnresolvedRouteInfoByParam(router, 'empty', [], { foo: 5 });
   assert.deepEqual(handlerInfo2.params, { foo: 5 });
 });
 
@@ -124,8 +124,9 @@ test('UnresolvedHandlerInfoByParam gets its model hook called', function(assert)
   let transition = {};
 
   let handlerInfo = new UnresolvedRouteInfoByParam(
-    'empty',
     router,
+    'empty',
+    [],
     { first_name: 'Alex', last_name: 'Matchnerd' },
     createHandler('h', {
       model: function(params: Dict<unknown>, payload: Dict<unknown>) {
@@ -152,9 +153,9 @@ test('UnresolvedHandlerInfoByObject does NOT get its model hook called', functio
     });
   }
   let handlerInfo = new Handler(
+    new StubRouter(),
     'unresolved',
     ['wat'],
-    new StubRouter(),
     resolve({ name: 'dorkletons' })
   );
 

@@ -168,7 +168,7 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to single unresolved URL handlerInfo', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new UnresolvedRouteInfoByParam('foo', router, {}, handlers.foo);
+    let startingHandlerInfo = new UnresolvedRouteInfoByParam(router, 'foo', [], {}, handlers.foo);
 
     // This single unresolved handler info will be preserved
     // in the new array of handlerInfos.
@@ -197,7 +197,7 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to an already-resolved handlerInfo', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new ResolvedRouteInfo('foo', router, handlers.foo, {});
+    let startingHandlerInfo = new ResolvedRouteInfo(router, 'foo', [], {}, handlers.foo);
 
     state.routeInfos = [startingHandlerInfo];
 
@@ -223,10 +223,11 @@ scenarios.forEach(function(scenario) {
     let article = {};
 
     let startingHandlerInfo = new ResolvedRouteInfo(
-      'articles',
       router,
-      createHandler('articles'),
+      'articles',
+      [],
       { article_id: 'some-other-id' },
+      createHandler('articles'),
       article
     );
 
@@ -252,7 +253,7 @@ scenarios.forEach(function(scenario) {
   test('URLTransitionIntent applied to an already-resolved handlerInfo of different route', function(assert) {
     let state = new TransitionState();
 
-    let startingHandlerInfo = new ResolvedRouteInfo('alex', router, handlers.foo, {});
+    let startingHandlerInfo = new ResolvedRouteInfo(router, 'alex', [], {}, handlers.foo);
 
     state.routeInfos = [startingHandlerInfo];
 
@@ -279,10 +280,11 @@ scenarios.forEach(function(scenario) {
     let comment = {};
 
     let startingHandlerInfo = new ResolvedRouteInfo(
-      'articles',
       router,
-      createHandler('articles'),
+      'articles',
+      [],
       { article_id: 'some-other-id' },
+      createHandler('articles'),
       article
     );
 

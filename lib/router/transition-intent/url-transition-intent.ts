@@ -43,7 +43,7 @@ export default class URLTransitionIntent extends TransitionIntent {
       let result = results[i]!;
       let name = result.handler as string;
 
-      let newHandlerInfo = new UnresolvedRouteInfoByParam(name, this.router, result.params);
+      let newHandlerInfo = new UnresolvedRouteInfoByParam(this.router, name, [], result.params);
 
       let handler = newHandlerInfo.route;
 

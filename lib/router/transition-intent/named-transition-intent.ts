@@ -1,5 +1,5 @@
 import { Dict } from '../core';
-import HandlerInfo, {
+import InternalRouteInfo, {
   Route,
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,
@@ -140,12 +140,18 @@ export default class NamedTransitionIntent extends TransitionIntent {
     return newState;
   }
 
-  invalidateChildren(handlerInfos: HandlerInfo[], invalidateIndex: number) {
+  invalidateChildren(handlerInfos: InternalRouteInfo[], invalidateIndex: number) {
     for (let i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
       let handlerInfo = handlerInfos[i];
       if (handlerInfo.isResolved) {
-        let { name, params, route } = handlerInfos[i];
-        handlerInfos[i] = new UnresolvedRouteInfoByParam(name, this.router, params, route);
+        let { name, params, route, paramNames } = handlerInfos[i];
+        handlerInfos[i] = new UnresolvedRouteInfoByParam(
+          this.router,
+          name,
+          paramNames,
+          params,
+          route
+        );
       }
     }
   }
@@ -154,7 +160,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     name: string,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: HandlerInfo,
+    oldHandlerInfo: InternalRouteInfo,
     _targetRouteName: string,
     i: number
   ) {
@@ -186,14 +192,14 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return new UnresolvedRouteInfoByObject(name, names, this.router, objectToUse);
+    return new UnresolvedRouteInfoByObject(this.router, name, names, objectToUse);
   }
 
   createParamHandlerInfo(
     name: string,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: HandlerInfo
+    oldHandlerInfo: InternalRouteInfo
   ) {
     let params: Dict<unknown> = {};
 
@@ -223,6 +229,6 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return new UnresolvedRouteInfoByParam(name, this.router, params);
+    return new UnresolvedRouteInfoByParam(this.router, name, names, params);
   }
 }
