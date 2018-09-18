@@ -519,13 +519,7 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
 
   let oldState = (router.oldState = router.state);
   router.state = newState;
-  let oldRouteInfos = router.currentRouteInfos!;
   let currentRouteInfos = (router.currentRouteInfos = partition.unchanged.slice());
-
-  if (transition !== undefined && oldRouteInfos !== undefined && oldRouteInfos.length > 0) {
-    let fromInfos = toReadOnlyRouteInfo(oldRouteInfos);
-    transition!.from = fromInfos[fromInfos.length - 1];
-  }
 
   try {
     for (i = 0, l = partition.reset.length; i < l; i++) {
@@ -543,11 +537,6 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
 
     for (i = 0, l = partition.entered.length; i < l; i++) {
       routeEnteredOrUpdated(currentRouteInfos, partition.entered[i], true, transition!);
-    }
-
-    if (transition !== undefined && currentRouteInfos.length > 0) {
-      let toInfos = toReadOnlyRouteInfo(currentRouteInfos);
-      transition!.to = toInfos[toInfos.length - 1];
     }
   } catch (e) {
     router.state = oldState;
@@ -986,31 +975,40 @@ function notifyExistingHandlers(
   newState: TransitionState,
   newTransition: Transition
 ) {
-  let oldHandlers = router.state!.routeInfos,
+  let oldRouteInfos = router.state!.routeInfos,
     changing = [],
     i,
-    oldHandlerLen,
+    oldRouteInfoLen,
     oldHandler,
-    newHandler;
+    newRouteInfo;
 
-  oldHandlerLen = oldHandlers.length;
-  for (i = 0; i < oldHandlerLen; i++) {
-    oldHandler = oldHandlers[i];
-    newHandler = newState.routeInfos[i];
+  oldRouteInfoLen = oldRouteInfos.length;
+  for (i = 0; i < oldRouteInfoLen; i++) {
+    oldHandler = oldRouteInfos[i];
+    newRouteInfo = newState.routeInfos[i];
 
-    if (!newHandler || oldHandler.name !== newHandler.name) {
+    if (!newRouteInfo || oldHandler.name !== newRouteInfo.name) {
       break;
     }
 
-    if (!newHandler.isResolved) {
+    if (!newRouteInfo.isResolved) {
       changing.push(oldHandler);
     }
   }
 
-  router.triggerEvent(oldHandlers, true, 'willTransition', [newTransition]);
+  if (oldRouteInfoLen > 0) {
+    let fromInfos = toReadOnlyRouteInfo(oldRouteInfos);
+    newTransition!.from = fromInfos[fromInfos.length - 1];
+  }
 
+  if (newState.routeInfos.length > 0) {
+    let toInfos = toReadOnlyRouteInfo(newState.routeInfos);
+    newTransition!.to = toInfos[toInfos.length - 1];
+  }
+
+  router.triggerEvent(oldRouteInfos, true, 'willTransition', [newTransition]);
   if (router.willTransition) {
-    router.willTransition(oldHandlers, newState.routeInfos, newTransition);
+    router.willTransition(oldRouteInfos, newState.routeInfos, newTransition);
   }
 }
 

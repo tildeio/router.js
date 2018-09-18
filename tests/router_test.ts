@@ -354,7 +354,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('handleURL: Handling a nested URL triggers each handler', function(assert) {
-    assert.expect(28);
+    assert.expect(35);
 
     let posts: Dict<unknown>[] = [];
     let allPosts = { all: true };
@@ -365,7 +365,9 @@ scenarios.forEach(function(scenario) {
     let counter = 0;
 
     let postIndexHandler = createHandler('postIndex', {
-      model: function(params: Dict<unknown>) {
+      model: function(params: Dict<unknown>, transition: Transition) {
+        assert.equal(transition.from, null, 'initial transition');
+        assert.equal(transition.to && transition.to.localName, 'showAllPosts', 'going to leaf');
         // this will always get called, since it's at the root
         // of all of the routes tested here
         assert.deepEqual(
@@ -395,7 +397,7 @@ scenarios.forEach(function(scenario) {
     });
 
     let showAllPostsHandler = createHandler('showAllPosts', {
-      model(params: Dict<unknown>) {
+      model(params: Dict<unknown>, transition: Transition) {
         if (counter > 0 && counter < 4) {
           assert.equal(
             postIndexHandler.context,
@@ -405,6 +407,8 @@ scenarios.forEach(function(scenario) {
         }
 
         if (counter < 4) {
+          assert.equal(transition.from, null, 'initial transition');
+          assert.equal(transition.to && transition.to.localName, 'showAllPosts', 'at leaf');
           assert.deepEqual(
             params,
             { queryParams: {} },
@@ -488,10 +492,11 @@ scenarios.forEach(function(scenario) {
     });
 
     let showFilteredPostsHandler = createHandler('showFilteredPosts', {
-      model: function(params: Dict<unknown>) {
+      model: function(params: Dict<unknown>, transition: Transition) {
         if (counter < 4) {
           assert.ok(false, 'Should not get here');
         } else if (counter === 4) {
+          assert.equal(transition.from && transition.from.localName, 'showPopularPosts');
           assert.equal(
             postIndexHandler.context,
             posts,
@@ -504,6 +509,14 @@ scenarios.forEach(function(scenario) {
           );
           return amazingPosts;
         } else if (counter === 5) {
+          assert.equal(transition.from && transition.from.localName, 'came from same route');
+          assert.equal(transition.to && transition.to.localName, 'going to same route');
+          assert.equal(
+            transition.from && transition.from.params.filter_id,
+            'amazing',
+            'old params'
+          );
+          assert.equal(transition.to && transition.to.params.filter_id, 'sad', 'new params');
           assert.equal(
             postIndexHandler.context,
             posts,
@@ -2498,7 +2511,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('completed transitions can be saved and later retried', function(assert) {
-    assert.expect(3);
+    assert.expect(8);
 
     let post = { id: '123' },
       savedTransition: Transition;
@@ -2506,11 +2519,26 @@ scenarios.forEach(function(scenario) {
     handlers = {
       showPost: createHandler('showPost', {
         afterModel: function(model: Dict<unknown>, transition: Transition) {
+          if (savedTransition === undefined) {
+            assert.equal(transition.from && transition.from.localName, 'index', 'starting point');
+          } else {
+            assert.equal(
+              transition.from && transition.from.localName,
+              'about',
+              'new starting point'
+            );
+          }
+
+          assert.equal(transition.to && transition.to.localName, 'showPost', 'to points at leaf');
           assert.equal(model, post, "showPost's afterModel got the expected post model");
           savedTransition = transition;
         },
       }),
-      index: createHandler('index'),
+      index: createHandler('index', {
+        model(_params: Dict<unknown>, transition: Transition) {
+          assert.equal(transition.from, null);
+        },
+      }),
       about: createHandler('about', {
         setup: function() {
           assert.ok(true, 'setup was entered');
@@ -2624,13 +2652,18 @@ scenarios.forEach(function(scenario) {
   });
 
   test('An instantly aborted transition fires no hooks', function(assert) {
-    assert.expect(7);
+    assert.expect(8);
 
     let hooksShouldBeCalled = false;
 
     handlers = {
       index: createHandler('index', {
-        beforeModel: function() {
+        beforeModel: function(transition: Transition) {
+          assert.equal(
+            transition.from,
+            null,
+            'from is "null" on initial transitions even with aborts'
+          );
           assert.ok(hooksShouldBeCalled, 'index beforeModel hook should be called at this time');
         },
       }),

@@ -54,7 +54,7 @@ let ROUTE_INFO_LINKS = new WeakMap<PrivateRouteInfo, IRouteInfo>();
 
 export function toReadOnlyRouteInfo(routeInfos: PrivateRouteInfo[]) {
   return routeInfos.map((info, i) => {
-    let { name, params, queryParams } = info;
+    let { name, params, queryParams, paramNames } = info;
     let publicRouteInfo = new class RouteInfo implements IRouteInfo {
       find(predicate: (this: void, routeInfo: IRouteInfo, i: number) => boolean, thisArg: any) {
         let routeInfo;
@@ -72,6 +72,10 @@ export function toReadOnlyRouteInfo(routeInfos: PrivateRouteInfo[]) {
 
       get name() {
         return name;
+      }
+
+      get paramNames() {
+        return paramNames;
       }
 
       get parent() {
