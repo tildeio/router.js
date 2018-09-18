@@ -1,6 +1,6 @@
 language: node_js
 node_js:
-- 6
+  - 6
 
 sudo: false
 dist: trusty
@@ -14,6 +14,10 @@ cache:
 before_install:
   - curl -o- -L https://yarnpkg.com/install.sh | bash
   - export PATH=$HOME/.yarn/bin:$PATH
+
+script:
+  - yarn run problems
+  - yarn run test
 
 install:
   - yarn install --no-lockfile --non-interactive

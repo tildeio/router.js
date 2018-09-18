@@ -354,7 +354,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('handleURL: Handling a nested URL triggers each handler', function(assert) {
-    assert.expect(35);
+    assert.expect(37);
 
     let posts: Dict<unknown>[] = [];
     let allPosts = { all: true };
@@ -509,8 +509,16 @@ scenarios.forEach(function(scenario) {
           );
           return amazingPosts;
         } else if (counter === 5) {
-          assert.equal(transition.from && transition.from.localName, 'came from same route');
-          assert.equal(transition.to && transition.to.localName, 'going to same route');
+          assert.equal(
+            transition.from && transition.from.localName,
+            'showFilteredPosts',
+            'came from same route'
+          );
+          assert.equal(
+            transition.to && transition.to.localName,
+            'showFilteredPosts',
+            'going to same route'
+          );
           assert.equal(
             transition.from && transition.from.params.filter_id,
             'amazing',
