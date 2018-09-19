@@ -301,7 +301,7 @@ export default abstract class Router {
       this.recognizer,
       this.getHandler.bind(this),
       false,
-      this.getSerializer
+      this.getSerializer.bind(this)
     );
   }
 
