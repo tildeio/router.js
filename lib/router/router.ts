@@ -1,7 +1,7 @@
 import RouteRecognizer, { MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import HandlerInfo, { IHandler } from './handler-info';
+import InternalRouteInfo, { Route, toReadOnlyRouteInfo } from './route-info';
 import { logAbort, Transition } from './transition';
 import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -26,11 +26,16 @@ export interface GetSerializerFunc {
 }
 
 export interface GetHandlerFunc {
-  (name: string): IHandler | Promise<IHandler>;
+  (name: string): Route | Promise<Route>;
 }
 
 export interface DidTransitionFunc {
-  (handlerInfos: HandlerInfo[]): void;
+  (routeInfos: InternalRouteInfo[]): void;
+}
+
+export interface ParsedHandler {
+  handler: string;
+  names: string[];
 }
 
 export default abstract class Router {
@@ -38,7 +43,7 @@ export default abstract class Router {
   state?: TransitionState = undefined;
   oldState: Maybe<TransitionState> = undefined;
   activeTransition?: Transition = undefined;
-  currentHandlerInfos?: HandlerInfo[] = undefined;
+  currentRouteInfos?: InternalRouteInfo[] = undefined;
   _changedQueryParams?: Dict<unknown> = undefined;
   currentSequence = 0;
   recognizer: RouteRecognizer;
@@ -49,18 +54,18 @@ export default abstract class Router {
     this.reset();
   }
 
-  abstract getHandler(name: string): IHandler | Promise<IHandler>;
+  abstract getRoute(name: string): Route | Promise<Route>;
   abstract getSerializer(name: string): SerializerFunc | undefined;
   abstract updateURL(url: string): void;
   abstract replaceURL(url: string): void;
   abstract willTransition(
-    oldHandlerInfos: HandlerInfo[],
-    newHandlerInfos: HandlerInfo[],
+    oldRouteInfos: InternalRouteInfo[],
+    newRouteInfos: InternalRouteInfo[],
     transition: Transition
   ): void;
-  abstract didTransition(handlerInfos: HandlerInfo[]): void;
+  abstract didTransition(routeInfos: InternalRouteInfo[]): void;
   abstract triggerEvent(
-    handlerInfos: HandlerInfo[],
+    routeInfos: InternalRouteInfo[],
     ignoreFailure: boolean,
     name: string,
     args: unknown[]
@@ -99,7 +104,7 @@ export default abstract class Router {
     fireQueryParamDidChange(this, newState, changelist);
 
     if (!wasTransitioning && this.activeTransition) {
-      // One of the handlers in queryParamsDidChange
+      // One of the routes in queryParamsDidChange
       // caused a transition. Just return that transition.
       return this.activeTransition;
     } else {
@@ -115,16 +120,16 @@ export default abstract class Router {
 
       oldState.queryParams = finalizeQueryParamChange(
         this,
-        newState.handlerInfos,
+        newState.routeInfos,
         newState.queryParams,
         newTransition
       );
 
       newTransition.promise = newTransition.promise!.then(
-        (result: TransitionState | IHandler | Error | undefined) => {
+        (result: TransitionState | Route | Error | undefined) => {
           updateURL(newTransition, oldState);
           if (this.didTransition) {
-            this.didTransition(this.currentHandlerInfos!);
+            this.didTransition(this.currentRouteInfos!);
           }
           return result;
         },
@@ -147,19 +152,17 @@ export default abstract class Router {
   }
 
   /**
-    Clears the current and target route handlers and triggers exit
+    Clears the current and target route routes and triggers exit
     on each of them starting at the leaf and traversing up through
     its ancestors.
   */
   reset() {
     if (this.state) {
-      forEach<HandlerInfo>(this.state.handlerInfos.slice().reverse(), function(handlerInfo) {
-        let handler = handlerInfo.handler;
-        if (handler !== undefined) {
-          if (handler._exit !== undefined) {
-            handler._exit();
-          } else if (handler.exit !== undefined) {
-            handler.exit();
+      forEach<InternalRouteInfo>(this.state.routeInfos.slice().reverse(), function(routeInfo) {
+        let route = routeInfo.route;
+        if (route !== undefined) {
+          if (route.exit !== undefined) {
+            route.exit();
           }
         }
         return true;
@@ -168,11 +171,11 @@ export default abstract class Router {
 
     this.oldState = undefined;
     this.state = new TransitionState();
-    this.currentHandlerInfos = undefined;
+    this.currentRouteInfos = undefined;
   }
 
   /**
-    let handler = handlerInfo.handler;
+    let handler = routeInfo.handler;
     The entry point for handling a change to the URL (usually
     via the back and forward button).
 
@@ -196,7 +199,7 @@ export default abstract class Router {
   /**
     Transition into the specified named route.
 
-    If necessary, trigger the exit callback on any handlers
+    If necessary, trigger the exit callback on any routes
     that are no longer represented by the target route.
 
     @param {String} name the name of the route
@@ -214,20 +217,21 @@ export default abstract class Router {
     return doTransition(this, name, args, true);
   }
 
-  refresh(pivotHandler?: IHandler) {
+  refresh(pivotRoute?: Route) {
     let previousTransition = this.activeTransition;
     let state = previousTransition ? previousTransition.state : this.state;
-    let handlerInfos = state!.handlerInfos;
+    let routeInfos = state!.routeInfos;
 
-    if (pivotHandler === undefined) {
-      pivotHandler = handlerInfos[0].handler;
+    if (pivotRoute === undefined) {
+      pivotRoute = routeInfos[0].route;
     }
 
     log(this, 'Starting a refresh transition');
-    let name = handlerInfos[handlerInfos.length - 1].name;
+    let name = routeInfos[routeInfos.length - 1].name;
     let intent = new NamedTransitionIntent(
       name,
-      pivotHandler,
+      this,
+      pivotRoute,
       [],
       this._changedQueryParams || state!.queryParams
     );
@@ -264,69 +268,57 @@ export default abstract class Router {
 
     @return {String} a URL
   */
-  generate(handlerName: string, ...args: any[]) {
+  generate(routeName: string, ...args: any[]) {
     let partitionedArgs = extractQueryParams(args),
       suppliedParams = partitionedArgs[0],
       queryParams = partitionedArgs[1];
 
     // Construct a TransitionIntent with the provided params
     // and apply it to the present state of the router.
-    let intent = new NamedTransitionIntent(handlerName, undefined, suppliedParams);
-    let state = intent.applyToState(
-      this.state!,
-      this.recognizer,
-      this.getHandler.bind(this),
-      false,
-      this.getSerializer.bind(this)
-    );
+    let intent = new NamedTransitionIntent(routeName, this, undefined, suppliedParams);
+    let state = intent.applyToState(this.state!, false);
 
     let params: Params = {};
-    for (let i = 0, len = state.handlerInfos.length; i < len; ++i) {
-      let handlerInfo = state.handlerInfos[i];
-      let handlerParams = handlerInfo.serialize();
-      merge(params, handlerParams);
+    for (let i = 0, len = state.routeInfos.length; i < len; ++i) {
+      let routeInfo = state.routeInfos[i];
+      let routeParams = routeInfo.serialize();
+      merge(params, routeParams);
     }
     params.queryParams = queryParams;
 
-    return this.recognizer.generate(handlerName, params);
+    return this.recognizer.generate(routeName, params);
   }
 
-  applyIntent(handlerName: string, contexts: Dict<unknown>[]) {
-    let intent = new NamedTransitionIntent(handlerName, undefined, contexts);
+  applyIntent(routeName: string, contexts: Dict<unknown>[]) {
+    let intent = new NamedTransitionIntent(routeName, this, undefined, contexts);
 
     let state = (this.activeTransition && this.activeTransition.state) || this.state!;
 
-    return intent.applyToState(
-      state,
-      this.recognizer,
-      this.getHandler.bind(this),
-      false,
-      this.getSerializer.bind(this)
-    );
+    return intent.applyToState(state, false);
   }
 
   isActiveIntent(
-    handlerName: string,
+    routeName: string,
     contexts: any[],
     queryParams?: Dict<unknown>,
     _state?: TransitionState
   ) {
     let state = _state || this.state!,
-      targetHandlerInfos = state.handlerInfos,
-      handlerInfo,
+      targetRouteInfos = state.routeInfos,
+      routeInfo,
       len;
 
-    if (!targetHandlerInfos.length) {
+    if (!targetRouteInfos.length) {
       return false;
     }
 
-    let targetHandler = targetHandlerInfos[targetHandlerInfos.length - 1].name;
-    let recogHandlers = this.recognizer.handlersFor(targetHandler) as IHandler[];
+    let targetHandler = targetRouteInfos[targetRouteInfos.length - 1].name;
+    let recogHandlers: ParsedHandler[] = this.recognizer.handlersFor(targetHandler);
 
     let index = 0;
     for (len = recogHandlers.length; index < len; ++index) {
-      handlerInfo = targetHandlerInfos[index];
-      if (handlerInfo.name === handlerName) {
+      routeInfo = targetRouteInfos[index];
+      if (routeInfo.name === routeName) {
         break;
       }
     }
@@ -337,24 +329,16 @@ export default abstract class Router {
     }
 
     let testState = new TransitionState();
-    testState.handlerInfos = targetHandlerInfos.slice(0, index + 1);
+    testState.routeInfos = targetRouteInfos.slice(0, index + 1);
     recogHandlers = recogHandlers.slice(0, index + 1);
 
-    let intent = new NamedTransitionIntent(targetHandler, undefined, contexts);
+    let intent = new NamedTransitionIntent(targetHandler, this, undefined, contexts);
 
-    let newState = intent.applyToHandlers(
-      testState,
-      recogHandlers,
-      this.getHandler.bind(this),
-      targetHandler,
-      true,
-      true,
-      this.getSerializer.bind(this)
-    );
+    let newState = intent.applyToHandlers(testState, recogHandlers, targetHandler, true, true);
 
-    let handlersEqual = handlerInfosEqual(newState.handlerInfos, testState.handlerInfos);
-    if (!queryParams || !handlersEqual) {
-      return handlersEqual;
+    let routesEqual = routeInfosEqual(newState.routeInfos, testState.routeInfos);
+    if (!queryParams || !routesEqual) {
+      return routesEqual;
     }
 
     // Get a hash of QPs that will still be active on new route
@@ -368,16 +352,16 @@ export default abstract class Router {
       }
     }
 
-    return handlersEqual && !getChangelist(activeQPsOnNewHandler, queryParams);
+    return routesEqual && !getChangelist(activeQPsOnNewHandler, queryParams);
   }
 
-  isActive(handlerName: string, ...args: unknown[]) {
+  isActive(routeName: string, ...args: unknown[]) {
     let partitionedArgs = extractQueryParams(args);
-    return this.isActiveIntent(handlerName, partitionedArgs[0], partitionedArgs[1]);
+    return this.isActiveIntent(routeName, partitionedArgs[0], partitionedArgs[1]);
   }
 
   trigger(name: string, ...args: any[]) {
-    this.triggerEvent(this.currentHandlerInfos!, false, name, args);
+    this.triggerEvent(this.currentRouteInfos!, false, name, args);
   }
 }
 
@@ -386,16 +370,10 @@ function getTransitionByIntent(this: Router, intent: TransitionIntent, isInterme
   let oldState = wasTransitioning ? this.activeTransition!.state : this.state;
   let newTransition: Transition;
 
-  let newState = intent.applyToState(
-    oldState!,
-    this.recognizer,
-    this.getHandler.bind(this),
-    isIntermediate,
-    this.getSerializer.bind(this)
-  );
+  let newState = intent.applyToState(oldState!, isIntermediate);
   let queryParamChangelist = getChangelist(oldState!.queryParams, newState.queryParams);
 
-  if (handlerInfosEqual(newState.handlerInfos, oldState!.handlerInfos)) {
+  if (routeInfosEqual(newState.routeInfos, oldState!.routeInfos)) {
     // This is a no-op transition. See if query params changed.
     if (queryParamChangelist) {
       newTransition = this.queryParamsTransition(
@@ -424,7 +402,7 @@ function getTransitionByIntent(this: Router, intent: TransitionIntent, isInterme
 
   // transition is to same route with same params, only query params differ.
   // not caught above probably because refresh() has been used
-  if (handlerInfosSameExceptQueryParams(newState.handlerInfos, oldState!.handlerInfos)) {
+  if (routeInfosSameExceptQueryParams(newState.routeInfos, oldState!.routeInfos)) {
     newTransition.queryParamsOnly = true;
   }
 
@@ -437,7 +415,7 @@ function getTransitionByIntent(this: Router, intent: TransitionIntent, isInterme
   // Transition promises by default resolve with resolved state.
   // For our purposes, swap out the promise to resolve
   // after the transition has been finalized.
-  newTransition.promise = newTransition.promise!.then<IHandler>(
+  newTransition.promise = newTransition.promise!.then<Route>(
     (result: TransitionState) => {
       return finalizeTransition(newTransition, result);
     },
@@ -470,7 +448,7 @@ function fireQueryParamDidChange(
     // changed query params given that no activeTransition
     // is guaranteed to have occurred.
     router._changedQueryParams = queryParamChangelist.all;
-    router.triggerEvent(newState.handlerInfos, true, 'queryParamsDidChange', [
+    router.triggerEvent(newState.routeInfos, true, 'queryParamsDidChange', [
       queryParamChangelist.changed,
       queryParamChangelist.all,
       queryParamChangelist.removed,
@@ -482,11 +460,11 @@ function fireQueryParamDidChange(
 /**
   @private
 
-  Takes an Array of `HandlerInfo`s, figures out which ones are
+  Takes an Array of `RouteInfo`s, figures out which ones are
   exiting, entering, or changing contexts, and calls the
-  proper handler hooks.
+  proper route hooks.
 
-  For example, consider the following tree of handlers. Each handler is
+  For example, consider the following tree of routes. Each route is
   followed by the URL segment it handles.
 
   ```
@@ -502,7 +480,7 @@ function fireQueryParamDidChange(
 
   1. A URL transition to `/posts/1`.
      1. Triggers the `*model` callbacks on the
-        `index`, `posts`, and `showPost` handlers
+        `index`, `posts`, and `showPost` routes
      2. Triggers the `enter` callback on the same
      3. Triggers the `setup` callback on the same
   2. A direct transition to `newPost`
@@ -521,60 +499,54 @@ function fireQueryParamDidChange(
   @param {TransitionState} newState
 */
 function setupContexts(router: Router, newState: TransitionState, transition?: Transition) {
-  let partition = partitionHandlers(router.state!, newState);
-  let i, l, handler;
+  let partition = partitionRoutes(router.state!, newState);
+  let i, l, route;
 
   for (i = 0, l = partition.exited.length; i < l; i++) {
-    handler = partition.exited[i].handler;
-    delete handler!.context;
+    route = partition.exited[i].route;
+    delete route!.context;
 
-    if (handler !== undefined) {
-      if (handler._reset !== undefined) {
-        handler._reset(true, transition);
-      } else if (handler.reset !== undefined) {
-        handler.reset(true, transition);
+    if (route !== undefined) {
+      if (route.reset !== undefined) {
+        route.reset(true, transition);
       }
 
-      if (handler._exit !== undefined) {
-        handler._exit(transition);
-      } else if (handler.exit !== undefined) {
-        handler.exit(transition);
+      if (route.exit !== undefined) {
+        route.exit(transition);
       }
     }
   }
 
   let oldState = (router.oldState = router.state);
   router.state = newState;
-  let currentHandlerInfos = (router.currentHandlerInfos = partition.unchanged.slice());
+  let currentRouteInfos = (router.currentRouteInfos = partition.unchanged.slice());
 
   try {
     for (i = 0, l = partition.reset.length; i < l; i++) {
-      handler = partition.reset[i].handler;
-      if (handler !== undefined) {
-        if (handler._reset !== undefined) {
-          handler._reset(false, transition);
-        } else if (handler.reset !== undefined) {
-          handler.reset(false, transition);
+      route = partition.reset[i].route;
+      if (route !== undefined) {
+        if (route.reset !== undefined) {
+          route.reset(false, transition);
         }
       }
     }
 
     for (i = 0, l = partition.updatedContext.length; i < l; i++) {
-      handlerEnteredOrUpdated(currentHandlerInfos, partition.updatedContext[i], false, transition!);
+      routeEnteredOrUpdated(currentRouteInfos, partition.updatedContext[i], false, transition!);
     }
 
     for (i = 0, l = partition.entered.length; i < l; i++) {
-      handlerEnteredOrUpdated(currentHandlerInfos, partition.entered[i], true, transition!);
+      routeEnteredOrUpdated(currentRouteInfos, partition.entered[i], true, transition!);
     }
   } catch (e) {
     router.state = oldState;
-    router.currentHandlerInfos = oldState!.handlerInfos;
+    router.currentRouteInfos = oldState!.routeInfos;
     throw e;
   }
 
   router.state.queryParams = finalizeQueryParamChange(
     router,
-    currentHandlerInfos,
+    currentRouteInfos,
     newState.queryParams,
     transition!
   );
@@ -586,21 +558,19 @@ function setupContexts(router: Router, newState: TransitionState, transition?: T
   Helper method used by setupContexts. Handles errors or redirects
   that may happen in enter/setup.
 */
-function handlerEnteredOrUpdated(
-  currentHandlerInfos: HandlerInfo[],
-  handlerInfo: HandlerInfo,
+function routeEnteredOrUpdated(
+  currentRouteInfos: InternalRouteInfo[],
+  routeInfo: InternalRouteInfo,
   enter: boolean,
-  transition: Transition
+  transition?: Transition
 ) {
-  let handler = handlerInfo.handler,
-    context = handlerInfo.context;
+  let route = routeInfo.route,
+    context = routeInfo.context;
 
-  function _handlerEnteredOrUpdated(handler: IHandler) {
+  function _routeEnteredOrUpdated(route: Route) {
     if (enter) {
-      if (handler._enter !== undefined) {
-        handler._enter(transition);
-      } else if (handler.enter !== undefined) {
-        handler.enter(transition);
+      if (route.enter !== undefined) {
+        route.enter(transition!);
       }
     }
 
@@ -608,33 +578,29 @@ function handlerEnteredOrUpdated(
       throw new TransitionAbortedError();
     }
 
-    handler.context = context;
+    route.context = context;
 
-    if (handler._contextDidChange !== undefined) {
-      handler._contextDidChange();
-    } else if (handler.contextDidChange !== undefined) {
-      handler.contextDidChange();
+    if (route.contextDidChange !== undefined) {
+      route.contextDidChange();
     }
 
-    if (handler._setup !== undefined) {
-      handler._setup(context!, transition);
-    } else if (handler.setup !== undefined) {
-      handler.setup(context!, transition);
+    if (route.setup !== undefined) {
+      route.setup(context!, transition!);
     }
 
     if (transition && transition.isAborted) {
       throw new TransitionAbortedError();
     }
 
-    currentHandlerInfos.push(handlerInfo);
-    return handler;
+    currentRouteInfos.push(routeInfo);
+    return route;
   }
 
-  // If the handler doesn't exist, it means we haven't resolved the handler promise yet
-  if (!handler) {
-    handlerInfo.handlerPromise = handlerInfo.handlerPromise.then(_handlerEnteredOrUpdated);
+  // If the route doesn't exist, it means we haven't resolved the route promise yet
+  if (route === undefined) {
+    routeInfo.routePromise = routeInfo.routePromise.then(_routeEnteredOrUpdated);
   } else {
-    _handlerEnteredOrUpdated(handler);
+    _routeEnteredOrUpdated(route);
   }
 
   return true;
@@ -644,48 +610,48 @@ function handlerEnteredOrUpdated(
   @private
 
   This function is called when transitioning from one URL to
-  another to determine which handlers are no longer active,
-  which handlers are newly active, and which handlers remain
+  another to determine which routes are no longer active,
+  which routes are newly active, and which routes remain
   active but have their context changed.
 
-  Take a list of old handlers and new handlers and partition
+  Take a list of old routes and new routes and partition
   them into four buckets:
 
-  * unchanged: the handler was active in both the old and
+  * unchanged: the route was active in both the old and
     new URL, and its context remains the same
-  * updated context: the handler was active in both the
-    old and new URL, but its context changed. The handler's
+  * updated context: the route was active in both the
+    old and new URL, but its context changed. The route's
     `setup` method, if any, will be called with the new
     context.
-  * exited: the handler was active in the old URL, but is
+  * exited: the route was active in the old URL, but is
     no longer active.
-  * entered: the handler was not active in the old URL, but
+  * entered: the route was not active in the old URL, but
     is now active.
 
-  The PartitionedHandlers structure has four fields:
+  The PartitionedRoutes structure has four fields:
 
-  * `updatedContext`: a list of `HandlerInfo` objects that
-    represent handlers that remain active but have a changed
+  * `updatedContext`: a list of `RouteInfo` objects that
+    represent routes that remain active but have a changed
     context
-  * `entered`: a list of `HandlerInfo` objects that represent
-    handlers that are newly active
-  * `exited`: a list of `HandlerInfo` objects that are no
+  * `entered`: a list of `RouteInfo` objects that represent
+    routes that are newly active
+  * `exited`: a list of `RouteInfo` objects that are no
     longer active.
-  * `unchanged`: a list of `HanderInfo` objects that remain active.
+  * `unchanged`: a list of `RouteInfo` objects that remain active.
 
-  @param {Array[HandlerInfo]} oldHandlers a list of the handler
+  @param {Array[InternalRouteInfo]} oldRoutes a list of the route
     information for the previous URL (or `[]` if this is the
     first handled transition)
-  @param {Array[HandlerInfo]} newHandlers a list of the handler
+  @param {Array[InternalRouteInfo]} newRoutes a list of the route
     information for the new URL
 
   @return {Partition}
 */
-function partitionHandlers(oldState: TransitionState, newState: TransitionState) {
-  let oldHandlerInfos = oldState.handlerInfos;
-  let newHandlerInfos = newState.handlerInfos;
+function partitionRoutes(oldState: TransitionState, newState: TransitionState) {
+  let oldRouteInfos = oldState.routeInfos;
+  let newRouteInfos = newState.routeInfos;
 
-  let handlers: HandlerPartition = {
+  let routes: RoutePartition = {
     updatedContext: [],
     exited: [],
     entered: [],
@@ -693,40 +659,40 @@ function partitionHandlers(oldState: TransitionState, newState: TransitionState)
     reset: [],
   };
 
-  let handlerChanged,
+  let routeChanged,
     contextChanged = false,
     i,
     l;
 
-  for (i = 0, l = newHandlerInfos.length; i < l; i++) {
-    let oldHandlerInfo = oldHandlerInfos[i],
-      newHandlerInfo = newHandlerInfos[i];
+  for (i = 0, l = newRouteInfos.length; i < l; i++) {
+    let oldRouteInfo = oldRouteInfos[i],
+      newRouteInfo = newRouteInfos[i];
 
-    if (!oldHandlerInfo || oldHandlerInfo.handler !== newHandlerInfo.handler) {
-      handlerChanged = true;
+    if (!oldRouteInfo || oldRouteInfo.route !== newRouteInfo.route) {
+      routeChanged = true;
     }
 
-    if (handlerChanged) {
-      handlers.entered.push(newHandlerInfo);
-      if (oldHandlerInfo) {
-        handlers.exited.unshift(oldHandlerInfo);
+    if (routeChanged) {
+      routes.entered.push(newRouteInfo);
+      if (oldRouteInfo) {
+        routes.exited.unshift(oldRouteInfo);
       }
-    } else if (contextChanged || oldHandlerInfo.context !== newHandlerInfo.context) {
+    } else if (contextChanged || oldRouteInfo.context !== newRouteInfo.context) {
       contextChanged = true;
-      handlers.updatedContext.push(newHandlerInfo);
+      routes.updatedContext.push(newRouteInfo);
     } else {
-      handlers.unchanged.push(oldHandlerInfo);
+      routes.unchanged.push(oldRouteInfo);
     }
   }
 
-  for (i = newHandlerInfos.length, l = oldHandlerInfos.length; i < l; i++) {
-    handlers.exited.unshift(oldHandlerInfos[i]);
+  for (i = newRouteInfos.length, l = oldRouteInfos.length; i < l; i++) {
+    routes.exited.unshift(oldRouteInfos[i]);
   }
 
-  handlers.reset = handlers.updatedContext.slice();
-  handlers.reset.reverse();
+  routes.reset = routes.updatedContext.slice();
+  routes.reset.reverse();
 
-  return handlers;
+  return routes;
 }
 
 function updateURL(transition: Transition, state: TransitionState, _inputUrl?: string) {
@@ -737,24 +703,24 @@ function updateURL(transition: Transition, state: TransitionState, _inputUrl?: s
   }
 
   let { router } = transition;
-  let { handlerInfos } = state;
-  let { name: handlerName } = handlerInfos[handlerInfos.length - 1];
+  let { routeInfos } = state;
+  let { name: routeName } = routeInfos[routeInfos.length - 1];
   let params: Dict<unknown> = {};
 
-  for (let i = handlerInfos.length - 1; i >= 0; --i) {
-    let handlerInfo = handlerInfos[i];
-    merge(params, handlerInfo.params);
-    if (handlerInfo.handler!.inaccessibleByURL) {
+  for (let i = routeInfos.length - 1; i >= 0; --i) {
+    let routeInfo = routeInfos[i];
+    merge(params, routeInfo.params);
+    if (routeInfo.route!.inaccessibleByURL) {
       urlMethod = null;
     }
   }
 
   if (urlMethod) {
     params.queryParams = transition._visibleQueryParams || state.queryParams;
-    let url = router.recognizer.generate(handlerName, params as Params);
+    let url = router.recognizer.generate(routeName, params as Params);
 
     // transitions during the initial transition must always use replaceURL.
-    // When the app boots, you are at a url, e.g. /foo. If some handler
+    // When the app boots, you are at a url, e.g. /foo. If some route
     // redirects to bar as part of the initial transition, you don't want to
     // add a history entry for /foo. If you do, pressing back will immediately
     // hit the redirect again and take you back to /bar, thus killing the back
@@ -762,7 +728,7 @@ function updateURL(transition: Transition, state: TransitionState, _inputUrl?: s
     let initial = transition.isCausedByInitialTransition;
 
     // say you are at / and you click a link to route /foo. In /foo's
-    // handler, the transition is aborted using replacewith('/bar').
+    // route, the transition is aborted using replacewith('/bar').
     // Because the current url is still /, the history entry for / is
     // removed from the history. Clicking back will take you to the page
     // you were on before /, which is often not even the app, thus killing
@@ -796,12 +762,12 @@ function updateURL(transition: Transition, state: TransitionState, _inputUrl?: s
   @private
 
   Updates the URL (if necessary) and calls `setupContexts`
-  to update the router's array of `currentHandlerInfos`.
+  to update the router's array of `currentRouteInfos`.
  */
 function finalizeTransition(
   transition: Transition,
   newState: TransitionState
-): IHandler | Promise<never> {
+): Route | Promise<never> {
   try {
     log(
       transition.router,
@@ -810,15 +776,15 @@ function finalizeTransition(
     );
 
     let router = transition.router,
-      handlerInfos = newState.handlerInfos;
+      routeInfos = newState.routeInfos;
 
     // Run all the necessary enter/setup/exit hooks
     setupContexts(router, newState, transition);
 
     // Check if a redirect occurred in enter/setup
     if (transition.isAborted) {
-      // TODO: cleaner way? distinguish b/w targetHandlerInfos?
-      router.state!.handlerInfos = router.currentHandlerInfos!;
+      // TODO: cleaner way? distinguish b/w targetRouteInfos?
+      router.state!.routeInfos = router.currentRouteInfos!;
       return Promise.reject(logAbort(transition));
     }
 
@@ -827,21 +793,22 @@ function finalizeTransition(
     transition.isActive = false;
     router.activeTransition = undefined;
 
-    router.triggerEvent(router.currentHandlerInfos!, true, 'didTransition', []);
+    router.triggerEvent(router.currentRouteInfos!, true, 'didTransition', []);
 
     if (router.didTransition) {
-      router.didTransition(router.currentHandlerInfos!);
+      router.didTransition(router.currentRouteInfos!);
     }
 
     log(router, transition.sequence, 'TRANSITION COMPLETE.');
 
-    // Resolve with the final handler.
-    return handlerInfos[handlerInfos.length - 1].handler!;
+    // Resolve with the final route.
+    return routeInfos[routeInfos.length - 1].route!;
   } catch (e) {
+    console.log(e);
     if (!(e instanceof TransitionAbortedError)) {
-      //let erroneousHandler = handlerInfos.pop();
-      let infos = transition.state!.handlerInfos;
-      transition.trigger(true, 'error', e, transition, infos[infos.length - 1].handler);
+      //let erroneousHandler = routeInfos.pop();
+      let infos = transition.state!.routeInfos;
+      transition.trigger(true, 'error', e, transition, infos[infos.length - 1].route);
       transition.abort();
     }
 
@@ -879,51 +846,52 @@ function doTransition(
 
     // A query param update is really just a transition
     // into the route you're already on.
-    let { handlerInfos } = router.state!;
+    let { routeInfos } = router.state!;
     intent = new NamedTransitionIntent(
-      handlerInfos[handlerInfos.length - 1].name,
+      routeInfos[routeInfos.length - 1].name,
+      router,
       undefined,
       [],
       queryParams
     );
   } else if (name.charAt(0) === '/') {
     log(router, 'Attempting URL transition to ' + name);
-    intent = new URLTransitionIntent(name);
+    intent = new URLTransitionIntent(name, router);
   } else {
     log(router, 'Attempting transition to ' + name);
-    intent = new NamedTransitionIntent(name, undefined, modelsArray, queryParams);
+    intent = new NamedTransitionIntent(name, router, undefined, modelsArray, queryParams);
   }
 
   return router.transitionByIntent(intent, isIntermediate);
 }
 
-function handlerInfosEqual(handlerInfos: HandlerInfo[], otherHandlerInfos: HandlerInfo[]) {
-  if (handlerInfos.length !== otherHandlerInfos.length) {
+function routeInfosEqual(routeInfos: InternalRouteInfo[], otherRouteInfos: InternalRouteInfo[]) {
+  if (routeInfos.length !== otherRouteInfos.length) {
     return false;
   }
 
-  for (let i = 0, len = handlerInfos.length; i < len; ++i) {
-    if (handlerInfos[i] !== otherHandlerInfos[i]) {
+  for (let i = 0, len = routeInfos.length; i < len; ++i) {
+    if (routeInfos[i] !== otherRouteInfos[i]) {
       return false;
     }
   }
   return true;
 }
 
-function handlerInfosSameExceptQueryParams(
-  handlerInfos: HandlerInfo[],
-  otherHandlerInfos: HandlerInfo[]
+function routeInfosSameExceptQueryParams(
+  routeInfos: InternalRouteInfo[],
+  otherRouteInfos: InternalRouteInfo[]
 ) {
-  if (handlerInfos.length !== otherHandlerInfos.length) {
+  if (routeInfos.length !== otherRouteInfos.length) {
     return false;
   }
 
-  for (let i = 0, len = handlerInfos.length; i < len; ++i) {
-    if (handlerInfos[i].name !== otherHandlerInfos[i].name) {
+  for (let i = 0, len = routeInfos.length; i < len; ++i) {
+    if (routeInfos[i].name !== otherRouteInfos[i].name) {
       return false;
     }
 
-    if (!paramsEqual(handlerInfos[i].params, otherHandlerInfos[i].params)) {
+    if (!paramsEqual(routeInfos[i].params, otherRouteInfos[i].params)) {
       return false;
     }
   }
@@ -957,7 +925,7 @@ function paramsEqual(params: Dict<unknown>, otherParams: Dict<unknown>) {
 
 function finalizeQueryParamChange(
   router: Router,
-  resolvedHandlers: HandlerInfo[],
+  resolvedHandlers: InternalRouteInfo[],
   newQueryParams: Dict<unknown>,
   transition: Transition
 ) {
@@ -1007,38 +975,47 @@ function notifyExistingHandlers(
   newState: TransitionState,
   newTransition: Transition
 ) {
-  let oldHandlers = router.state!.handlerInfos,
+  let oldRouteInfos = router.state!.routeInfos,
     changing = [],
     i,
-    oldHandlerLen,
+    oldRouteInfoLen,
     oldHandler,
-    newHandler;
+    newRouteInfo;
 
-  oldHandlerLen = oldHandlers.length;
-  for (i = 0; i < oldHandlerLen; i++) {
-    oldHandler = oldHandlers[i];
-    newHandler = newState.handlerInfos[i];
+  oldRouteInfoLen = oldRouteInfos.length;
+  for (i = 0; i < oldRouteInfoLen; i++) {
+    oldHandler = oldRouteInfos[i];
+    newRouteInfo = newState.routeInfos[i];
 
-    if (!newHandler || oldHandler.name !== newHandler.name) {
+    if (!newRouteInfo || oldHandler.name !== newRouteInfo.name) {
       break;
     }
 
-    if (!newHandler.isResolved) {
+    if (!newRouteInfo.isResolved) {
       changing.push(oldHandler);
     }
   }
 
-  router.triggerEvent(oldHandlers, true, 'willTransition', [newTransition]);
+  if (oldRouteInfoLen > 0) {
+    let fromInfos = toReadOnlyRouteInfo(oldRouteInfos);
+    newTransition!.from = fromInfos[fromInfos.length - 1];
+  }
 
+  if (newState.routeInfos.length > 0) {
+    let toInfos = toReadOnlyRouteInfo(newState.routeInfos);
+    newTransition!.to = toInfos[toInfos.length - 1];
+  }
+
+  router.triggerEvent(oldRouteInfos, true, 'willTransition', [newTransition]);
   if (router.willTransition) {
-    router.willTransition(oldHandlers, newState.handlerInfos, newTransition);
+    router.willTransition(oldRouteInfos, newState.routeInfos, newTransition);
   }
 }
 
-export interface HandlerPartition {
-  updatedContext: HandlerInfo[];
-  exited: HandlerInfo[];
-  entered: HandlerInfo[];
-  unchanged: HandlerInfo[];
-  reset: HandlerInfo[];
+export interface RoutePartition {
+  updatedContext: InternalRouteInfo[];
+  exited: InternalRouteInfo[];
+  entered: InternalRouteInfo[];
+  unchanged: InternalRouteInfo[];
+  reset: InternalRouteInfo[];
 }

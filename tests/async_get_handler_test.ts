@@ -1,4 +1,4 @@
-import Router, { IHandler } from 'router';
+import Router, { Route } from 'router';
 import { Dict } from 'router/core';
 import { Promise } from 'rsvp';
 import { createHandler } from './test_helpers';
@@ -6,7 +6,7 @@ import { createHandler } from './test_helpers';
 // Intentionally use QUnit.module instead of module from test_helpers
 // so that we avoid using Backburner to handle the async portions of
 // the test suite
-let handlers: Dict<IHandler>;
+let handlers: Dict<Route>;
 let router: Router;
 QUnit.module('Async Get Handler', {
   beforeEach: function() {
@@ -19,7 +19,7 @@ QUnit.module('Async Get Handler', {
       willTransition() {}
       replaceURL() {}
       triggerEvent() {}
-      getHandler(_name: string): never {
+      getRoute(_name: string): never {
         throw new Error('never');
       }
 
@@ -47,7 +47,7 @@ QUnit.module('Async Get Handler', {
 QUnit.test('can transition to lazily-resolved routes', function(assert) {
   let done = assert.async();
 
-  router.getHandler = function(name: string) {
+  router.getRoute = function(name: string) {
     return new Promise(function(resolve) {
       setTimeout(function() {
         resolve(handlers[name] || (handlers[name] = createHandler('empty')));
@@ -83,7 +83,7 @@ QUnit.test('calls hooks of lazily-resolved routes in order', function(assert) {
   let done = assert.async();
   let operations: string[] = [];
 
-  router.getHandler = function(name: string) {
+  router.getRoute = function(name: string) {
     operations.push('get handler ' + name);
     return new Promise(function(resolve) {
       let timeoutLength = name === 'foo' ? 100 : 1;

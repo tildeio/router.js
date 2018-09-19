@@ -1,7 +1,7 @@
 import Backburner from 'backburner';
-import Router, { IHandler, Transition } from 'router';
+import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, { noopGetHandler, UnresolvedHandlerInfoByParam } from 'router/handler-info';
+import HandlerInfo, { UnresolvedRouteInfoByParam } from 'router/route-info';
 import TransitionAbortedError from 'router/transition-aborted-error';
 import { UnrecognizedURLError } from 'router/unrecognized-url-error';
 import { configure, resolve } from 'rsvp';
@@ -114,34 +114,64 @@ export {
   assertAbort,
 };
 
-export function createHandler(name: string, options?: Dict<unknown>): IHandler {
+export function createHandler(name: string, options?: Dict<unknown>): Route {
   return Object.assign(
-    { name, _handlerName: name, context: undefined, names: [], handler: name },
+    { name, routeName: name, context: undefined, names: [], handler: name },
     options
   );
 }
 
+export class StubRouter extends Router {
+  getRoute(_name: string) {
+    return {} as Route;
+  }
+  getSerializer(_name: string) {
+    return () => {};
+  }
+  updateURL(_url: string): void {
+    throw new Error('Method not implemented.');
+  }
+  replaceURL(_url: string): void {
+    throw new Error('Method not implemented.');
+  }
+  willTransition(
+    _oldHandlerInfos: HandlerInfo[],
+    _newHandlerInfos: HandlerInfo[],
+    _transition: Transition
+  ): void {
+    throw new Error('Method not implemented.');
+  }
+  didTransition(_handlerInfos: HandlerInfo[]): void {
+    throw new Error('Method not implemented.');
+  }
+  triggerEvent(
+    _handlerInfos: HandlerInfo[],
+    _ignoreFailure: boolean,
+    _name: string,
+    _args: unknown[]
+  ): void {
+    throw new Error('Method not implemented.');
+  }
+}
+
 export function createHandlerInfo(name: string, options: Dict<unknown> = {}): HandlerInfo {
   class Stub extends HandlerInfo {
-    constructor(name: string, handler?: IHandler) {
-      super(name, handler);
+    constructor(name: string, router: Router, handler?: Route) {
+      super(router, name, [], handler);
     }
     getModel(_transition: Transition) {
-      return {};
+      return {} as any;
     }
     getUnresolved() {
-      return new UnresolvedHandlerInfoByParam('empty', noopGetHandler, {});
+      return new UnresolvedRouteInfoByParam(this.router, 'empty', [], {});
     }
-    getHandler = (name: string) => {
-      return createHandler(name);
-    };
   }
 
-  let handler = (options.handler as IHandler) || createHandler('foo');
+  let handler = (options.handler as Route) || createHandler('foo');
   delete options.handler;
 
   Object.assign(Stub.prototype, options);
-  let stub = new Stub(name, handler);
+  let stub = new Stub(name, new StubRouter(), handler);
   return stub;
 }
 
@@ -162,12 +192,12 @@ export function trigger(
 
   for (let i = handlerInfos.length - 1; i >= 0; i--) {
     let currentHandlerInfo = handlerInfos[i],
-      currentHandler = currentHandlerInfo.handler;
+      currentHandler = currentHandlerInfo.route;
 
     // If there is no handler, it means the handler hasn't resolved yet which
     // means that we should trigger the event later when the handler is available
     if (!currentHandler) {
-      currentHandlerInfo.handlerPromise!.then(function(resolvedHandler) {
+      currentHandlerInfo.routePromise!.then(function(resolvedHandler) {
         resolvedHandler.events![name].apply(resolvedHandler, args);
       });
       continue;

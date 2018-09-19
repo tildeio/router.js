@@ -1,112 +1,87 @@
-import RouteRecognizer from 'route-recognizer';
 import { Dict } from '../core';
-import HandlerInfo, {
-  IHandler,
-  UnresolvedHandlerInfoByObject,
-  UnresolvedHandlerInfoByParam,
-} from '../handler-info';
-import { GetHandlerFunc, GetSerializerFunc, SerializerFunc } from '../router';
+import InternalRouteInfo, {
+  Route,
+  UnresolvedRouteInfoByObject,
+  UnresolvedRouteInfoByParam,
+} from '../route-info';
+import Router, { ParsedHandler } from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import { extractQueryParams, isParam, merge } from '../utils';
 
 export default class NamedTransitionIntent extends TransitionIntent {
   name: string;
-  pivotHandler?: IHandler;
+  pivotHandler?: Route;
   contexts: Dict<unknown>[];
   queryParams: Dict<unknown>;
   preTransitionState?: TransitionState = undefined;
 
   constructor(
     name: string,
-    pivotHandler: IHandler | undefined,
+    router: Router,
+    pivotHandler: Route | undefined,
     contexts: Dict<unknown>[] = [],
     queryParams: Dict<unknown> = {}
   ) {
-    super();
+    super(router);
     this.name = name;
     this.pivotHandler = pivotHandler;
     this.contexts = contexts;
     this.queryParams = queryParams;
   }
 
-  applyToState(
-    oldState: TransitionState,
-    recognizer: RouteRecognizer,
-    getHandler: GetHandlerFunc,
-    isIntermediate: boolean,
-    getSerializer: GetSerializerFunc
-  ) {
+  applyToState(oldState: TransitionState, isIntermediate: boolean) {
     // TODO: WTF fix me
     let partitionedArgs = extractQueryParams([this.name].concat(this.contexts as any)),
       pureArgs = partitionedArgs[0],
-      handlers = recognizer.handlersFor(pureArgs[0]);
+      handlers: ParsedHandler[] = this.router.recognizer.handlersFor(pureArgs[0]);
 
     let targetRouteName = handlers[handlers.length - 1].handler;
 
-    return this.applyToHandlers(
-      oldState,
-      handlers,
-      getHandler,
-      targetRouteName,
-      isIntermediate,
-      false,
-      getSerializer
-    );
+    return this.applyToHandlers(oldState, handlers, targetRouteName, isIntermediate, false);
   }
 
   applyToHandlers(
     oldState: TransitionState,
-    handlers: IHandler[],
-    getHandler: GetHandlerFunc,
+    parsedHandlers: ParsedHandler[],
     targetRouteName: string,
     isIntermediate: boolean,
-    checkingIfActive: boolean,
-    getSerializer: GetSerializerFunc
+    checkingIfActive: boolean
   ) {
     let i, len;
     let newState = new TransitionState();
     let objects = this.contexts.slice(0);
 
-    let invalidateIndex = handlers.length;
+    let invalidateIndex = parsedHandlers.length;
 
     // Pivot handlers are provided for refresh transitions
     if (this.pivotHandler) {
-      for (i = 0, len = handlers.length; i < len; ++i) {
-        if (handlers[i].handler === this.pivotHandler._handlerName) {
+      for (i = 0, len = parsedHandlers.length; i < len; ++i) {
+        if (parsedHandlers[i].handler === this.pivotHandler.routeName) {
           invalidateIndex = i;
           break;
         }
       }
     }
 
-    for (i = handlers.length - 1; i >= 0; --i) {
-      let result = handlers[i];
+    for (i = parsedHandlers.length - 1; i >= 0; --i) {
+      let result = parsedHandlers[i];
       let name = result.handler;
 
-      let oldHandlerInfo = oldState.handlerInfos[i];
+      let oldHandlerInfo = oldState.routeInfos[i];
       let newHandlerInfo = null;
 
       if (result.names.length > 0) {
         if (i >= invalidateIndex) {
-          newHandlerInfo = this.createParamHandlerInfo(
-            name,
-            getHandler,
-            result.names,
-            objects,
-            oldHandlerInfo
-          );
+          newHandlerInfo = this.createParamHandlerInfo(name, result.names, objects, oldHandlerInfo);
         } else {
-          let serializer = getSerializer(name);
           newHandlerInfo = this.getHandlerInfoForDynamicSegment(
             name,
-            getHandler,
             result.names,
             objects,
             oldHandlerInfo,
             targetRouteName,
-            i,
-            serializer
+            i
           );
         }
       } else {
@@ -114,13 +89,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
         // Therefore treat as a param-based handlerInfo
         // with empty params. This will cause the `model`
         // hook to be called with empty params, which is desirable.
-        newHandlerInfo = this.createParamHandlerInfo(
-          name,
-          getHandler,
-          result.names,
-          objects,
-          oldHandlerInfo
-        );
+        newHandlerInfo = this.createParamHandlerInfo(name, result.names, objects, oldHandlerInfo);
       }
 
       if (checkingIfActive) {
@@ -152,7 +121,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
         handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context!);
       }
 
-      newState.handlerInfos.unshift(handlerToUse);
+      newState.routeInfos.unshift(handlerToUse);
     }
 
     if (objects.length > 0) {
@@ -163,7 +132,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     }
 
     if (!isIntermediate) {
-      this.invalidateChildren(newState.handlerInfos, invalidateIndex);
+      this.invalidateChildren(newState.routeInfos, invalidateIndex);
     }
 
     merge(newState.queryParams, this.queryParams || {});
@@ -171,29 +140,36 @@ export default class NamedTransitionIntent extends TransitionIntent {
     return newState;
   }
 
-  invalidateChildren(handlerInfos: HandlerInfo[], invalidateIndex: number) {
+  invalidateChildren(handlerInfos: InternalRouteInfo[], invalidateIndex: number) {
     for (let i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
       let handlerInfo = handlerInfos[i];
-      handlerInfos[i] = handlerInfo.getUnresolved();
+      if (handlerInfo.isResolved) {
+        let { name, params, route, paramNames } = handlerInfos[i];
+        handlerInfos[i] = new UnresolvedRouteInfoByParam(
+          this.router,
+          name,
+          paramNames,
+          params,
+          route
+        );
+      }
     }
   }
 
   getHandlerInfoForDynamicSegment(
     name: string,
-    getHandler: GetHandlerFunc,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: HandlerInfo,
+    oldHandlerInfo: InternalRouteInfo,
     _targetRouteName: string,
-    i: number,
-    serializer?: SerializerFunc
+    i: number
   ) {
     let objectToUse: Dict<unknown>;
     if (objects.length > 0) {
       // Use the objects provided for this transition.
       objectToUse = objects[objects.length - 1];
       if (isParam(objectToUse)) {
-        return this.createParamHandlerInfo(name, getHandler, names, objects, oldHandlerInfo);
+        return this.createParamHandlerInfo(name, names, objects, oldHandlerInfo);
       } else {
         objects.pop();
       }
@@ -202,7 +178,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
       return oldHandlerInfo;
     } else {
       if (this.preTransitionState) {
-        let preTransitionHandlerInfo = this.preTransitionState.handlerInfos[i];
+        let preTransitionHandlerInfo = this.preTransitionState.routeInfos[i];
         objectToUse = preTransitionHandlerInfo && preTransitionHandlerInfo.context!;
       } else {
         // Ideally we should throw this error to provide maximal
@@ -216,15 +192,14 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return new UnresolvedHandlerInfoByObject(name, names, getHandler, serializer, objectToUse);
+    return new UnresolvedRouteInfoByObject(this.router, name, names, objectToUse);
   }
 
   createParamHandlerInfo(
     name: string,
-    getHandler: GetHandlerFunc,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: HandlerInfo
+    oldHandlerInfo: InternalRouteInfo
   ) {
     let params: Dict<unknown> = {};
 
@@ -254,6 +229,6 @@ export default class NamedTransitionIntent extends TransitionIntent {
       }
     }
 
-    return new UnresolvedHandlerInfoByParam(name, getHandler, params);
+    return new UnresolvedRouteInfoByParam(this.router, name, names, params);
   }
 }

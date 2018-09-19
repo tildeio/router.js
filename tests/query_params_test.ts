@@ -1,7 +1,7 @@
 import { MatchCallback } from 'route-recognizer';
-import Router, { IHandler, Transition } from 'router';
+import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
-import HandlerInfo from 'router/handler-info';
+import HandlerInfo from 'router/route-info';
 import { Promise } from 'rsvp';
 import {
   createHandler,
@@ -12,7 +12,7 @@ import {
   trigger,
 } from './test_helpers';
 
-let router: Router, handlers: Dict<IHandler>, expectedUrl: Maybe<string>;
+let router: Router, handlers: Dict<Route>, expectedUrl: Maybe<string>;
 let scenarios = [
   {
     name: 'Sync Get Handler',
@@ -54,7 +54,7 @@ scenarios.forEach(function(scenario) {
       replaceURL(name: string) {
         this.updateURL(name);
       }
-      getHandler(name: string) {
+      getRoute(name: string) {
         return scenario.getHandler(name);
       }
       getSerializer(): never {
@@ -297,7 +297,7 @@ scenarios.forEach(function(scenario) {
           if (count === 0) {
             assert.ok(false, "shouldn't fire on first trans");
           } else {
-            router.refresh(this as IHandler);
+            router.refresh(this as Route);
           }
         },
         finalizeQueryParamChange: consumeAllFinalQueryParams,
@@ -452,7 +452,7 @@ scenarios.forEach(function(scenario) {
       },
       events: {
         queryParamsDidChange: function() {
-          router.refresh(this as IHandler);
+          router.refresh(this as Route);
         },
       },
     });
@@ -490,7 +490,7 @@ scenarios.forEach(function(scenario) {
         queryParamsDidChange: function() {
           assert.ok(true, 'index#queryParamsDidChange');
           redirect = causeRedirect;
-          router.refresh(this as IHandler);
+          router.refresh(this as Route);
         },
         finalizeQueryParamChange: function(params: Dict<unknown>, finalParams: Dict<unknown>[]) {
           (finalParams as any).foo = params.foo; // TODO wat

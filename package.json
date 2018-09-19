@@ -1,12 +1,9 @@
 {
   "name": "router_js",
   "version": "4.0.3",
-  "description": "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
-  "keywords": [
-    "route-recognizer",
-    "router",
-    "rsvp"
-  ],
+  "description":
+    "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
+  "keywords": ["route-recognizer", "router", "rsvp"],
   "bugs": {
     "url": "https://github.com/tildeio/router.js/issues"
   },
@@ -20,13 +17,11 @@
   },
   "scripts": {
     "prepublish": "ember build",
+    "problems": "tsc -p tsconfig.json --noEmit",
     "start": "ember server",
     "test": "ember test"
   },
-  "files": [
-    "dist/cjs",
-    "dist/modules"
-  ],
+  "files": ["dist/cjs", "dist/modules"],
   "dependencies": {
     "@types/node": "^10.5.5"
   },

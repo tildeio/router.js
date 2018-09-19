@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
-import HandlerInfo, { IHandler } from './handler-info';
+import HandlerInfo, { IRouteInfo, Route } from './route-info';
 import Router from './router';
 import TransitionAborted, { ITransitionAbortedError } from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -33,6 +33,8 @@ export type OnRejected<T, TResult2> =
  */
 export class Transition {
   state?: TransitionState;
+  from: Maybe<IRouteInfo> = null;
+  to: Maybe<IRouteInfo> = null;
   router: Router;
   data: Dict<unknown>;
   intent?: TransitionIntent;
@@ -43,7 +45,7 @@ export class Transition {
   params: Dict<unknown>;
   handlerInfos: HandlerInfo[];
   targetName: Maybe<string>;
-  pivotHandler: Maybe<IHandler>;
+  pivotHandler: Maybe<Route>;
   sequence: number;
   isAborted = false;
   isActive = true;
@@ -101,21 +103,21 @@ export class Transition {
     if (state) {
       this.params = state.params;
       this.queryParams = state.queryParams;
-      this.handlerInfos = state.handlerInfos;
+      this.handlerInfos = state.routeInfos;
 
-      let len = state.handlerInfos.length;
+      let len = state.routeInfos.length;
       if (len) {
-        this.targetName = state.handlerInfos[len - 1].name;
+        this.targetName = state.routeInfos[len - 1].name;
       }
 
       for (let i = 0; i < len; ++i) {
-        let handlerInfo = state.handlerInfos[i];
+        let handlerInfo = state.routeInfos[i];
 
         // TODO: this all seems hacky
         if (!handlerInfo.isResolved) {
           break;
         }
-        this.pivotHandler = handlerInfo.handler;
+        this.pivotHandler = handlerInfo.route;
       }
 
       this.sequence = router.currentSequence++;
@@ -131,7 +133,7 @@ export class Transition {
           if (result.wasAborted || this.isAborted) {
             return Promise.reject(logAbort(this));
           } else {
-            this.trigger(false, 'error', result.error, this, result.handler);
+            this.trigger(false, 'error', result.error, this, result.route);
             this.abort();
             return Promise.reject(result.error);
           }
@@ -143,11 +145,11 @@ export class Transition {
   }
 
   // Todo Delete?
-  isExiting(handler: IHandler | string) {
+  isExiting(handler: Route | string) {
     let handlerInfos = this.handlerInfos;
     for (let i = 0, len = handlerInfos.length; i < len; ++i) {
       let handlerInfo = handlerInfos[i];
-      if (handlerInfo.name === handler || handlerInfo.handler === handler) {
+      if (handlerInfo.name === handler || handlerInfo.route === handler) {
         return false;
       }
     }
@@ -318,7 +320,7 @@ export class Transition {
     _name: string,
     err?: Error,
     transition?: Transition,
-    handler?: IHandler
+    handler?: Route
   ) {
     this.trigger(ignoreFailure, _name, err, transition, handler);
   }
@@ -338,7 +340,7 @@ export class Transition {
    */
   trigger(ignoreFailure: boolean, name: string, ...args: any[]) {
     this.router.triggerEvent(
-      this.state!.handlerInfos.slice(0, this.resolveIndex + 1),
+      this.state!.routeInfos.slice(0, this.resolveIndex + 1),
       ignoreFailure,
       name,
       args

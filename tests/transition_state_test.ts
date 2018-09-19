@@ -2,19 +2,25 @@ import { Transition } from 'router';
 import { Dict } from 'router/core';
 import {
   Continuation,
-  noopGetHandler,
-  UnresolvedHandlerInfoByObject,
-  UnresolvedHandlerInfoByParam,
-} from 'router/handler-info';
+  UnresolvedRouteInfoByObject,
+  UnresolvedRouteInfoByParam,
+} from 'router/route-info';
 import TransitionState, { TransitionError } from 'router/transition-state';
 import { Promise, reject, resolve } from 'rsvp';
-import { createHandler, createHandlerInfo, flushBackburner, module, test } from './test_helpers';
+import {
+  createHandler,
+  createHandlerInfo,
+  flushBackburner,
+  module,
+  StubRouter,
+  test,
+} from './test_helpers';
 
 module('TransitionState');
 
 test('it starts off with default state', function(assert) {
   let state = new TransitionState();
-  assert.deepEqual(state.handlerInfos, [], 'it has an array of handlerInfos');
+  assert.deepEqual(state.routeInfos, [], 'it has an array of handlerInfos');
 });
 
 test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
@@ -26,7 +32,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
 
   let resolvedHandlerInfos: any[] = [{}, {}];
 
-  state.handlerInfos = [
+  state.routeInfos = [
     createHandlerInfo('one', {
       resolve: function(shouldContinue: Continuation) {
         ++counter;
@@ -51,7 +57,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
   }
 
   state.resolve(keepGoing, {} as Transition).then(function(result: TransitionState) {
-    assert.deepEqual(result.handlerInfos, resolvedHandlerInfos);
+    assert.deepEqual(result.routeInfos, resolvedHandlerInfos);
   });
 });
 
@@ -60,7 +66,7 @@ test('State resolution can be halted', function(assert) {
 
   let state = new TransitionState();
 
-  state.handlerInfos = [
+  state.routeInfos = [
     createHandlerInfo('one', {
       resolve: function(shouldContinue: Continuation) {
         return shouldContinue();
@@ -89,15 +95,16 @@ test('Integration w/ HandlerInfos', function(assert) {
   assert.expect(4);
 
   let state = new TransitionState();
-
+  let router = new StubRouter();
   let fooModel = {};
   let barModel = {};
   let transition = {};
 
-  state.handlerInfos = [
-    new UnresolvedHandlerInfoByParam(
+  state.routeInfos = [
+    new UnresolvedRouteInfoByParam(
+      router,
       'foo',
-      noopGetHandler,
+      ['foo_id'],
       { foo_id: '123' },
       createHandler('foo', {
         model: function(params: Dict<unknown>, payload: Dict<unknown>) {
@@ -107,13 +114,7 @@ test('Integration w/ HandlerInfos', function(assert) {
         },
       })
     ),
-    new UnresolvedHandlerInfoByObject(
-      'bar',
-      ['bar_id'],
-      noopGetHandler,
-      () => {},
-      resolve(barModel)
-    ),
+    new UnresolvedRouteInfoByObject(router, 'bar', ['bar_id'], resolve(barModel)),
   ];
 
   function noop() {
@@ -124,8 +125,8 @@ test('Integration w/ HandlerInfos', function(assert) {
     .resolve(noop, transition as Transition)
     .then(function(result: TransitionState) {
       let models = [];
-      for (let i = 0; i < result.handlerInfos.length; i++) {
-        models.push(result.handlerInfos[i].context);
+      for (let i = 0; i < result.routeInfos.length; i++) {
+        models.push(result.routeInfos[i].context);
       }
 
       assert.equal(models[0], fooModel);
