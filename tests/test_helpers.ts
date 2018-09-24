@@ -1,7 +1,7 @@
 import Backburner from 'backburner';
 import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, { UnresolvedRouteInfoByParam } from 'router/route-info';
+import RouteInfo, { UnresolvedRouteInfoByParam } from 'router/route-info';
 import TransitionAbortedError from 'router/transition-aborted-error';
 import { UnrecognizedURLError } from 'router/unrecognized-url-error';
 import { configure, resolve } from 'rsvp';
@@ -51,7 +51,7 @@ function assertAbort(assert: Assert) {
 // the backburner queue. Helpful for when you want to write
 // tests that avoid .then callbacks.
 function transitionTo(
-  router: Router,
+  router: Router<Route>,
   path: string | { queryParams: Dict<unknown> },
   ...context: any[]
 ) {
@@ -60,19 +60,19 @@ function transitionTo(
   return result;
 }
 
-function transitionToWithAbort(assert: Assert, router: Router, path: string) {
+function transitionToWithAbort(assert: Assert, router: Router<Route>, path: string) {
   let args = [path];
   router.transitionTo.apply(router, args).then(shouldNotHappen, assertAbort(assert));
   flushBackburner();
 }
 
-function replaceWith(router: Router, path: string) {
+function replaceWith(router: Router<Route>, path: string) {
   let result = router.transitionTo.apply(router, [path]).method('replace');
   flushBackburner();
   return result;
 }
 
-function handleURL(router: Router, url: string) {
+function handleURL(router: Router<Route>, url: string) {
   let result = router.handleURL.apply(router, [url]);
   flushBackburner();
   return result;
@@ -80,10 +80,21 @@ function handleURL(router: Router, url: string) {
 
 function shouldNotHappen(assert: Assert, _message?: string) {
   let message = _message || 'this .then handler should not be called';
-  return function _shouldNotHappen(error: Error) {
+  return function _shouldNotHappen(error: any) {
     console.error(error.stack); // eslint-disable-line
     assert.ok(false, message);
+    return error;
   };
+}
+
+export function isExiting(route: Route | string, routeInfos: RouteInfo<Route>[]) {
+  for (let i = 0, len = routeInfos.length; i < len; ++i) {
+    let routeInfo = routeInfos[i];
+    if (routeInfo.name === route || routeInfo.route === route) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function stubbedHandlerInfoFactory(name: string, props: Dict<unknown>) {
@@ -121,7 +132,7 @@ export function createHandler(name: string, options?: Dict<unknown>): Route {
   );
 }
 
-export class StubRouter extends Router {
+export class StubRouter extends Router<Route> {
   getRoute(_name: string) {
     return {} as Route;
   }
@@ -135,17 +146,17 @@ export class StubRouter extends Router {
     throw new Error('Method not implemented.');
   }
   willTransition(
-    _oldHandlerInfos: HandlerInfo[],
-    _newHandlerInfos: HandlerInfo[],
+    _oldHandlerInfos: RouteInfo<Route>[],
+    _newHandlerInfos: RouteInfo<Route>[],
     _transition: Transition
   ): void {
     throw new Error('Method not implemented.');
   }
-  didTransition(_handlerInfos: HandlerInfo[]): void {
+  didTransition(_handlerInfos: RouteInfo<Route>[]): void {
     throw new Error('Method not implemented.');
   }
   triggerEvent(
-    _handlerInfos: HandlerInfo[],
+    _handlerInfos: RouteInfo<Route>[],
     _ignoreFailure: boolean,
     _name: string,
     _args: unknown[]
@@ -154,9 +165,9 @@ export class StubRouter extends Router {
   }
 }
 
-export function createHandlerInfo(name: string, options: Dict<unknown> = {}): HandlerInfo {
-  class Stub extends HandlerInfo {
-    constructor(name: string, router: Router, handler?: Route) {
+export function createHandlerInfo(name: string, options: Dict<unknown> = {}): RouteInfo<Route> {
+  class Stub extends RouteInfo<Route> {
+    constructor(name: string, router: Router<Route>, handler?: Route) {
       super(router, name, [], handler);
     }
     getModel(_transition: Transition) {
@@ -176,7 +187,7 @@ export function createHandlerInfo(name: string, options: Dict<unknown> = {}): Ha
 }
 
 export function trigger(
-  handlerInfos: HandlerInfo[],
+  handlerInfos: RouteInfo<Route>[],
   ignoreFailure: boolean,
   name: string,
   ...args: any[]

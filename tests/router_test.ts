@@ -1,7 +1,7 @@
 import { MatchCallback } from 'route-recognizer';
 import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
-import HandlerInfo from 'router/route-info';
+import RouteInfo from 'router/route-info';
 import { SerializerFunc } from 'router/router';
 import { Promise, reject } from 'rsvp';
 import {
@@ -9,6 +9,7 @@ import {
   createHandler,
   flushBackburner,
   handleURL,
+  isExiting,
   module,
   replaceWith,
   shouldNotHappen,
@@ -18,7 +19,7 @@ import {
   trigger,
 } from './test_helpers';
 
-let router: Router;
+let router: Router<Route>;
 let url: string;
 let handlers: Dict<Route>;
 
@@ -83,13 +84,18 @@ scenarios.forEach(function(scenario) {
   });
 
   function map(assert: Assert, fn: MatchCallback) {
-    class TestRouter extends Router {
+    class TestRouter extends Router<Route> {
       didTransition() {}
       willTransition() {}
       replaceURL(name: string) {
         this.updateURL(name);
       }
-      triggerEvent(handlerInfos: HandlerInfo[], ignoreFailure: boolean, name: string, args: any[]) {
+      triggerEvent(
+        handlerInfos: RouteInfo<Route>[],
+        ignoreFailure: boolean,
+        name: string,
+        args: any[]
+      ) {
         trigger(handlerInfos, ignoreFailure, name, ...args);
       }
 
@@ -133,16 +139,12 @@ scenarios.forEach(function(scenario) {
   });
 
   test('Handling an invalid URL returns a rejecting promise', function(assert) {
-    router.handleURL('/unknown').then(
-      shouldNotHappen(assert),
-      function(e: Error) {
-        assert.equal(e.name, 'UnrecognizedURLError', 'error.name is UnrecognizedURLError');
-      },
-      shouldNotHappen(assert)
-    );
+    router.handleURL('/unknown').then(shouldNotHappen(assert), function(e: Error) {
+      assert.equal(e.name, 'UnrecognizedURLError', 'error.name is UnrecognizedURLError');
+    });
   });
 
-  function routePath(infos: HandlerInfo[]) {
+  function routePath(infos: RouteInfo<Route>[]) {
     let path = [];
 
     for (let i = 0, l = infos.length; i < l; i++) {
@@ -348,8 +350,9 @@ scenarios.forEach(function(scenario) {
 
         return router.transitionTo('postDetails', { id: 1 });
       }, shouldNotHappen(assert))
-      .then(function() {
+      .then<any, Error>(function(value) {
         assert.deepEqual(contexts, [{ id: 1 }], 'parent context is available');
+        return value;
       }, shouldNotHappen(assert));
   });
 
@@ -769,7 +772,7 @@ scenarios.forEach(function(scenario) {
         },
 
         setup: function(posts: Dict<unknown>, transition: Transition) {
-          assert.ok(!transition.isExiting(this as Route));
+          assert.ok(!isExiting(this as Route, transition.routeInfos));
           assert.equal(
             posts,
             allPosts,
@@ -779,7 +782,7 @@ scenarios.forEach(function(scenario) {
         },
 
         exit: function(transition: Transition) {
-          assert.ok(transition.isExiting(this as Route));
+          assert.ok(isExiting(this as Route, transition.routeInfos));
         },
       }),
 
@@ -1159,7 +1162,7 @@ scenarios.forEach(function(scenario) {
       }),
     };
     router.triggerEvent = function(
-      handlerInfos: HandlerInfo[],
+      handlerInfos: RouteInfo<Route>[],
       ignoreFailure: boolean,
       name: string,
       args: any[]
@@ -2000,13 +2003,13 @@ scenarios.forEach(function(scenario) {
             router.transitionTo('index').then(function() {
               if (errorCount === 1) {
                 // transition back here to test transitionTo error handling.
-
                 return router
                   .transitionTo('showPost', reject('borf!'))
                   .then(shouldNotHappen(assert), function(e: Error) {
                     assert.equal(e, 'borf!', 'got thing');
                   });
               }
+              return;
             }, shouldNotHappen(assert));
           },
         },
@@ -2494,6 +2497,7 @@ scenarios.forEach(function(scenario) {
             lastTransition = transition;
             return router.transitionTo('/login');
           }
+          return;
         },
       }),
       login: createHandler('login', {
@@ -2689,24 +2693,20 @@ scenarios.forEach(function(scenario) {
         assert.ok(true, 'Failure handler called for index');
         return router.transitionTo('/index').abort();
       })
-      .then(shouldNotHappen(assert), function() {
+      .then<Error, Transition>(shouldNotHappen(assert), function() {
         assert.ok(true, 'Failure handler called for /index');
         hooksShouldBeCalled = true;
         return router.transitionTo('index');
       })
-      .then(function() {
+      .then<Transition, never>(function() {
         assert.ok(true, 'Success handler called for index');
         hooksShouldBeCalled = false;
         return router.transitionTo('about').abort();
       }, shouldNotHappen(assert))
-      .then(
-        shouldNotHappen(assert),
-        function() {
-          assert.ok(true, 'failure handler called for about');
-          return router.transitionTo('/about').abort();
-        },
-        shouldNotHappen(assert)
-      )
+      .then<Error, Transition>(shouldNotHappen(assert), function() {
+        assert.ok(true, 'failure handler called for about');
+        return router.transitionTo('/about').abort();
+      })
       .then(shouldNotHappen(assert), function() {
         assert.ok(true, 'failure handler called for /about');
         hooksShouldBeCalled = true;
@@ -2727,8 +2727,8 @@ scenarios.forEach(function(scenario) {
 
     router
       .handleURL('/index')
-      .then(function(result: Dict<unknown>) {
-        assert.ok(result.borfIndex, 'resolved to index handler');
+      .then(function(route: Route) {
+        assert.ok((route as any)['borfIndex'], 'resolved to index handler');
         return router.transitionTo('about');
       }, shouldNotHappen(assert))
       .then(function(result: Dict<unknown>) {
@@ -2739,9 +2739,8 @@ scenarios.forEach(function(scenario) {
   test('transitions have a .promise property', function(assert) {
     assert.expect(2);
 
-    router
-      .handleURL('/index')
-      .promise.then(function() {
+    router.handleURL('/index').promise!
+      .then(function() {
         let promise = router.transitionTo('about').abort().promise;
         assert.ok(promise, 'promise exists on aborted transitions');
         return promise;
@@ -3215,7 +3214,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
         delete handlers.index.enter;
         return router.handleURL('/index');
       })
-      .then(shouldNotHappen(assert), function(reason: string) {
+      .then<Error, void>(shouldNotHappen(assert), function(reason: string) {
         assert.equal(reason, 'OMG SETUP', "setup's error was propagated");
         delete handlers.index.setup;
       });
@@ -3829,7 +3828,7 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
       .then(function() {
         return router.handleURL('/admin/posts');
       })
-      .then(shouldNotHappen(assert), function(e: Error) {
+      .then<Error, void>(shouldNotHappen(assert), function(e: Error) {
         assert.equal(e.name, 'UnrecognizedURLError', 'error.name is UnrecognizedURLError');
       });
   });

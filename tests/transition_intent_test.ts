@@ -5,7 +5,7 @@ import { createHandler, module, test } from './test_helpers';
 
 import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, {
+import InternalRouteInfo, {
   ResolvedRouteInfo,
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,
@@ -32,7 +32,7 @@ let scenarios = [
 ];
 
 scenarios.forEach(function(scenario) {
-  class TestRouter extends Router {
+  class TestRouter extends Router<Route> {
     getSerializer(_name: string) {
       return () => {};
     }
@@ -43,17 +43,17 @@ scenarios.forEach(function(scenario) {
       throw new Error('Method not implemented.');
     }
     willTransition(
-      _oldHandlerInfos: HandlerInfo[],
-      _newHandlerInfos: HandlerInfo[],
+      _oldHandlerInfos: InternalRouteInfo<Route>[],
+      _newHandlerInfos: InternalRouteInfo<Route>[],
       _transition: Transition
     ): void {
       throw new Error('Method not implemented.');
     }
-    didTransition(_handlerInfos: HandlerInfo[]): void {
+    didTransition(_handlerInfos: InternalRouteInfo<Route>[]): void {
       throw new Error('Method not implemented.');
     }
     triggerEvent(
-      _handlerInfos: HandlerInfo[],
+      _handlerInfos: InternalRouteInfo<Route>[],
       _ignoreFailure: boolean,
       _name: string,
       _args: unknown[]
@@ -65,11 +65,15 @@ scenarios.forEach(function(scenario) {
     }
   }
 
-  let router: Router;
+  let router: Router<Route>;
 
   // Asserts that a handler from a handlerInfo equals an expected valued.
   // Returns a promise during async scenarios to wait until the handler is ready.
-  function assertHandlerEquals(assert: Assert, handlerInfo: HandlerInfo, expected: Route) {
+  function assertHandlerEquals(
+    assert: Assert,
+    handlerInfo: InternalRouteInfo<Route>,
+    expected: Route
+  ) {
     if (!scenario.async) {
       return assert.equal(handlerInfo.route, expected);
     } else {
@@ -146,7 +150,7 @@ scenarios.forEach(function(scenario) {
 
   test('URLTransitionIntent can be applied to an empty state', function(assert) {
     let state = new TransitionState();
-    let intent = new URLTransitionIntent('/foo/bar', router);
+    let intent = new URLTransitionIntent(router, '/foo/bar');
     let newState = intent.applyToState(state);
     let handlerInfos = newState.routeInfos;
 
@@ -177,7 +181,7 @@ scenarios.forEach(function(scenario) {
     // different.
     state.routeInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/foo/bar', router);
+    let intent = new URLTransitionIntent(router, '/foo/bar');
     let newState = intent.applyToState(state);
     let handlerInfos = newState.routeInfos;
 
@@ -201,7 +205,7 @@ scenarios.forEach(function(scenario) {
 
     state.routeInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/foo/bar', router);
+    let intent = new URLTransitionIntent(router, '/foo/bar');
     let newState = intent.applyToState(state);
     let handlerInfos = newState.routeInfos;
 
@@ -233,7 +237,7 @@ scenarios.forEach(function(scenario) {
 
     state.routeInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/articles/123/comments/456', router);
+    let intent = new URLTransitionIntent(router, '/articles/123/comments/456');
     let newState = intent.applyToState(state);
     let handlerInfos = newState.routeInfos;
 
@@ -257,7 +261,7 @@ scenarios.forEach(function(scenario) {
 
     state.routeInfos = [startingHandlerInfo];
 
-    let intent = new URLTransitionIntent('/foo/bar', router);
+    let intent = new URLTransitionIntent(router, '/foo/bar');
     let newState = intent.applyToState(state);
     let handlerInfos = newState.routeInfos;
 
@@ -290,7 +294,7 @@ scenarios.forEach(function(scenario) {
 
     state.routeInfos = [startingHandlerInfo];
 
-    let intent = new NamedTransitionIntent('comments', router, undefined, [article, comment]);
+    let intent = new NamedTransitionIntent(router, 'comments', undefined, [article, comment]);
 
     let newState = intent.applyToState(state, false);
     let handlerInfos = newState.routeInfos;

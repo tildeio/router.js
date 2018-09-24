@@ -1,4 +1,4 @@
 export { default } from './router';
-export { Transition } from './transition';
+export { default as InternalTransition, PublicTransition as Transition } from './transition';
 export { default as TransitionState } from './transition-state';
-export { Route } from './route-info';
+export { default as InternalRouteInfo, RouteInfo, Route } from './route-info';

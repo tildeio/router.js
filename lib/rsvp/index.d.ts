@@ -21,14 +21,14 @@ declare module 'rsvp' {
     | undefined
     | null;
   export type OnRejected<T, TResult2> =
-    | ((reason: T) => TResult2 | PromiseLike<TResult2>)
+    | ((reason: any) => TResult2 | PromiseLike<TResult2>)
     | undefined
     | null;
 
   export interface Promise<T> extends PromiseLike<T> {
     then<TResult1 = T, TResult2 = never>(
-      onFulfilled?: OnFulfilled<T, TResult1>,
-      onRejected?: OnRejected<T, TResult2>,
+      onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+      onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null,
       label?: string
     ): Promise<TResult1 | TResult2>;
     catch<TResult = never>(

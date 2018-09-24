@@ -7,14 +7,14 @@ import { createHandler } from './test_helpers';
 // so that we avoid using Backburner to handle the async portions of
 // the test suite
 let handlers: Dict<Route>;
-let router: Router;
+let router: Router<Route>;
 QUnit.module('Async Get Handler', {
   beforeEach: function() {
     QUnit.config.testTimeout = 60000;
 
     handlers = {};
 
-    class TestRouter extends Router {
+    class TestRouter extends Router<Route> {
       didTransition() {}
       willTransition() {}
       replaceURL() {}
@@ -119,5 +119,5 @@ QUnit.test('calls hooks of lazily-resolved routes in order', function(assert) {
       'order of operations is correct'
     );
     done();
-  });
+  }, null);
 });

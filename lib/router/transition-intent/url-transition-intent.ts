@@ -5,17 +5,17 @@ import TransitionState from '../transition-state';
 import UnrecognizedURLError from '../unrecognized-url-error';
 import { merge } from '../utils';
 
-export default class URLTransitionIntent extends TransitionIntent {
-  preTransitionState?: TransitionState;
+export default class URLTransitionIntent<T extends Route> extends TransitionIntent<T> {
+  preTransitionState?: TransitionState<T>;
   url: string;
-  constructor(url: string, router: Router) {
-    super(router);
+  constructor(router: Router<T>, url: string, data?: {}) {
+    super(router, data);
     this.url = url;
     this.preTransitionState = undefined;
   }
 
-  applyToState(oldState: TransitionState) {
-    let newState = new TransitionState();
+  applyToState(oldState: TransitionState<T>) {
+    let newState = new TransitionState<T>();
 
     let results = this.router.recognizer.recognize(this.url),
       i,
@@ -31,7 +31,7 @@ export default class URLTransitionIntent extends TransitionIntent {
     // Checks if a handler is accessible by URL. If it is not, an error is thrown.
     // For the case where the handler is loaded asynchronously, the error will be
     // thrown once it is loaded.
-    function checkHandlerAccessibility(handler: Route) {
+    function checkHandlerAccessibility(handler: T) {
       if (handler && handler.inaccessibleByURL) {
         throw new UnrecognizedURLError(_url);
       }
@@ -43,24 +43,24 @@ export default class URLTransitionIntent extends TransitionIntent {
       let result = results[i]!;
       let name = result.handler as string;
 
-      let newHandlerInfo = new UnresolvedRouteInfoByParam(this.router, name, [], result.params);
+      let newRouteInfo = new UnresolvedRouteInfoByParam(this.router, name, [], result.params);
 
-      let handler = newHandlerInfo.route;
+      let route = newRouteInfo.route;
 
-      if (handler) {
-        checkHandlerAccessibility(handler);
+      if (route) {
+        checkHandlerAccessibility(route);
       } else {
         // If the hanlder is being loaded asynchronously, check if we can
         // access it after it has resolved
-        newHandlerInfo.routePromise = newHandlerInfo.routePromise.then(checkHandlerAccessibility);
+        newRouteInfo.routePromise = newRouteInfo.routePromise.then(checkHandlerAccessibility);
       }
 
-      let oldHandlerInfo = oldState.routeInfos[i];
-      if (statesDiffer || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
+      let oldRouteInfo = oldState.routeInfos[i];
+      if (statesDiffer || newRouteInfo.shouldSupercede(oldRouteInfo)) {
         statesDiffer = true;
-        newState.routeInfos[i] = newHandlerInfo;
+        newState.routeInfos[i] = newRouteInfo;
       } else {
-        newState.routeInfos[i] = oldHandlerInfo;
+        newState.routeInfos[i] = oldRouteInfo;
       }
     }
 

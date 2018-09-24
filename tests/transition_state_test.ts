@@ -2,6 +2,7 @@ import { Transition } from 'router';
 import { Dict } from 'router/core';
 import {
   Continuation,
+  Route,
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,
 } from 'router/route-info';
@@ -56,7 +57,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
     return Promise.resolve(false);
   }
 
-  state.resolve(keepGoing, {} as Transition).then(function(result: TransitionState) {
+  state.resolve(keepGoing, {} as Transition).then(function(result: TransitionState<Route>) {
     assert.deepEqual(result.routeInfos, resolvedHandlerInfos);
   });
 });
@@ -123,7 +124,7 @@ test('Integration w/ HandlerInfos', function(assert) {
 
   state
     .resolve(noop, transition as Transition)
-    .then(function(result: TransitionState) {
+    .then(function(result: TransitionState<Route>) {
       let models = [];
       for (let i = 0; i < result.routeInfos.length; i++) {
         models.push(result.routeInfos[i].context);
