@@ -1,7 +1,8 @@
 import { Transition } from 'router';
 import { Dict } from 'router/core';
-import HandlerInfo, {
+import RouteInfo, {
   ResolvedRouteInfo,
+  Route,
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,
 } from 'router/route-info';
@@ -52,7 +53,7 @@ test('HandlerInfo#resolve resolves with a ResolvedHandlerInfo', function(assert)
   let handlerInfo = createHandlerInfo('stub');
   handlerInfo
     .resolve(() => false, {} as Transition)
-    .then(function(resolvedHandlerInfo: HandlerInfo) {
+    .then(function(resolvedHandlerInfo: RouteInfo<Route>) {
       assert.ok(resolvedHandlerInfo instanceof ResolvedRouteInfo);
     });
 });
@@ -112,7 +113,7 @@ test('HandlerInfo#resolve runs afterModel hook on handler', function(assert) {
 
   handlerInfo
     .resolve(noop, transition as Transition)
-    .then(function(resolvedHandlerInfo: HandlerInfo) {
+    .then(function(resolvedHandlerInfo: RouteInfo<Route>) {
       assert.equal(resolvedHandlerInfo.context, model, 'HandlerInfo resolved with correct model');
     });
 });
@@ -145,21 +146,21 @@ test('UnresolvedHandlerInfoByParam gets its model hook called', function(assert)
 test('UnresolvedHandlerInfoByObject does NOT get its model hook called', function(assert) {
   assert.expect(1);
 
-  class Handler extends UnresolvedRouteInfoByObject {
+  class TestRouteInfo extends UnresolvedRouteInfoByObject<Route> {
     route = createHandler('uresolved', {
       model: function() {
         assert.ok(false, "I shouldn't be called because I already have a context/model");
       },
     });
   }
-  let handlerInfo = new Handler(
+  let routeInfo = new TestRouteInfo(
     new StubRouter(),
     'unresolved',
     ['wat'],
     resolve({ name: 'dorkletons' })
   );
 
-  handlerInfo.resolve(noop, {} as Transition).then(function(resolvedHandlerInfo: HandlerInfo) {
+  routeInfo.resolve(noop, {} as Transition).then(function(resolvedHandlerInfo: RouteInfo<Route>) {
     assert.equal(resolvedHandlerInfo.context!.name, 'dorkletons');
   });
 });

@@ -1,7 +1,7 @@
 import { MatchCallback } from 'route-recognizer';
 import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
-import HandlerInfo from 'router/route-info';
+import RouteInfo from 'router/route-info';
 import { Promise } from 'rsvp';
 import {
   createHandler,
@@ -12,7 +12,7 @@ import {
   trigger,
 } from './test_helpers';
 
-let router: Router, handlers: Dict<Route>, expectedUrl: Maybe<string>;
+let router: Router<Route>, handlers: Dict<Route>, expectedUrl: Maybe<string>;
 let scenarios = [
   {
     name: 'Sync Get Handler',
@@ -45,10 +45,15 @@ scenarios.forEach(function(scenario) {
   });
 
   function map(assert: Assert, fn: MatchCallback) {
-    class TestRouter extends Router {
+    class TestRouter extends Router<Route> {
       didTransition() {}
       willTransition() {}
-      triggerEvent(handlerInfos: HandlerInfo[], ignoreFailure: boolean, name: string, args: any[]) {
+      triggerEvent(
+        handlerInfos: RouteInfo<Route>[],
+        ignoreFailure: boolean,
+        name: string,
+        args: any[]
+      ) {
         trigger(handlerInfos, ignoreFailure, name, ...args);
       }
       replaceURL(name: string) {

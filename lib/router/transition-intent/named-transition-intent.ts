@@ -9,28 +9,29 @@ import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import { extractQueryParams, isParam, merge } from '../utils';
 
-export default class NamedTransitionIntent extends TransitionIntent {
+export default class NamedTransitionIntent<T extends Route> extends TransitionIntent<T> {
   name: string;
   pivotHandler?: Route;
   contexts: Dict<unknown>[];
   queryParams: Dict<unknown>;
-  preTransitionState?: TransitionState = undefined;
+  preTransitionState?: TransitionState<T> = undefined;
 
   constructor(
+    router: Router<T>,
     name: string,
-    router: Router,
     pivotHandler: Route | undefined,
     contexts: Dict<unknown>[] = [],
-    queryParams: Dict<unknown> = {}
+    queryParams: Dict<unknown> = {},
+    data?: {}
   ) {
-    super(router);
+    super(router, data);
     this.name = name;
     this.pivotHandler = pivotHandler;
     this.contexts = contexts;
     this.queryParams = queryParams;
   }
 
-  applyToState(oldState: TransitionState, isIntermediate: boolean) {
+  applyToState(oldState: TransitionState<T>, isIntermediate: boolean): TransitionState<T> {
     // TODO: WTF fix me
     let partitionedArgs = extractQueryParams([this.name].concat(this.contexts as any)),
       pureArgs = partitionedArgs[0],
@@ -42,14 +43,14 @@ export default class NamedTransitionIntent extends TransitionIntent {
   }
 
   applyToHandlers(
-    oldState: TransitionState,
+    oldState: TransitionState<T>,
     parsedHandlers: ParsedHandler[],
     targetRouteName: string,
     isIntermediate: boolean,
     checkingIfActive: boolean
   ) {
     let i, len;
-    let newState = new TransitionState();
+    let newState = new TransitionState<T>();
     let objects = this.contexts.slice(0);
 
     let invalidateIndex = parsedHandlers.length;
@@ -140,7 +141,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     return newState;
   }
 
-  invalidateChildren(handlerInfos: InternalRouteInfo[], invalidateIndex: number) {
+  invalidateChildren(handlerInfos: InternalRouteInfo<T>[], invalidateIndex: number) {
     for (let i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
       let handlerInfo = handlerInfos[i];
       if (handlerInfo.isResolved) {
@@ -160,7 +161,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     name: string,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: InternalRouteInfo,
+    oldHandlerInfo: InternalRouteInfo<T>,
     _targetRouteName: string,
     i: number
   ) {
@@ -199,7 +200,7 @@ export default class NamedTransitionIntent extends TransitionIntent {
     name: string,
     names: string[],
     objects: Dict<unknown>[],
-    oldHandlerInfo: InternalRouteInfo
+    oldHandlerInfo: InternalRouteInfo<T>
   ) {
     let params: Dict<unknown> = {};
 

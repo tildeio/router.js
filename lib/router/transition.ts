@@ -1,9 +1,9 @@
 import { Promise } from 'rsvp';
-import { Dict, Maybe } from './core';
-import HandlerInfo, { IRouteInfo, Route } from './route-info';
+import { Dict, Maybe, Option } from './core';
+import InternalRouteInfo, { Route, RouteInfo } from './route-info';
 import Router from './router';
 import TransitionAborted, { ITransitionAbortedError } from './transition-aborted-error';
-import { TransitionIntent } from './transition-intent';
+import { OpaqueIntent } from './transition-intent';
 import TransitionState, { TransitionError } from './transition-state';
 import { log, promiseLabel } from './utils';
 
@@ -15,6 +15,9 @@ export type OnRejected<T, TResult2> =
   | ((reason: T) => TResult2 | PromiseLike<TResult2>)
   | undefined
   | null;
+
+export type PublicTransition = Transition<any>;
+export type OpaqueTransition = PublicTransition;
 
 /**
   A Transition is a thennable (a promise-like object) that represents
@@ -31,25 +34,25 @@ export type OnRejected<T, TResult2> =
   @param {Object} error
   @private
  */
-export class Transition {
-  state?: TransitionState;
-  from: Maybe<IRouteInfo> = null;
-  to: Maybe<IRouteInfo> = null;
-  router: Router;
+export default class Transition<T extends Route> implements Promise<T> {
+  state?: TransitionState<T>;
+  from: Maybe<RouteInfo> = null;
+  to: Maybe<RouteInfo> = null;
+  router: Router<T>;
   data: Dict<unknown>;
-  intent?: TransitionIntent;
-  resolvedModels: Dict<Dict<unknown> | undefined>;
+  intent: Maybe<OpaqueIntent>;
+  resolvedModels: Dict<Dict<unknown>>;
   queryParams: Dict<unknown>;
   promise?: Promise<any>; // Todo: Fix this shit its actually TransitionState | IHandler | undefined | Error
   error: Maybe<Error>;
   params: Dict<unknown>;
-  handlerInfos: HandlerInfo[];
+  routeInfos: InternalRouteInfo<Route>[];
   targetName: Maybe<string>;
   pivotHandler: Maybe<Route>;
   sequence: number;
   isAborted = false;
   isActive = true;
-  urlMethod = 'update';
+  urlMethod: Option<string> = 'update';
   resolveIndex = 0;
   queryParamsOnly = false;
   isTransition = true;
@@ -59,11 +62,11 @@ export class Transition {
   _visibleQueryParams: Dict<unknown> = {};
 
   constructor(
-    router: Router,
-    intent: TransitionIntent | undefined,
-    state: TransitionState | undefined,
+    router: Router<T>,
+    intent: Maybe<OpaqueIntent>,
+    state: TransitionState<T> | undefined,
     error: Maybe<Error> = undefined,
-    previousTransition: Maybe<Transition> = undefined
+    previousTransition: Maybe<Transition<T>> = undefined
   ) {
     this.state = state || router.state;
     this.intent = intent;
@@ -74,7 +77,7 @@ export class Transition {
     this.promise = undefined;
     this.error = undefined;
     this.params = {};
-    this.handlerInfos = [];
+    this.routeInfos = [];
     this.targetName = undefined;
     this.pivotHandler = undefined;
     this.sequence = -1;
@@ -103,7 +106,7 @@ export class Transition {
     if (state) {
       this.params = state.params;
       this.queryParams = state.queryParams;
-      this.handlerInfos = state.routeInfos;
+      this.routeInfos = state.routeInfos;
 
       let len = state.routeInfos.length;
       if (len) {
@@ -142,18 +145,6 @@ export class Transition {
       this.promise = Promise.resolve(this.state!);
       this.params = {};
     }
-  }
-
-  // Todo Delete?
-  isExiting(handler: Route | string) {
-    let handlerInfos = this.handlerInfos;
-    for (let i = 0, len = handlerInfos.length; i < len; ++i) {
-      let handlerInfo = handlerInfos[i];
-      if (handlerInfo.name === handler || handlerInfo.route === handler) {
-        return false;
-      }
-    }
-    return true;
   }
 
   /**
@@ -197,11 +188,11 @@ export class Transition {
     @return {Promise}
     @public
    */
-  then<T>(
-    onFulfilled: OnFulfilled<TransitionState | undefined | Error, T>,
-    onRejected: OnRejected<TransitionState, T>,
-    label: string
-  ) {
+  then<TResult1 = T, TResult2 = never>(
+    onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null,
+    label?: string
+  ): Promise<TResult1 | TResult2> {
     return this.promise!.then(onFulfilled, onRejected, label);
   }
 
@@ -218,7 +209,7 @@ export class Transition {
     @return {Promise}
     @public
    */
-  catch<T>(onRejection: OnRejected<TransitionState, T>, label: string) {
+  catch<T>(onRejection?: OnRejected<TransitionState<any>, T>, label?: string) {
     return this.promise!.catch(onRejection, label);
   }
 
@@ -235,7 +226,7 @@ export class Transition {
     @return {Promise}
     @public
    */
-  finally<T>(callback: T | undefined, label?: string) {
+  finally<T>(callback?: T | undefined, label?: string) {
     return this.promise!.finally(callback, label);
   }
 
@@ -252,8 +243,9 @@ export class Transition {
       return this;
     }
     log(this.router, this.sequence, this.targetName + ': transition was aborted');
-
-    this.intent!.preTransitionState = this.router.state;
+    if (this.intent !== undefined && this.intent !== null) {
+      this.intent.preTransitionState = this.router.state;
+    }
     this.isAborted = true;
     this.isActive = false;
     this.router.activeTransition = undefined;
@@ -273,7 +265,7 @@ export class Transition {
   retry() {
     // TODO: add tests for merged state retry()s
     this.abort();
-    let newTransition = this.router.transitionByIntent(this.intent!, false);
+    let newTransition = this.router.transitionByIntent(this.intent as OpaqueIntent, false);
 
     // inheriting a `null` urlMethod is not valid
     // the urlMethod is only set to `null` when
@@ -309,7 +301,7 @@ export class Transition {
     @return {Transition} this transition
     @public
    */
-  method(method: string) {
+  method(method: Option<string>) {
     this.urlMethod = method;
     return this;
   }
@@ -319,7 +311,7 @@ export class Transition {
     ignoreFailure: boolean,
     _name: string,
     err?: Error,
-    transition?: Transition,
+    transition?: Transition<T>,
     handler?: Route
   ) {
     this.trigger(ignoreFailure, _name, err, transition, handler);
@@ -359,7 +351,7 @@ export class Transition {
       value that the final redirecting transition fulfills with
     @public
    */
-  followRedirects(): Promise<unknown> {
+  followRedirects(): Promise<T> {
     let router = this.router;
     return this.promise!.catch(function(reason) {
       if (router.activeTransition) {
@@ -386,12 +378,12 @@ export class Transition {
 
   Logs and returns an instance of TransitionAborted.
  */
-export function logAbort(transition: Transition): ITransitionAbortedError {
+export function logAbort(transition: Transition<any>): ITransitionAbortedError {
   log(transition.router, transition.sequence, 'detected abort.');
   return new TransitionAborted();
 }
 
-export function isTransition(obj: Dict<unknown> | undefined): obj is Transition {
+export function isTransition(obj: Dict<unknown> | undefined): obj is typeof Transition {
   return typeof obj === 'object' && obj instanceof Transition && obj.isTransition;
 }
 

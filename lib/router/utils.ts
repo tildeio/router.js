@@ -66,7 +66,7 @@ export function coerceQueryParamsToString(queryParams: Dict<unknown>) {
 /**
   @private
  */
-export function log(router: Router, ...args: (string | number)[]): void {
+export function log(router: Router<any>, ...args: (string | number)[]): void {
   if (!router.log) {
     return;
   }

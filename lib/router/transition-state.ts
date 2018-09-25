@@ -1,15 +1,15 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
 import InternalRouteInfo, { Continuation, Route } from './route-info';
-import { Transition } from './transition';
+import Transition from './transition';
 import { forEach, promiseLabel } from './utils';
 
 interface IParams {
   [key: string]: unknown;
 }
 
-export default class TransitionState {
-  routeInfos: InternalRouteInfo[] = [];
+export default class TransitionState<T extends Route> {
+  routeInfos: InternalRouteInfo<T>[] = [];
   queryParams: Dict<unknown> = {};
   params: IParams = {};
 
@@ -25,7 +25,7 @@ export default class TransitionState {
     return promiseLabel("'" + targetName + "': " + label);
   }
 
-  resolve(shouldContinue: Continuation, transition: Transition): Promise<TransitionState> {
+  resolve(shouldContinue: Continuation, transition: Transition<T>): Promise<TransitionState<T>> {
     // First, calculate params for this state. This is useful
     // information to provide to the various route hooks.
     let params = this.params;
@@ -75,7 +75,7 @@ export default class TransitionState {
       );
     }
 
-    function proceed(resolvedRouteInfo: InternalRouteInfo): Promise<InternalRouteInfo> {
+    function proceed(resolvedRouteInfo: InternalRouteInfo<T>): Promise<InternalRouteInfo<T>> {
       let wasAlreadyResolved = currentState.routeInfos[transition.resolveIndex].isResolved;
 
       // Swap the previously unresolved routeInfo with
@@ -104,7 +104,7 @@ export default class TransitionState {
       );
     }
 
-    function resolveOneRouteInfo(): TransitionState | Promise<any> {
+    function resolveOneRouteInfo(): TransitionState<T> | Promise<any> {
       if (transition.resolveIndex === currentState.routeInfos.length) {
         // This is is the only possible
         // fulfill value of TransitionState#resolve
@@ -125,6 +125,6 @@ export class TransitionError {
     public error: Error,
     public route: Route,
     public wasAborted: boolean,
-    public state: TransitionState
+    public state: TransitionState<any>
   ) {}
 }

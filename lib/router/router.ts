@@ -2,7 +2,11 @@ import RouteRecognizer, { MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict, Maybe } from './core';
 import InternalRouteInfo, { Route, toReadOnlyRouteInfo } from './route-info';
-import { logAbort, Transition } from './transition';
+import InternalTransition, {
+  logAbort,
+  OpaqueTransition,
+  PublicTransition as Transition,
+} from './transition';
 import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
 import NamedTransitionIntent from './transition-intent/named-transition-intent';
@@ -19,18 +23,7 @@ import {
 } from './utils';
 
 export interface SerializerFunc {
-  (model: Dict<unknown>, params: Dict<unknown>): unknown;
-}
-export interface GetSerializerFunc {
-  (name: string): SerializerFunc | undefined;
-}
-
-export interface GetHandlerFunc {
-  (name: string): Route | Promise<Route>;
-}
-
-export interface DidTransitionFunc {
-  (routeInfos: InternalRouteInfo[]): void;
+  (model: {}, params: string[]): unknown;
 }
 
 export interface ParsedHandler {
@@ -38,12 +31,12 @@ export interface ParsedHandler {
   names: string[];
 }
 
-export default abstract class Router {
+export default abstract class Router<T extends Route> {
   log?: (message: string) => void;
-  state?: TransitionState = undefined;
-  oldState: Maybe<TransitionState> = undefined;
-  activeTransition?: Transition = undefined;
-  currentRouteInfos?: InternalRouteInfo[] = undefined;
+  state?: TransitionState<T> = undefined;
+  oldState: Maybe<TransitionState<T>> = undefined;
+  activeTransition?: InternalTransition<T> = undefined;
+  currentRouteInfos?: InternalRouteInfo<T>[] = undefined;
   _changedQueryParams?: Dict<unknown> = undefined;
   currentSequence = 0;
   recognizer: RouteRecognizer;
@@ -54,18 +47,18 @@ export default abstract class Router {
     this.reset();
   }
 
-  abstract getRoute(name: string): Route | Promise<Route>;
+  abstract getRoute(name: string): T | Promise<T>;
   abstract getSerializer(name: string): SerializerFunc | undefined;
   abstract updateURL(url: string): void;
   abstract replaceURL(url: string): void;
   abstract willTransition(
-    oldRouteInfos: InternalRouteInfo[],
-    newRouteInfos: InternalRouteInfo[],
+    oldRouteInfos: InternalRouteInfo<T>[],
+    newRouteInfos: InternalRouteInfo<T>[],
     transition: Transition
   ): void;
-  abstract didTransition(routeInfos: InternalRouteInfo[]): void;
+  abstract didTransition(routeInfos: InternalRouteInfo<T>[]): void;
   abstract triggerEvent(
-    routeInfos: InternalRouteInfo[],
+    routeInfos: InternalRouteInfo<T>[],
     ignoreFailure: boolean,
     name: string,
     args: unknown[]
@@ -98,10 +91,10 @@ export default abstract class Router {
   queryParamsTransition(
     changelist: ChangeList,
     wasTransitioning: boolean,
-    oldState: TransitionState,
-    newState: TransitionState
-  ) {
-    fireQueryParamDidChange(this, newState, changelist);
+    oldState: TransitionState<T>,
+    newState: TransitionState<T>
+  ): OpaqueTransition {
+    this.fireQueryParamDidChange(newState, changelist);
 
     if (!wasTransitioning && this.activeTransition) {
       // One of the routes in queryParamsDidChange
@@ -115,19 +108,18 @@ export default abstract class Router {
       // perform a URL update at the end. This gives
       // the user the ability to set the url update
       // method (default is replaceState).
-      let newTransition = new Transition(this, undefined, undefined);
+      let newTransition = new InternalTransition(this, undefined, undefined);
       newTransition.queryParamsOnly = true;
 
-      oldState.queryParams = finalizeQueryParamChange(
-        this,
+      oldState.queryParams = this.finalizeQueryParamChange(
         newState.routeInfos,
         newState.queryParams,
         newTransition
       );
 
       newTransition.promise = newTransition.promise!.then(
-        (result: TransitionState | Route | Error | undefined) => {
-          updateURL(newTransition, oldState);
+        (result: TransitionState<T> | Route | Error | undefined) => {
+          this._updateURL(newTransition, oldState);
           if (this.didTransition) {
             this.didTransition(this.currentRouteInfos!);
           }
@@ -136,328 +128,198 @@ export default abstract class Router {
         null,
         promiseLabel('Transition complete')
       );
+
       return newTransition;
     }
   }
 
-  // NOTE: this doesn't really belong here, but here
-  // it shall remain until our ES6 transpiler can
-  // handle cyclical deps.
-  transitionByIntent(intent: TransitionIntent, isIntermediate: boolean) {
+  transitionByIntent(intent: TransitionIntent<T>, isIntermediate: boolean): InternalTransition<T> {
     try {
-      return getTransitionByIntent.apply(this, [intent, isIntermediate]);
+      return this.getTransitionByIntent(intent, isIntermediate);
     } catch (e) {
-      return new Transition(this, intent, undefined, e, undefined);
+      return new InternalTransition(this, intent, undefined, e, undefined);
     }
   }
 
-  /**
-    Clears the current and target route routes and triggers exit
-    on each of them starting at the leaf and traversing up through
-    its ancestors.
-  */
-  reset() {
-    if (this.state) {
-      forEach<InternalRouteInfo>(this.state.routeInfos.slice().reverse(), function(routeInfo) {
-        let route = routeInfo.route;
-        if (route !== undefined) {
-          if (route.exit !== undefined) {
-            route.exit();
-          }
-        }
-        return true;
-      });
+  private getTransitionByIntent(
+    intent: TransitionIntent<T>,
+    isIntermediate: boolean
+  ): InternalTransition<T> {
+    let wasTransitioning = !!this.activeTransition;
+    let oldState = wasTransitioning ? this.activeTransition!.state : this.state;
+    let newTransition: InternalTransition<T>;
+
+    let newState = intent.applyToState(oldState!, isIntermediate);
+    let queryParamChangelist = getChangelist(oldState!.queryParams, newState.queryParams);
+
+    if (routeInfosEqual(newState.routeInfos, oldState!.routeInfos)) {
+      // This is a no-op transition. See if query params changed.
+      if (queryParamChangelist) {
+        let newTransition = this.queryParamsTransition(
+          queryParamChangelist,
+          wasTransitioning,
+          oldState!,
+          newState
+        );
+        newTransition.queryParamsOnly = true;
+        return newTransition;
+      }
+
+      // No-op. No need to create a new transition.
+      return this.activeTransition || new InternalTransition(this, undefined, undefined);
     }
 
-    this.oldState = undefined;
-    this.state = new TransitionState();
-    this.currentRouteInfos = undefined;
-  }
-
-  /**
-    let handler = routeInfo.handler;
-    The entry point for handling a change to the URL (usually
-    via the back and forward button).
-
-    Returns an Array of handlers and the parameters associated
-    with those parameters.
-
-    @param {String} url a URL to process
-
-    @return {Array} an Array of `[handler, parameter]` tuples
-  */
-  handleURL(url: string) {
-    // Perform a URL-based transition, but don't change
-    // the URL afterward, since it already happened.
-    if (url.charAt(0) !== '/') {
-      url = '/' + url;
+    if (isIntermediate) {
+      this.setupContexts(newState);
+      return this.activeTransition!;
     }
 
-    return doTransition(this, url).method(null);
-  }
-
-  /**
-    Transition into the specified named route.
-
-    If necessary, trigger the exit callback on any routes
-    that are no longer represented by the target route.
-
-    @param {String} name the name of the route
-  */
-  transitionTo(name: string | { queryParams: Dict<unknown> }, ...contexts: any[]) {
-    if (typeof name === 'object') {
-      contexts.push(name);
-      return doTransition(this, undefined, contexts, false);
-    }
-
-    return doTransition(this, name, contexts);
-  }
-
-  intermediateTransitionTo(name: string, ...args: any[]) {
-    return doTransition(this, name, args, true);
-  }
-
-  refresh(pivotRoute?: Route) {
-    let previousTransition = this.activeTransition;
-    let state = previousTransition ? previousTransition.state : this.state;
-    let routeInfos = state!.routeInfos;
-
-    if (pivotRoute === undefined) {
-      pivotRoute = routeInfos[0].route;
-    }
-
-    log(this, 'Starting a refresh transition');
-    let name = routeInfos[routeInfos.length - 1].name;
-    let intent = new NamedTransitionIntent(
-      name,
+    // Create a new transition to the destination route.
+    newTransition = new InternalTransition(
       this,
-      pivotRoute,
-      [],
-      this._changedQueryParams || state!.queryParams
+      intent,
+      newState,
+      undefined,
+      this.activeTransition
     );
 
-    let newTransition = this.transitionByIntent(intent, false);
-
-    // if the previous transition is a replace transition, that needs to be preserved
-    if (previousTransition && previousTransition.urlMethod === 'replace') {
-      newTransition.method(previousTransition.urlMethod);
+    // transition is to same route with same params, only query params differ.
+    // not caught above probably because refresh() has been used
+    if (routeInfosSameExceptQueryParams(newState.routeInfos, oldState!.routeInfos)) {
+      newTransition.queryParamsOnly = true;
     }
+
+    // Abort and usurp any previously active transition.
+    if (this.activeTransition) {
+      this.activeTransition.abort();
+    }
+    this.activeTransition = newTransition;
+
+    // Transition promises by default resolve with resolved state.
+    // For our purposes, swap out the promise to resolve
+    // after the transition has been finalized.
+    newTransition.promise = newTransition.promise!.then(
+      (result: TransitionState<T>) => {
+        return this.finalizeTransition(newTransition, result);
+      },
+      null,
+      promiseLabel('Settle transition promise when transition is finalized')
+    );
+
+    if (!wasTransitioning) {
+      this.notifyExistingHandlers(newState, newTransition);
+    }
+
+    this.fireQueryParamDidChange(newState, queryParamChangelist!);
 
     return newTransition;
   }
 
   /**
-    Identical to `transitionTo` except that the current URL will be replaced
-    if possible.
+  @private
 
-    This method is intended primarily for use with `replaceState`.
+  Begins and returns a Transition based on the provided
+  arguments. Accepts arguments in the form of both URL
+  transitions and named transitions.
 
-    @param {String} name the name of the route
-  */
-  replaceWith(name: string) {
-    return doTransition(this, name).method('replace');
+  @param {Router} router
+  @param {Array[Object]} args arguments passed to transitionTo,
+    replaceWith, or handleURL
+*/
+  private doTransition(
+    name?: string,
+    modelsArray: Dict<unknown>[] = [],
+    isIntermediate = false
+  ): InternalTransition<T> {
+    let lastArg = modelsArray[modelsArray.length - 1];
+    let queryParams: Dict<unknown> = {};
+
+    if (lastArg !== undefined && lastArg.hasOwnProperty('queryParams')) {
+      queryParams = modelsArray.pop()!.queryParams as Dict<unknown>;
+    }
+
+    let intent;
+    if (name === undefined) {
+      log(this, 'Updating query params');
+
+      // A query param update is really just a transition
+      // into the route you're already on.
+      let { routeInfos } = this.state!;
+      intent = new NamedTransitionIntent<T>(
+        this,
+        routeInfos[routeInfos.length - 1].name,
+        undefined,
+        [],
+        queryParams
+      );
+    } else if (name.charAt(0) === '/') {
+      log(this, 'Attempting URL transition to ' + name);
+      intent = new URLTransitionIntent<T>(this, name);
+    } else {
+      log(this, 'Attempting transition to ' + name);
+      intent = new NamedTransitionIntent<T>(this, name, undefined, modelsArray, queryParams);
+    }
+
+    return this.transitionByIntent(intent, isIntermediate);
   }
 
   /**
-    Take a named route and context objects and generate a
-    URL.
-
-    @param {String} name the name of the route to generate
-      a URL for
-    @param {...Object} objects a list of objects to serialize
-
-    @return {String} a URL
-  */
-  generate(routeName: string, ...args: any[]) {
-    let partitionedArgs = extractQueryParams(args),
-      suppliedParams = partitionedArgs[0],
-      queryParams = partitionedArgs[1];
-
-    // Construct a TransitionIntent with the provided params
-    // and apply it to the present state of the router.
-    let intent = new NamedTransitionIntent(routeName, this, undefined, suppliedParams);
-    let state = intent.applyToState(this.state!, false);
-
-    let params: Params = {};
-    for (let i = 0, len = state.routeInfos.length; i < len; ++i) {
-      let routeInfo = state.routeInfos[i];
-      let routeParams = routeInfo.serialize();
-      merge(params, routeParams);
-    }
-    params.queryParams = queryParams;
-
-    return this.recognizer.generate(routeName, params);
-  }
-
-  applyIntent(routeName: string, contexts: Dict<unknown>[]) {
-    let intent = new NamedTransitionIntent(routeName, this, undefined, contexts);
-
-    let state = (this.activeTransition && this.activeTransition.state) || this.state!;
-
-    return intent.applyToState(state, false);
-  }
-
-  isActiveIntent(
-    routeName: string,
-    contexts: any[],
-    queryParams?: Dict<unknown>,
-    _state?: TransitionState
-  ) {
-    let state = _state || this.state!,
-      targetRouteInfos = state.routeInfos,
-      routeInfo,
-      len;
-
-    if (!targetRouteInfos.length) {
-      return false;
-    }
-
-    let targetHandler = targetRouteInfos[targetRouteInfos.length - 1].name;
-    let recogHandlers: ParsedHandler[] = this.recognizer.handlersFor(targetHandler);
-
-    let index = 0;
-    for (len = recogHandlers.length; index < len; ++index) {
-      routeInfo = targetRouteInfos[index];
-      if (routeInfo.name === routeName) {
-        break;
-      }
-    }
-
-    if (index === recogHandlers.length) {
-      // The provided route name isn't even in the route hierarchy.
-      return false;
-    }
-
-    let testState = new TransitionState();
-    testState.routeInfos = targetRouteInfos.slice(0, index + 1);
-    recogHandlers = recogHandlers.slice(0, index + 1);
-
-    let intent = new NamedTransitionIntent(targetHandler, this, undefined, contexts);
-
-    let newState = intent.applyToHandlers(testState, recogHandlers, targetHandler, true, true);
-
-    let routesEqual = routeInfosEqual(newState.routeInfos, testState.routeInfos);
-    if (!queryParams || !routesEqual) {
-      return routesEqual;
-    }
-
-    // Get a hash of QPs that will still be active on new route
-    let activeQPsOnNewHandler: Dict<unknown> = {};
-    merge(activeQPsOnNewHandler, queryParams);
-
-    let activeQueryParams = state.queryParams;
-    for (let key in activeQueryParams) {
-      if (activeQueryParams.hasOwnProperty(key) && activeQPsOnNewHandler.hasOwnProperty(key)) {
-        activeQPsOnNewHandler[key] = activeQueryParams[key];
-      }
-    }
-
-    return routesEqual && !getChangelist(activeQPsOnNewHandler, queryParams);
-  }
-
-  isActive(routeName: string, ...args: unknown[]) {
-    let partitionedArgs = extractQueryParams(args);
-    return this.isActiveIntent(routeName, partitionedArgs[0], partitionedArgs[1]);
-  }
-
-  trigger(name: string, ...args: any[]) {
-    this.triggerEvent(this.currentRouteInfos!, false, name, args);
-  }
-}
-
-function getTransitionByIntent(this: Router, intent: TransitionIntent, isIntermediate: boolean) {
-  let wasTransitioning = !!this.activeTransition;
-  let oldState = wasTransitioning ? this.activeTransition!.state : this.state;
-  let newTransition: Transition;
-
-  let newState = intent.applyToState(oldState!, isIntermediate);
-  let queryParamChangelist = getChangelist(oldState!.queryParams, newState.queryParams);
-
-  if (routeInfosEqual(newState.routeInfos, oldState!.routeInfos)) {
-    // This is a no-op transition. See if query params changed.
-    if (queryParamChangelist) {
-      newTransition = this.queryParamsTransition(
-        queryParamChangelist,
-        wasTransitioning,
-        oldState!,
-        newState
-      );
-      if (newTransition) {
-        newTransition.queryParamsOnly = true;
-        return newTransition;
-      }
-    }
-
-    // No-op. No need to create a new transition.
-    return this.activeTransition || new Transition(this, undefined, undefined);
-  }
-
-  if (isIntermediate) {
-    setupContexts(this, newState);
-    return;
-  }
-
-  // Create a new transition to the destination route.
-  newTransition = new Transition(this, intent, newState, undefined, this.activeTransition);
-
-  // transition is to same route with same params, only query params differ.
-  // not caught above probably because refresh() has been used
-  if (routeInfosSameExceptQueryParams(newState.routeInfos, oldState!.routeInfos)) {
-    newTransition.queryParamsOnly = true;
-  }
-
-  // Abort and usurp any previously active transition.
-  if (this.activeTransition) {
-    this.activeTransition.abort();
-  }
-  this.activeTransition = newTransition;
-
-  // Transition promises by default resolve with resolved state.
-  // For our purposes, swap out the promise to resolve
-  // after the transition has been finalized.
-  newTransition.promise = newTransition.promise!.then<Route>(
-    (result: TransitionState) => {
-      return finalizeTransition(newTransition, result);
-    },
-    null,
-    promiseLabel('Settle transition promise when transition is finalized')
-  );
-
-  if (!wasTransitioning) {
-    notifyExistingHandlers(this, newState, newTransition);
-  }
-
-  fireQueryParamDidChange(this, newState, queryParamChangelist!);
-
-  return newTransition;
-}
-
-/**
   @private
 
-  Fires queryParamsDidChange event
-*/
-function fireQueryParamDidChange(
-  router: Router,
-  newState: TransitionState,
-  queryParamChangelist: ChangeList
-) {
-  // If queryParams changed trigger event
-  if (queryParamChangelist) {
-    // This is a little hacky but we need some way of storing
-    // changed query params given that no activeTransition
-    // is guaranteed to have occurred.
-    router._changedQueryParams = queryParamChangelist.all;
-    router.triggerEvent(newState.routeInfos, true, 'queryParamsDidChange', [
-      queryParamChangelist.changed,
-      queryParamChangelist.all,
-      queryParamChangelist.removed,
-    ]);
-    router._changedQueryParams = undefined;
-  }
-}
+  Updates the URL (if necessary) and calls `setupContexts`
+  to update the router's array of `currentRouteInfos`.
+ */
+  private finalizeTransition(
+    transition: InternalTransition<T>,
+    newState: TransitionState<T>
+  ): T | Promise<any> {
+    try {
+      log(
+        transition.router,
+        transition.sequence,
+        'Resolved all models on destination route; finalizing transition.'
+      );
 
-/**
+      let routeInfos = newState.routeInfos;
+
+      // Run all the necessary enter/setup/exit hooks
+      this.setupContexts(newState, transition);
+
+      // Check if a redirect occurred in enter/setup
+      if (transition.isAborted) {
+        // TODO: cleaner way? distinguish b/w targetRouteInfos?
+        this.state!.routeInfos = this.currentRouteInfos!;
+        return Promise.reject(logAbort(transition));
+      }
+
+      this._updateURL(transition, newState);
+
+      transition.isActive = false;
+      this.activeTransition = undefined;
+
+      this.triggerEvent(this.currentRouteInfos!, true, 'didTransition', []);
+
+      if (this.didTransition) {
+        this.didTransition(this.currentRouteInfos!);
+      }
+
+      log(this, transition.sequence, 'TRANSITION COMPLETE.');
+
+      // Resolve with the final route.
+      return routeInfos[routeInfos.length - 1].route!;
+    } catch (e) {
+      if (!(e instanceof TransitionAbortedError)) {
+        //let erroneousHandler = routeInfos.pop();
+        let infos = transition.state!.routeInfos;
+        transition.trigger(true, 'error', e, transition, infos[infos.length - 1].route);
+        transition.abort();
+      }
+
+      throw e;
+    }
+  }
+
+  /**
   @private
 
   Takes an Array of `RouteInfo`s, figures out which ones are
@@ -498,115 +360,140 @@ function fireQueryParamDidChange(
   @param {Router} transition
   @param {TransitionState} newState
 */
-function setupContexts(router: Router, newState: TransitionState, transition?: Transition) {
-  let partition = partitionRoutes(router.state!, newState);
-  let i, l, route;
+  private setupContexts(newState: TransitionState<T>, transition?: InternalTransition<T>) {
+    let partition = this.partitionRoutes(this.state!, newState);
+    let i, l, route;
 
-  for (i = 0, l = partition.exited.length; i < l; i++) {
-    route = partition.exited[i].route;
-    delete route!.context;
+    for (i = 0, l = partition.exited.length; i < l; i++) {
+      route = partition.exited[i].route;
+      delete route!.context;
 
-    if (route !== undefined) {
-      if (route.reset !== undefined) {
-        route.reset(true, transition);
-      }
-
-      if (route.exit !== undefined) {
-        route.exit(transition);
-      }
-    }
-  }
-
-  let oldState = (router.oldState = router.state);
-  router.state = newState;
-  let currentRouteInfos = (router.currentRouteInfos = partition.unchanged.slice());
-
-  try {
-    for (i = 0, l = partition.reset.length; i < l; i++) {
-      route = partition.reset[i].route;
       if (route !== undefined) {
         if (route.reset !== undefined) {
-          route.reset(false, transition);
+          route.reset(true, transition);
+        }
+
+        if (route.exit !== undefined) {
+          route.exit(transition);
         }
       }
     }
 
-    for (i = 0, l = partition.updatedContext.length; i < l; i++) {
-      routeEnteredOrUpdated(currentRouteInfos, partition.updatedContext[i], false, transition!);
+    let oldState = (this.oldState = this.state);
+    this.state = newState;
+    let currentRouteInfos = (this.currentRouteInfos = partition.unchanged.slice());
+
+    try {
+      for (i = 0, l = partition.reset.length; i < l; i++) {
+        route = partition.reset[i].route;
+        if (route !== undefined) {
+          if (route.reset !== undefined) {
+            route.reset(false, transition);
+          }
+        }
+      }
+
+      for (i = 0, l = partition.updatedContext.length; i < l; i++) {
+        this.routeEnteredOrUpdated(
+          currentRouteInfos,
+          partition.updatedContext[i],
+          false,
+          transition!
+        );
+      }
+
+      for (i = 0, l = partition.entered.length; i < l; i++) {
+        this.routeEnteredOrUpdated(currentRouteInfos, partition.entered[i], true, transition!);
+      }
+    } catch (e) {
+      this.state = oldState;
+      this.currentRouteInfos = oldState!.routeInfos;
+      throw e;
     }
 
-    for (i = 0, l = partition.entered.length; i < l; i++) {
-      routeEnteredOrUpdated(currentRouteInfos, partition.entered[i], true, transition!);
-    }
-  } catch (e) {
-    router.state = oldState;
-    router.currentRouteInfos = oldState!.routeInfos;
-    throw e;
+    this.state.queryParams = this.finalizeQueryParamChange(
+      currentRouteInfos,
+      newState.queryParams,
+      transition!
+    );
   }
 
-  router.state.queryParams = finalizeQueryParamChange(
-    router,
-    currentRouteInfos,
-    newState.queryParams,
-    transition!
-  );
-}
+  /**
+  @private
 
-/**
+  Fires queryParamsDidChange event
+*/
+  private fireQueryParamDidChange(newState: TransitionState<T>, queryParamChangelist: ChangeList) {
+    // If queryParams changed trigger event
+    if (queryParamChangelist) {
+      // This is a little hacky but we need some way of storing
+      // changed query params given that no activeTransition
+      // is guaranteed to have occurred.
+      this._changedQueryParams = queryParamChangelist.all;
+      this.triggerEvent(newState.routeInfos, true, 'queryParamsDidChange', [
+        queryParamChangelist.changed,
+        queryParamChangelist.all,
+        queryParamChangelist.removed,
+      ]);
+      this._changedQueryParams = undefined;
+    }
+  }
+
+  /**
   @private
 
   Helper method used by setupContexts. Handles errors or redirects
   that may happen in enter/setup.
 */
-function routeEnteredOrUpdated(
-  currentRouteInfos: InternalRouteInfo[],
-  routeInfo: InternalRouteInfo,
-  enter: boolean,
-  transition?: Transition
-) {
-  let route = routeInfo.route,
-    context = routeInfo.context;
+  private routeEnteredOrUpdated(
+    currentRouteInfos: InternalRouteInfo<T>[],
+    routeInfo: InternalRouteInfo<T>,
+    enter: boolean,
+    transition?: InternalTransition<T>
+  ) {
+    let route = routeInfo.route,
+      context = routeInfo.context;
 
-  function _routeEnteredOrUpdated(route: Route) {
-    if (enter) {
-      if (route.enter !== undefined) {
-        route.enter(transition!);
+    function _routeEnteredOrUpdated(route: T) {
+      if (enter) {
+        if (route.enter !== undefined) {
+          route.enter(transition!);
+        }
       }
+
+      if (transition && transition.isAborted) {
+        throw new TransitionAbortedError();
+      }
+
+      route.context = context;
+
+      if (route.contextDidChange !== undefined) {
+        route.contextDidChange();
+      }
+
+      if (route.setup !== undefined) {
+        route.setup(context!, transition!);
+      }
+
+      if (transition && transition.isAborted) {
+        throw new TransitionAbortedError();
+      }
+
+      currentRouteInfos.push(routeInfo);
+      return route;
     }
 
-    if (transition && transition.isAborted) {
-      throw new TransitionAbortedError();
+    // If the route doesn't exist, it means we haven't resolved the route promise yet
+    if (route === undefined) {
+      routeInfo.routePromise = routeInfo.routePromise.then(_routeEnteredOrUpdated);
+    } else {
+      _routeEnteredOrUpdated(route);
     }
 
-    route.context = context;
-
-    if (route.contextDidChange !== undefined) {
-      route.contextDidChange();
-    }
-
-    if (route.setup !== undefined) {
-      route.setup(context!, transition!);
-    }
-
-    if (transition && transition.isAborted) {
-      throw new TransitionAbortedError();
-    }
-
-    currentRouteInfos.push(routeInfo);
-    return route;
+    return true;
   }
 
-  // If the route doesn't exist, it means we haven't resolved the route promise yet
-  if (route === undefined) {
-    routeInfo.routePromise = routeInfo.routePromise.then(_routeEnteredOrUpdated);
-  } else {
-    _routeEnteredOrUpdated(route);
-  }
-
-  return true;
-}
-
-/**
+  /**
   @private
 
   This function is called when transitioning from one URL to
@@ -647,225 +534,422 @@ function routeEnteredOrUpdated(
 
   @return {Partition}
 */
-function partitionRoutes(oldState: TransitionState, newState: TransitionState) {
-  let oldRouteInfos = oldState.routeInfos;
-  let newRouteInfos = newState.routeInfos;
+  private partitionRoutes(oldState: TransitionState<T>, newState: TransitionState<T>) {
+    let oldRouteInfos = oldState.routeInfos;
+    let newRouteInfos = newState.routeInfos;
 
-  let routes: RoutePartition = {
-    updatedContext: [],
-    exited: [],
-    entered: [],
-    unchanged: [],
-    reset: [],
-  };
+    let routes: RoutePartition<T> = {
+      updatedContext: [],
+      exited: [],
+      entered: [],
+      unchanged: [],
+      reset: [],
+    };
 
-  let routeChanged,
-    contextChanged = false,
-    i,
-    l;
+    let routeChanged,
+      contextChanged = false,
+      i,
+      l;
 
-  for (i = 0, l = newRouteInfos.length; i < l; i++) {
-    let oldRouteInfo = oldRouteInfos[i],
-      newRouteInfo = newRouteInfos[i];
+    for (i = 0, l = newRouteInfos.length; i < l; i++) {
+      let oldRouteInfo = oldRouteInfos[i],
+        newRouteInfo = newRouteInfos[i];
 
-    if (!oldRouteInfo || oldRouteInfo.route !== newRouteInfo.route) {
-      routeChanged = true;
-    }
-
-    if (routeChanged) {
-      routes.entered.push(newRouteInfo);
-      if (oldRouteInfo) {
-        routes.exited.unshift(oldRouteInfo);
+      if (!oldRouteInfo || oldRouteInfo.route !== newRouteInfo.route) {
+        routeChanged = true;
       }
-    } else if (contextChanged || oldRouteInfo.context !== newRouteInfo.context) {
-      contextChanged = true;
-      routes.updatedContext.push(newRouteInfo);
-    } else {
-      routes.unchanged.push(oldRouteInfo);
+
+      if (routeChanged) {
+        routes.entered.push(newRouteInfo);
+        if (oldRouteInfo) {
+          routes.exited.unshift(oldRouteInfo);
+        }
+      } else if (contextChanged || oldRouteInfo.context !== newRouteInfo.context) {
+        contextChanged = true;
+        routes.updatedContext.push(newRouteInfo);
+      } else {
+        routes.unchanged.push(oldRouteInfo);
+      }
+    }
+
+    for (i = newRouteInfos.length, l = oldRouteInfos.length; i < l; i++) {
+      routes.exited.unshift(oldRouteInfos[i]);
+    }
+
+    routes.reset = routes.updatedContext.slice();
+    routes.reset.reverse();
+
+    return routes;
+  }
+
+  private _updateURL(transition: OpaqueTransition, state: TransitionState<T>) {
+    let urlMethod: string | null = transition.urlMethod;
+
+    if (!urlMethod) {
+      return;
+    }
+
+    let { routeInfos } = state;
+    let { name: routeName } = routeInfos[routeInfos.length - 1];
+    let params: Dict<unknown> = {};
+
+    for (let i = routeInfos.length - 1; i >= 0; --i) {
+      let routeInfo = routeInfos[i];
+      merge(params, routeInfo.params);
+      if (routeInfo.route!.inaccessibleByURL) {
+        urlMethod = null;
+      }
+    }
+
+    if (urlMethod) {
+      params.queryParams = transition._visibleQueryParams || state.queryParams;
+      let url = this.recognizer.generate(routeName, params as Params);
+
+      // transitions during the initial transition must always use replaceURL.
+      // When the app boots, you are at a url, e.g. /foo. If some route
+      // redirects to bar as part of the initial transition, you don't want to
+      // add a history entry for /foo. If you do, pressing back will immediately
+      // hit the redirect again and take you back to /bar, thus killing the back
+      // button
+      let initial = transition.isCausedByInitialTransition;
+
+      // say you are at / and you click a link to route /foo. In /foo's
+      // route, the transition is aborted using replacewith('/bar').
+      // Because the current url is still /, the history entry for / is
+      // removed from the history. Clicking back will take you to the page
+      // you were on before /, which is often not even the app, thus killing
+      // the back button. That's why updateURL is always correct for an
+      // aborting transition that's not the initial transition
+      let replaceAndNotAborting =
+        urlMethod === 'replace' && !transition.isCausedByAbortingTransition;
+
+      // because calling refresh causes an aborted transition, this needs to be
+      // special cased - if the initial transition is a replace transition, the
+      // urlMethod should be honored here.
+      let isQueryParamsRefreshTransition = transition.queryParamsOnly && urlMethod === 'replace';
+
+      // say you are at / and you a `replaceWith(/foo)` is called. Then, that
+      // transition is aborted with `replaceWith(/bar)`. At the end, we should
+      // end up with /bar replacing /. We are replacing the replace. We only
+      // will replace the initial route if all subsequent aborts are also
+      // replaces. However, there is some ambiguity around the correct behavior
+      // here.
+      let replacingReplace =
+        urlMethod === 'replace' && transition.isCausedByAbortingReplaceTransition;
+
+      if (initial || replaceAndNotAborting || isQueryParamsRefreshTransition || replacingReplace) {
+        this.replaceURL!(url);
+      } else {
+        this.updateURL(url);
+      }
     }
   }
 
-  for (i = newRouteInfos.length, l = oldRouteInfos.length; i < l; i++) {
-    routes.exited.unshift(oldRouteInfos[i]);
+  private finalizeQueryParamChange(
+    resolvedHandlers: InternalRouteInfo<T>[],
+    newQueryParams: Dict<unknown>,
+    transition: OpaqueTransition
+  ) {
+    // We fire a finalizeQueryParamChange event which
+    // gives the new route hierarchy a chance to tell
+    // us which query params it's consuming and what
+    // their final values are. If a query param is
+    // no longer consumed in the final route hierarchy,
+    // its serialized segment will be removed
+    // from the URL.
+
+    for (let k in newQueryParams) {
+      if (newQueryParams.hasOwnProperty(k) && newQueryParams[k] === null) {
+        delete newQueryParams[k];
+      }
+    }
+
+    let finalQueryParamsArray: {
+      key: string;
+      value: string;
+      visible: boolean;
+    }[] = [];
+
+    this.triggerEvent(resolvedHandlers, true, 'finalizeQueryParamChange', [
+      newQueryParams,
+      finalQueryParamsArray,
+      transition,
+    ]);
+
+    if (transition) {
+      transition._visibleQueryParams = {};
+    }
+
+    let finalQueryParams: Dict<unknown> = {};
+    for (let i = 0, len = finalQueryParamsArray.length; i < len; ++i) {
+      let qp = finalQueryParamsArray[i];
+      finalQueryParams[qp.key] = qp.value;
+      if (transition && qp.visible !== false) {
+        transition._visibleQueryParams[qp.key] = qp.value;
+      }
+    }
+    return finalQueryParams;
   }
 
-  routes.reset = routes.updatedContext.slice();
-  routes.reset.reverse();
+  private notifyExistingHandlers(
+    newState: TransitionState<T>,
+    newTransition: InternalTransition<T>
+  ) {
+    let oldRouteInfos = this.state!.routeInfos,
+      changing = [],
+      i,
+      oldRouteInfoLen,
+      oldHandler,
+      newRouteInfo;
 
-  return routes;
-}
+    oldRouteInfoLen = oldRouteInfos.length;
+    for (i = 0; i < oldRouteInfoLen; i++) {
+      oldHandler = oldRouteInfos[i];
+      newRouteInfo = newState.routeInfos[i];
 
-function updateURL(transition: Transition, state: TransitionState, _inputUrl?: string) {
-  let urlMethod: string | null = transition.urlMethod;
+      if (!newRouteInfo || oldHandler.name !== newRouteInfo.name) {
+        break;
+      }
 
-  if (!urlMethod) {
-    return;
-  }
+      if (!newRouteInfo.isResolved) {
+        changing.push(oldHandler);
+      }
+    }
 
-  let { router } = transition;
-  let { routeInfos } = state;
-  let { name: routeName } = routeInfos[routeInfos.length - 1];
-  let params: Dict<unknown> = {};
+    if (oldRouteInfoLen > 0) {
+      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos);
+      newTransition!.from = fromInfos[fromInfos.length - 1];
+    }
 
-  for (let i = routeInfos.length - 1; i >= 0; --i) {
-    let routeInfo = routeInfos[i];
-    merge(params, routeInfo.params);
-    if (routeInfo.route!.inaccessibleByURL) {
-      urlMethod = null;
+    if (newState.routeInfos.length > 0) {
+      let toInfos = toReadOnlyRouteInfo(newState.routeInfos);
+      newTransition!.to = toInfos[toInfos.length - 1];
+    }
+
+    this.triggerEvent(oldRouteInfos, true, 'willTransition', [newTransition]);
+    if (this.willTransition) {
+      this.willTransition(oldRouteInfos, newState.routeInfos, newTransition);
     }
   }
 
-  if (urlMethod) {
-    params.queryParams = transition._visibleQueryParams || state.queryParams;
-    let url = router.recognizer.generate(routeName, params as Params);
-
-    // transitions during the initial transition must always use replaceURL.
-    // When the app boots, you are at a url, e.g. /foo. If some route
-    // redirects to bar as part of the initial transition, you don't want to
-    // add a history entry for /foo. If you do, pressing back will immediately
-    // hit the redirect again and take you back to /bar, thus killing the back
-    // button
-    let initial = transition.isCausedByInitialTransition;
-
-    // say you are at / and you click a link to route /foo. In /foo's
-    // route, the transition is aborted using replacewith('/bar').
-    // Because the current url is still /, the history entry for / is
-    // removed from the history. Clicking back will take you to the page
-    // you were on before /, which is often not even the app, thus killing
-    // the back button. That's why updateURL is always correct for an
-    // aborting transition that's not the initial transition
-    let replaceAndNotAborting = urlMethod === 'replace' && !transition.isCausedByAbortingTransition;
-
-    // because calling refresh causes an aborted transition, this needs to be
-    // special cased - if the initial transition is a replace transition, the
-    // urlMethod should be honored here.
-    let isQueryParamsRefreshTransition = transition.queryParamsOnly && urlMethod === 'replace';
-
-    // say you are at / and you a `replaceWith(/foo)` is called. Then, that
-    // transition is aborted with `replaceWith(/bar)`. At the end, we should
-    // end up with /bar replacing /. We are replacing the replace. We only
-    // will replace the initial route if all subsequent aborts are also
-    // replaces. However, there is some ambiguity around the correct behavior
-    // here.
-    let replacingReplace =
-      urlMethod === 'replace' && transition.isCausedByAbortingReplaceTransition;
-
-    if (initial || replaceAndNotAborting || isQueryParamsRefreshTransition || replacingReplace) {
-      router.replaceURL!(url);
-    } else {
-      router.updateURL(url);
-    }
-  }
-}
-
-/**
-  @private
-
-  Updates the URL (if necessary) and calls `setupContexts`
-  to update the router's array of `currentRouteInfos`.
- */
-function finalizeTransition(
-  transition: Transition,
-  newState: TransitionState
-): Route | Promise<never> {
-  try {
-    log(
-      transition.router,
-      transition.sequence,
-      'Resolved all models on destination route; finalizing transition.'
-    );
-
-    let router = transition.router,
-      routeInfos = newState.routeInfos;
-
-    // Run all the necessary enter/setup/exit hooks
-    setupContexts(router, newState, transition);
-
-    // Check if a redirect occurred in enter/setup
-    if (transition.isAborted) {
-      // TODO: cleaner way? distinguish b/w targetRouteInfos?
-      router.state!.routeInfos = router.currentRouteInfos!;
-      return Promise.reject(logAbort(transition));
+  /**
+    Clears the current and target route routes and triggers exit
+    on each of them starting at the leaf and traversing up through
+    its ancestors.
+  */
+  reset() {
+    if (this.state) {
+      forEach<InternalRouteInfo<T>>(this.state.routeInfos.slice().reverse(), function(routeInfo) {
+        let route = routeInfo.route;
+        if (route !== undefined) {
+          if (route.exit !== undefined) {
+            route.exit();
+          }
+        }
+        return true;
+      });
     }
 
-    updateURL(transition, newState, (transition.intent! as URLTransitionIntent).url);
-
-    transition.isActive = false;
-    router.activeTransition = undefined;
-
-    router.triggerEvent(router.currentRouteInfos!, true, 'didTransition', []);
-
-    if (router.didTransition) {
-      router.didTransition(router.currentRouteInfos!);
-    }
-
-    log(router, transition.sequence, 'TRANSITION COMPLETE.');
-
-    // Resolve with the final route.
-    return routeInfos[routeInfos.length - 1].route!;
-  } catch (e) {
-    console.log(e);
-    if (!(e instanceof TransitionAbortedError)) {
-      //let erroneousHandler = routeInfos.pop();
-      let infos = transition.state!.routeInfos;
-      transition.trigger(true, 'error', e, transition, infos[infos.length - 1].route);
-      transition.abort();
-    }
-
-    throw e;
-  }
-}
-
-/**
-  @private
-
-  Begins and returns a Transition based on the provided
-  arguments. Accepts arguments in the form of both URL
-  transitions and named transitions.
-
-  @param {Router} router
-  @param {Array[Object]} args arguments passed to transitionTo,
-    replaceWith, or handleURL
-*/
-function doTransition(
-  router: Router,
-  name?: string,
-  modelsArray: Dict<unknown>[] = [],
-  isIntermediate = false
-) {
-  let lastArg = modelsArray[modelsArray.length - 1];
-  let queryParams: Dict<unknown> = {};
-
-  if (lastArg !== undefined && lastArg.hasOwnProperty('queryParams')) {
-    queryParams = modelsArray.pop()!.queryParams as Dict<unknown>;
+    this.oldState = undefined;
+    this.state = new TransitionState();
+    this.currentRouteInfos = undefined;
   }
 
-  let intent;
-  if (name === undefined) {
-    log(router, 'Updating query params');
+  /**
+    let handler = routeInfo.handler;
+    The entry point for handling a change to the URL (usually
+    via the back and forward button).
 
-    // A query param update is really just a transition
-    // into the route you're already on.
-    let { routeInfos } = router.state!;
-    intent = new NamedTransitionIntent(
-      routeInfos[routeInfos.length - 1].name,
-      router,
-      undefined,
+    Returns an Array of handlers and the parameters associated
+    with those parameters.
+
+    @param {String} url a URL to process
+
+    @return {Array} an Array of `[handler, parameter]` tuples
+  */
+  handleURL(url: string) {
+    // Perform a URL-based transition, but don't change
+    // the URL afterward, since it already happened.
+    if (url.charAt(0) !== '/') {
+      url = '/' + url;
+    }
+
+    return this.doTransition(url)!.method(null);
+  }
+
+  /**
+    Transition into the specified named route.
+
+    If necessary, trigger the exit callback on any routes
+    that are no longer represented by the target route.
+
+    @param {String} name the name of the route
+  */
+  transitionTo(name: string | { queryParams: Dict<unknown> }, ...contexts: any[]) {
+    if (typeof name === 'object') {
+      contexts.push(name);
+      return this.doTransition(undefined, contexts, false);
+    }
+
+    return this.doTransition(name, contexts);
+  }
+
+  intermediateTransitionTo(name: string, ...args: any[]) {
+    return this.doTransition(name, args, true);
+  }
+
+  refresh(pivotRoute?: T) {
+    let previousTransition = this.activeTransition;
+    let state = previousTransition ? previousTransition.state : this.state;
+    let routeInfos = state!.routeInfos;
+
+    if (pivotRoute === undefined) {
+      pivotRoute = routeInfos[0].route;
+    }
+
+    log(this, 'Starting a refresh transition');
+    let name = routeInfos[routeInfos.length - 1].name;
+    let intent = new NamedTransitionIntent(
+      this,
+      name,
+      pivotRoute,
       [],
-      queryParams
+      this._changedQueryParams || state!.queryParams
     );
-  } else if (name.charAt(0) === '/') {
-    log(router, 'Attempting URL transition to ' + name);
-    intent = new URLTransitionIntent(name, router);
-  } else {
-    log(router, 'Attempting transition to ' + name);
-    intent = new NamedTransitionIntent(name, router, undefined, modelsArray, queryParams);
+
+    let newTransition = this.transitionByIntent(intent, false);
+
+    // if the previous transition is a replace transition, that needs to be preserved
+    if (previousTransition && previousTransition.urlMethod === 'replace') {
+      newTransition.method(previousTransition.urlMethod);
+    }
+
+    return newTransition;
   }
 
-  return router.transitionByIntent(intent, isIntermediate);
+  /**
+    Identical to `transitionTo` except that the current URL will be replaced
+    if possible.
+
+    This method is intended primarily for use with `replaceState`.
+
+    @param {String} name the name of the route
+  */
+  replaceWith(name: string) {
+    return this.doTransition(name).method('replace');
+  }
+
+  /**
+    Take a named route and context objects and generate a
+    URL.
+
+    @param {String} name the name of the route to generate
+      a URL for
+    @param {...Object} objects a list of objects to serialize
+
+    @return {String} a URL
+  */
+  generate(routeName: string, ...args: any[]) {
+    let partitionedArgs = extractQueryParams(args),
+      suppliedParams = partitionedArgs[0],
+      queryParams = partitionedArgs[1];
+
+    // Construct a TransitionIntent with the provided params
+    // and apply it to the present state of the router.
+    let intent = new NamedTransitionIntent(this, routeName, undefined, suppliedParams);
+    let state = intent.applyToState(this.state!, false);
+
+    let params: Params = {};
+    for (let i = 0, len = state.routeInfos.length; i < len; ++i) {
+      let routeInfo = state.routeInfos[i];
+      let routeParams = routeInfo.serialize();
+      merge(params, routeParams);
+    }
+    params.queryParams = queryParams;
+
+    return this.recognizer.generate(routeName, params);
+  }
+
+  applyIntent(routeName: string, contexts: Dict<unknown>[]): TransitionState<T> {
+    let intent = new NamedTransitionIntent(this, routeName, undefined, contexts);
+
+    let state = (this.activeTransition && this.activeTransition.state) || this.state!;
+
+    return intent.applyToState(state, false);
+  }
+
+  isActiveIntent(
+    routeName: string,
+    contexts: any[],
+    queryParams?: Dict<unknown>,
+    _state?: TransitionState<T>
+  ) {
+    let state = _state || this.state!,
+      targetRouteInfos = state.routeInfos,
+      routeInfo,
+      len;
+
+    if (!targetRouteInfos.length) {
+      return false;
+    }
+
+    let targetHandler = targetRouteInfos[targetRouteInfos.length - 1].name;
+    let recogHandlers: ParsedHandler[] = this.recognizer.handlersFor(targetHandler);
+
+    let index = 0;
+    for (len = recogHandlers.length; index < len; ++index) {
+      routeInfo = targetRouteInfos[index];
+      if (routeInfo.name === routeName) {
+        break;
+      }
+    }
+
+    if (index === recogHandlers.length) {
+      // The provided route name isn't even in the route hierarchy.
+      return false;
+    }
+
+    let testState = new TransitionState<T>();
+    testState.routeInfos = targetRouteInfos.slice(0, index + 1);
+    recogHandlers = recogHandlers.slice(0, index + 1);
+
+    let intent = new NamedTransitionIntent(this, targetHandler, undefined, contexts);
+
+    let newState = intent.applyToHandlers(testState, recogHandlers, targetHandler, true, true);
+
+    let routesEqual = routeInfosEqual(newState.routeInfos, testState.routeInfos);
+    if (!queryParams || !routesEqual) {
+      return routesEqual;
+    }
+
+    // Get a hash of QPs that will still be active on new route
+    let activeQPsOnNewHandler: Dict<unknown> = {};
+    merge(activeQPsOnNewHandler, queryParams);
+
+    let activeQueryParams = state.queryParams;
+    for (let key in activeQueryParams) {
+      if (activeQueryParams.hasOwnProperty(key) && activeQPsOnNewHandler.hasOwnProperty(key)) {
+        activeQPsOnNewHandler[key] = activeQueryParams[key];
+      }
+    }
+
+    return routesEqual && !getChangelist(activeQPsOnNewHandler, queryParams);
+  }
+
+  isActive(routeName: string, ...args: unknown[]) {
+    let partitionedArgs = extractQueryParams(args);
+    return this.isActiveIntent(routeName, partitionedArgs[0], partitionedArgs[1]);
+  }
+
+  trigger(name: string, ...args: any[]) {
+    this.triggerEvent(this.currentRouteInfos!, false, name, args);
+  }
 }
 
-function routeInfosEqual(routeInfos: InternalRouteInfo[], otherRouteInfos: InternalRouteInfo[]) {
+function routeInfosEqual(
+  routeInfos: InternalRouteInfo<Route>[],
+  otherRouteInfos: InternalRouteInfo<Route>[]
+) {
   if (routeInfos.length !== otherRouteInfos.length) {
     return false;
   }
@@ -879,8 +963,8 @@ function routeInfosEqual(routeInfos: InternalRouteInfo[], otherRouteInfos: Inter
 }
 
 function routeInfosSameExceptQueryParams(
-  routeInfos: InternalRouteInfo[],
-  otherRouteInfos: InternalRouteInfo[]
+  routeInfos: InternalRouteInfo<Route>[],
+  otherRouteInfos: InternalRouteInfo<Route>[]
 ) {
   if (routeInfos.length !== otherRouteInfos.length) {
     return false;
@@ -923,99 +1007,10 @@ function paramsEqual(params: Dict<unknown>, otherParams: Dict<unknown>) {
   return true;
 }
 
-function finalizeQueryParamChange(
-  router: Router,
-  resolvedHandlers: InternalRouteInfo[],
-  newQueryParams: Dict<unknown>,
-  transition: Transition
-) {
-  // We fire a finalizeQueryParamChange event which
-  // gives the new route hierarchy a chance to tell
-  // us which query params it's consuming and what
-  // their final values are. If a query param is
-  // no longer consumed in the final route hierarchy,
-  // its serialized segment will be removed
-  // from the URL.
-
-  for (let k in newQueryParams) {
-    if (newQueryParams.hasOwnProperty(k) && newQueryParams[k] === null) {
-      delete newQueryParams[k];
-    }
-  }
-
-  let finalQueryParamsArray: {
-    key: string;
-    value: string;
-    visible: boolean;
-  }[] = [];
-
-  router.triggerEvent(resolvedHandlers, true, 'finalizeQueryParamChange', [
-    newQueryParams,
-    finalQueryParamsArray,
-    transition,
-  ]);
-
-  if (transition) {
-    transition._visibleQueryParams = {};
-  }
-
-  let finalQueryParams: Dict<unknown> = {};
-  for (let i = 0, len = finalQueryParamsArray.length; i < len; ++i) {
-    let qp = finalQueryParamsArray[i];
-    finalQueryParams[qp.key] = qp.value;
-    if (transition && qp.visible !== false) {
-      transition._visibleQueryParams[qp.key] = qp.value;
-    }
-  }
-  return finalQueryParams;
-}
-
-function notifyExistingHandlers(
-  router: Router,
-  newState: TransitionState,
-  newTransition: Transition
-) {
-  let oldRouteInfos = router.state!.routeInfos,
-    changing = [],
-    i,
-    oldRouteInfoLen,
-    oldHandler,
-    newRouteInfo;
-
-  oldRouteInfoLen = oldRouteInfos.length;
-  for (i = 0; i < oldRouteInfoLen; i++) {
-    oldHandler = oldRouteInfos[i];
-    newRouteInfo = newState.routeInfos[i];
-
-    if (!newRouteInfo || oldHandler.name !== newRouteInfo.name) {
-      break;
-    }
-
-    if (!newRouteInfo.isResolved) {
-      changing.push(oldHandler);
-    }
-  }
-
-  if (oldRouteInfoLen > 0) {
-    let fromInfos = toReadOnlyRouteInfo(oldRouteInfos);
-    newTransition!.from = fromInfos[fromInfos.length - 1];
-  }
-
-  if (newState.routeInfos.length > 0) {
-    let toInfos = toReadOnlyRouteInfo(newState.routeInfos);
-    newTransition!.to = toInfos[toInfos.length - 1];
-  }
-
-  router.triggerEvent(oldRouteInfos, true, 'willTransition', [newTransition]);
-  if (router.willTransition) {
-    router.willTransition(oldRouteInfos, newState.routeInfos, newTransition);
-  }
-}
-
-export interface RoutePartition {
-  updatedContext: InternalRouteInfo[];
-  exited: InternalRouteInfo[];
-  entered: InternalRouteInfo[];
-  unchanged: InternalRouteInfo[];
-  reset: InternalRouteInfo[];
+export interface RoutePartition<T extends Route> {
+  updatedContext: InternalRouteInfo<T>[];
+  exited: InternalRouteInfo<T>[];
+  entered: InternalRouteInfo<T>[];
+  unchanged: InternalRouteInfo<T>[];
+  reset: InternalRouteInfo<T>[];
 }

@@ -1,62 +1,59 @@
 import { Promise } from 'rsvp';
-import { Dict, Maybe } from './core';
+import { Dict, Maybe, Option } from './core';
 import Router, { SerializerFunc } from './router';
-import { isTransition, prepareResult, Transition } from './transition';
+import InternalTransition, {
+  isTransition,
+  prepareResult,
+  PublicTransition as Transition,
+} from './transition';
 import { isParam, isPromise, merge } from './utils';
 
 interface IModel {
   id?: string | number;
 }
 
-export interface RouteHooks {
+export interface Route {
+  inaccessibleByURL?: boolean;
+  routeName: string;
+  context: unknown;
+  events?: Dict<Function>;
   model?(
     params: Dict<unknown>,
     transition: Transition
   ): Promise<Dict<unknown> | null | undefined> | undefined | Dict<unknown>;
   deserialize?(params: Dict<unknown>, transition: Transition): Dict<unknown>;
-  serialize?(model: Dict<unknown>, params: string[]): Dict<unknown>;
-  beforeModel?(transition: Transition): Promise<Dict<unknown> | null | undefined> | undefined;
-  afterModel?(
-    resolvedModel: Dict<unknown>,
-    transition: Transition
-  ): Promise<Dict<unknown> | null | undefined>;
+  serialize?(model: {}, params: string[]): {} | undefined;
+  beforeModel?(transition: Transition): Promise<any> | any;
+  afterModel?(resolvedModel: any, transition: Transition): Promise<any> | any;
   setup?(context: Dict<unknown>, transition: Transition): void;
   enter?(transition: Transition): void;
   exit?(transition?: Transition): void;
   reset?(wasReset: boolean, transition?: Transition): void;
   contextDidChange?(): void;
-  // Underscore methods for some reason
   redirect?(context: Dict<unknown>, transition: Transition): void;
-}
-
-export interface Route extends RouteHooks {
-  inaccessibleByURL?: boolean;
-  routeName: string;
-  context: unknown;
-  events?: Dict<Function>;
 }
 
 export type Continuation = () => PromiseLike<boolean> | boolean;
 
-export interface IRouteInfo {
+export interface RouteInfo {
   readonly name: string;
-  readonly parent: Maybe<IRouteInfo>;
-  readonly child: Maybe<IRouteInfo>;
+  readonly parent: Maybe<RouteInfo>;
+  readonly child: Maybe<RouteInfo>;
   readonly localName: string;
   readonly params: Dict<unknown>;
   find(
-    predicate: (this: void, routeInfo: IRouteInfo, i: number) => boolean,
+    predicate: (this: void, routeInfo: RouteInfo, i: number) => boolean,
     thisArg: any
-  ): IRouteInfo | undefined;
+  ): RouteInfo | undefined;
 }
 
-let ROUTE_INFO_LINKS = new WeakMap<PrivateRouteInfo, IRouteInfo>();
+let ROUTE_INFO_LINKS = new WeakMap<InternalRouteInfo<Route>, RouteInfo>();
 
-export function toReadOnlyRouteInfo(routeInfos: PrivateRouteInfo[]) {
+export function toReadOnlyRouteInfo(routeInfos: InternalRouteInfo<Route>[]) {
   return routeInfos.map((info, i) => {
     let { name, params, queryParams, paramNames } = info;
-    let publicRouteInfo = new class RouteInfo implements IRouteInfo {
-      find(predicate: (this: void, routeInfo: IRouteInfo, i: number) => boolean, thisArg: any) {
+    let publicRouteInfo = new class implements RouteInfo {
+      find(predicate: (this: void, routeInfo: RouteInfo, i: number) => boolean, thisArg: any) {
         let routeInfo;
         let publicInfo;
         for (let i = 0; routeInfos.length > 0; i++) {
@@ -108,10 +105,10 @@ export function toReadOnlyRouteInfo(routeInfos: PrivateRouteInfo[]) {
   });
 }
 
-export default class PrivateRouteInfo {
-  private _routePromise?: Promise<Route> = undefined;
-  private _route?: Route = undefined;
-  protected router: Router;
+export default class InternalRouteInfo<T extends Route> {
+  private _routePromise?: Promise<T> = undefined;
+  private _route?: Option<T> = null;
+  protected router: Router<T>;
   paramNames: string[];
   name: string;
   params: Dict<unknown> = {};
@@ -119,7 +116,7 @@ export default class PrivateRouteInfo {
   context?: Dict<unknown>;
   isResolved = false;
 
-  constructor(router: Router, name: string, paramNames: string[], route?: Route) {
+  constructor(router: Router<T>, name: string, paramNames: string[], route?: T) {
     this.name = name;
     this.paramNames = paramNames;
     this.router = router;
@@ -128,7 +125,7 @@ export default class PrivateRouteInfo {
     }
   }
 
-  getModel(_transition: Transition) {
+  getModel(_transition: InternalTransition<T>) {
     return Promise.resolve(this.context);
   }
 
@@ -136,7 +133,10 @@ export default class PrivateRouteInfo {
     return this.params || {};
   }
 
-  resolve(shouldContinue: Continuation, transition: Transition): Promise<ResolvedRouteInfo> {
+  resolve(
+    shouldContinue: Continuation,
+    transition: InternalTransition<T>
+  ): Promise<ResolvedRouteInfo<T>> {
     return Promise.resolve(this.routePromise)
       .then((route: Route) => this.checkForAbort(shouldContinue, route), null)
       .then(() => {
@@ -149,7 +149,10 @@ export default class PrivateRouteInfo {
       .then(resolvedModel => this.becomeResolved(transition, resolvedModel));
   }
 
-  becomeResolved(transition: Transition | null, resolvedContext: Dict<unknown>): ResolvedRouteInfo {
+  becomeResolved(
+    transition: InternalTransition<T> | null,
+    resolvedContext: Dict<unknown>
+  ): ResolvedRouteInfo<T> {
     let params = this.serialize(resolvedContext);
 
     if (transition) {
@@ -175,7 +178,7 @@ export default class PrivateRouteInfo {
     );
   }
 
-  shouldSupercede(routeInfo?: PrivateRouteInfo) {
+  shouldSupercede(routeInfo?: InternalRouteInfo<T>) {
     // Prefer this newer routeInfo over `other` if:
     // 1) The other one doesn't exist
     // 2) The names don't match
@@ -194,21 +197,21 @@ export default class PrivateRouteInfo {
     );
   }
 
-  get route(): Route | undefined {
+  get route(): T | undefined {
     // _route could be set to either a route object or undefined, so we
-    // compare against a default reference to know when it's been set
-    if (this._route !== undefined) {
-      return this._route!;
+    // compare against null to know when it's been set
+    if (this._route !== null) {
+      return this._route;
     }
 
     return this.fetchRoute();
   }
 
-  set route(route: Route | undefined) {
+  set route(route: T | undefined) {
     this._route = route;
   }
 
-  get routePromise(): Promise<Route> {
+  get routePromise(): Promise<T> {
     if (this._routePromise) {
       return this._routePromise;
     }
@@ -218,23 +221,21 @@ export default class PrivateRouteInfo {
     return this._routePromise!;
   }
 
-  set routePromise(routePromise: Promise<Route>) {
+  set routePromise(routePromise: Promise<T>) {
     this._routePromise = routePromise;
   }
 
-  protected log(transition: Transition, message: string) {
+  protected log(transition: InternalTransition<T>, message: string) {
     if (transition.log) {
       transition.log(this.name + ': ' + message);
     }
   }
 
-  private updateRoute(route: Route) {
-    // Store the name of the route on the route for easy checks later
-    route.routeName = this.name;
+  private updateRoute(route: T) {
     return (this.route = route);
   }
 
-  private runBeforeModelHook(transition: Transition) {
+  private runBeforeModelHook(transition: InternalTransition<T>) {
     if (transition.trigger) {
       transition.trigger(true, 'willResolveModel', transition, this.route);
     }
@@ -254,7 +255,7 @@ export default class PrivateRouteInfo {
   }
 
   private runAfterModelHook(
-    transition: Transition,
+    transition: InternalTransition<T>,
     resolvedModel?: Dict<unknown>
   ): Promise<Dict<unknown>> {
     // Stash the resolved model on the payload.
@@ -288,7 +289,7 @@ export default class PrivateRouteInfo {
     }, null);
   }
 
-  private stashResolvedModel(transition: Transition, resolvedModel?: Dict<unknown>) {
+  private stashResolvedModel(transition: InternalTransition<T>, resolvedModel: Dict<unknown>) {
     transition.resolvedModels = transition.resolvedModels || {};
     transition.resolvedModels[this.name] = resolvedModel;
   }
@@ -298,15 +299,15 @@ export default class PrivateRouteInfo {
     return this._processRoute(route);
   }
 
-  private _processRoute(route: Route | Promise<Route>) {
+  private _processRoute(route: T | Promise<T>) {
     // Setup a routePromise so that we can wait for asynchronously loaded routes
     this.routePromise = Promise.resolve(route);
 
     // Wait until the 'route' property has been updated when chaining to a route
     // that is a promise
     if (isPromise(route)) {
-      this.routePromise = this.routePromise.then(h => {
-        return this.updateRoute(h);
+      this.routePromise = this.routePromise.then(r => {
+        return this.updateRoute(r);
       });
       // set to undefined to avoid recursive loop in the route getter
       return (this.route = undefined);
@@ -318,14 +319,14 @@ export default class PrivateRouteInfo {
   }
 }
 
-export class ResolvedRouteInfo extends PrivateRouteInfo {
+export class ResolvedRouteInfo<T extends Route> extends InternalRouteInfo<T> {
   isResolved: boolean;
   constructor(
-    router: Router,
+    router: Router<T>,
     name: string,
     paramNames: string[],
     params: Dict<unknown>,
-    route: Route,
+    route: T,
     context?: Dict<unknown>
   ) {
     super(router, name, paramNames, route);
@@ -334,7 +335,7 @@ export class ResolvedRouteInfo extends PrivateRouteInfo {
     this.context = context;
   }
 
-  resolve(_shouldContinue?: Continuation, transition?: Transition): Promise<this> {
+  resolve(_shouldContinue?: Continuation, transition?: InternalTransition<T>): Promise<this> {
     // A ResolvedRouteInfo just resolved with itself.
     if (transition && transition.resolvedModels) {
       transition.resolvedModels[this.name] = this.context!;
@@ -343,20 +344,20 @@ export class ResolvedRouteInfo extends PrivateRouteInfo {
   }
 }
 
-export class UnresolvedRouteInfoByParam extends PrivateRouteInfo {
+export class UnresolvedRouteInfoByParam<T extends Route> extends InternalRouteInfo<T> {
   params: Dict<unknown> = {};
   constructor(
-    router: Router,
+    router: Router<T>,
     name: string,
     paramNames: string[],
     params: Dict<unknown>,
-    route?: Route
+    route?: T
   ) {
     super(router, name, paramNames, route);
     this.params = params;
   }
 
-  getModel(transition: Transition) {
+  getModel(transition: InternalTransition<T>) {
     let fullParams = this.params;
     if (transition && transition.queryParams) {
       fullParams = {};
@@ -382,15 +383,15 @@ export class UnresolvedRouteInfoByParam extends PrivateRouteInfo {
   }
 }
 
-export class UnresolvedRouteInfoByObject extends PrivateRouteInfo {
+export class UnresolvedRouteInfoByObject<T extends Route> extends InternalRouteInfo<T> {
   serializer?: SerializerFunc;
-  constructor(router: Router, name: string, paramNames: string[], context: Dict<unknown>) {
+  constructor(router: Router<T>, name: string, paramNames: string[], context: Dict<unknown>) {
     super(router, name, paramNames);
     this.context = context;
     this.serializer = this.router.getSerializer(name);
   }
 
-  getModel(transition: Transition) {
+  getModel(transition: InternalTransition<T>) {
     if (this.router.log !== undefined) {
       this.router.log(this.name + ': resolving provided model');
     }
