@@ -16,7 +16,6 @@ export default class URLTransitionIntent<T extends Route> extends TransitionInte
 
   applyToState(oldState: TransitionState<T>) {
     let newState = new TransitionState<T>();
-
     let results = this.router.recognizer.recognize(this.url),
       i,
       len;

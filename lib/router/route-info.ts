@@ -1,5 +1,5 @@
 import { Promise } from 'rsvp';
-import { Dict, Maybe, Option } from './core';
+import { Dict, Option } from './core';
 import Router, { SerializerFunc } from './router';
 import InternalTransition, {
   isTransition,
@@ -37,29 +37,40 @@ export type Continuation = () => PromiseLike<boolean> | boolean;
 
 export interface RouteInfo {
   readonly name: string;
-  readonly parent: Maybe<RouteInfo>;
-  readonly child: Maybe<RouteInfo>;
+  readonly parent: RouteInfo | null;
+  readonly child: RouteInfo | null;
   readonly localName: string;
   readonly params: Dict<unknown>;
+  readonly queryParams: Dict<unknown>;
   find(
-    predicate: (this: void, routeInfo: RouteInfo, i: number) => boolean,
-    thisArg: any
+    predicate: (this: any, routeInfo: RouteInfo, i?: number) => boolean,
+    thisArg?: any
   ): RouteInfo | undefined;
 }
 
-let ROUTE_INFO_LINKS = new WeakMap<InternalRouteInfo<Route>, RouteInfo>();
+let ROUTE_INFOS = new WeakMap<InternalRouteInfo<Route>, RouteInfo>();
 
-export function toReadOnlyRouteInfo(routeInfos: InternalRouteInfo<Route>[]) {
+export function toReadOnlyRouteInfo(
+  routeInfos: InternalRouteInfo<Route>[],
+  queryParams: Dict<unknown> = {}
+) {
   return routeInfos.map((info, i) => {
-    let { name, params, queryParams, paramNames } = info;
+    let { name, params, paramNames } = info;
     let publicRouteInfo = new class implements RouteInfo {
-      find(predicate: (this: void, routeInfo: RouteInfo, i: number) => boolean, thisArg: any) {
-        let routeInfo;
+      find(
+        predicate: (this: any, routeInfo: RouteInfo, i?: number, arr?: RouteInfo[]) => boolean,
+        thisArg: any
+      ) {
         let publicInfo;
+        let arr: RouteInfo[] = [];
+
+        if (predicate.length === 3) {
+          arr = routeInfos.map(info => ROUTE_INFOS.get(info)!);
+        }
+
         for (let i = 0; routeInfos.length > 0; i++) {
-          routeInfo = routeInfos[i];
-          publicInfo = ROUTE_INFO_LINKS.get(routeInfo)!;
-          if (predicate.call(thisArg, publicInfo, i)) {
+          publicInfo = ROUTE_INFOS.get(routeInfos[i])!;
+          if (predicate.call(thisArg, publicInfo, i, arr)) {
             return publicInfo;
           }
         }
@@ -77,12 +88,22 @@ export function toReadOnlyRouteInfo(routeInfos: InternalRouteInfo<Route>[]) {
 
       get parent() {
         let parent = routeInfos[i - 1];
-        return parent === undefined ? null : ROUTE_INFO_LINKS.get(routeInfos[i - 1])!;
+
+        if (parent === undefined) {
+          return null;
+        }
+
+        return ROUTE_INFOS.get(parent)!;
       }
 
       get child() {
         let child = routeInfos[i + 1];
-        return child === undefined ? null : ROUTE_INFO_LINKS.get(routeInfos[i + 1])!;
+
+        if (child === undefined) {
+          return null;
+        }
+
+        return ROUTE_INFOS.get(child)!;
       }
 
       get localName() {
@@ -99,7 +120,7 @@ export function toReadOnlyRouteInfo(routeInfos: InternalRouteInfo<Route>[]) {
       }
     }();
 
-    ROUTE_INFO_LINKS.set(info, publicRouteInfo);
+    ROUTE_INFOS.set(info, publicRouteInfo);
 
     return publicRouteInfo;
   });
@@ -138,13 +159,11 @@ export default class InternalRouteInfo<T extends Route> {
     transition: InternalTransition<T>
   ): Promise<ResolvedRouteInfo<T>> {
     return Promise.resolve(this.routePromise)
-      .then((route: Route) => this.checkForAbort(shouldContinue, route), null)
-      .then(() => {
-        return this.runBeforeModelHook(transition);
-      }, null)
-      .then(() => this.checkForAbort(shouldContinue, null), null)
+      .then((route: Route) => this.checkForAbort(shouldContinue, route))
+      .then(() => this.runBeforeModelHook(transition))
+      .then(() => this.checkForAbort(shouldContinue, null))
       .then(() => this.getModel(transition))
-      .then(resolvedModel => this.checkForAbort(shouldContinue, resolvedModel), null)
+      .then(resolvedModel => this.checkForAbort(shouldContinue, resolvedModel))
       .then(resolvedModel => this.runAfterModelHook(transition, resolvedModel))
       .then(resolvedModel => this.becomeResolved(transition, resolvedModel));
   }
@@ -167,8 +186,8 @@ export default class InternalRouteInfo<T extends Route> {
     if ('context' in this || !contextsMatch) {
       context = resolvedContext;
     }
-
-    return new ResolvedRouteInfo(
+    let cached = ROUTE_INFOS.get(this);
+    let resolved = new ResolvedRouteInfo(
       this.router,
       this.name,
       this.paramNames,
@@ -176,6 +195,12 @@ export default class InternalRouteInfo<T extends Route> {
       this.route!,
       context
     );
+
+    if (cached !== undefined) {
+      ROUTE_INFOS.set(resolved, cached);
+    }
+
+    return resolved;
   }
 
   shouldSupercede(routeInfo?: InternalRouteInfo<T>) {
@@ -335,7 +360,10 @@ export class ResolvedRouteInfo<T extends Route> extends InternalRouteInfo<T> {
     this.context = context;
   }
 
-  resolve(_shouldContinue?: Continuation, transition?: InternalTransition<T>): Promise<this> {
+  resolve(
+    _shouldContinue: Continuation,
+    transition: InternalTransition<T>
+  ): Promise<InternalRouteInfo<T>> {
     // A ResolvedRouteInfo just resolved with itself.
     if (transition && transition.resolvedModels) {
       transition.resolvedModels[this.name] = this.context!;

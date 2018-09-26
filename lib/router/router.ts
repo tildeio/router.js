@@ -11,7 +11,7 @@ import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
 import NamedTransitionIntent from './transition-intent/named-transition-intent';
 import URLTransitionIntent from './transition-intent/url-transition-intent';
-import TransitionState from './transition-state';
+import TransitionState, { TransitionError } from './transition-state';
 import {
   ChangeList,
   extractQueryParams,
@@ -63,6 +63,10 @@ export default abstract class Router<T extends Route> {
     name: string,
     args: unknown[]
   ): void;
+
+  abstract routeWillChange(transition: Transition): void;
+  abstract routeDidChange(transition: Transition): void;
+  abstract transitionDidError(error: TransitionError, transition: Transition): Transition | Error;
 
   /**
     The main entry point into the router. The API is essentially
@@ -117,12 +121,17 @@ export default abstract class Router<T extends Route> {
         newTransition
       );
 
+      newTransition.queryParams = newState.queryParams;
+
+      this.toReadOnlyInfos(newTransition, newState.routeInfos);
+
+      this.routeWillChange(newTransition);
+
       newTransition.promise = newTransition.promise!.then(
         (result: TransitionState<T> | Route | Error | undefined) => {
           this._updateURL(newTransition, oldState);
-          if (this.didTransition) {
-            this.didTransition(this.currentRouteInfos!);
-          }
+          this.routeDidChange(newTransition);
+          this.didTransition(this.currentRouteInfos!);
           return result;
         },
         null,
@@ -171,6 +180,8 @@ export default abstract class Router<T extends Route> {
 
     if (isIntermediate) {
       this.setupContexts(newState);
+      this.toInfos(this.activeTransition!, newState.routeInfos);
+      this.routeWillChange(this.activeTransition!);
       return this.activeTransition!;
     }
 
@@ -189,9 +200,10 @@ export default abstract class Router<T extends Route> {
       newTransition.queryParamsOnly = true;
     }
 
+    this.toReadOnlyInfos(newTransition, newState.routeInfos);
     // Abort and usurp any previously active transition.
     if (this.activeTransition) {
-      this.activeTransition.abort();
+      this.activeTransition.redirect(newTransition);
     }
     this.activeTransition = newTransition;
 
@@ -298,10 +310,8 @@ export default abstract class Router<T extends Route> {
       this.activeTransition = undefined;
 
       this.triggerEvent(this.currentRouteInfos!, true, 'didTransition', []);
-
-      if (this.didTransition) {
-        this.didTransition(this.currentRouteInfos!);
-      }
+      this.routeDidChange(transition);
+      this.didTransition(this.currentRouteInfos!);
 
       log(this, transition.sequence, 'TRANSITION COMPLETE.');
 
@@ -309,7 +319,6 @@ export default abstract class Router<T extends Route> {
       return routeInfos[routeInfos.length - 1].route!;
     } catch (e) {
       if (!(e instanceof TransitionAbortedError)) {
-        //let erroneousHandler = routeInfos.pop();
         let infos = transition.state!.routeInfos;
         transition.trigger(true, 'error', e, transition, infos[infos.length - 1].route);
         transition.abort();
@@ -691,6 +700,26 @@ export default abstract class Router<T extends Route> {
     return finalQueryParams;
   }
 
+  private toReadOnlyInfos(newTransition: OpaqueTransition, newRouteInfos: InternalRouteInfo<T>[]) {
+    let oldRouteInfos = this.state!.routeInfos;
+    this.fromInfos(newTransition, oldRouteInfos);
+    this.toInfos(newTransition, newRouteInfos);
+  }
+
+  private fromInfos(newTransition: OpaqueTransition, oldRouteInfos: InternalRouteInfo<T>[]) {
+    if (oldRouteInfos.length > 0) {
+      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos, newTransition.queryParams);
+      newTransition!.from = fromInfos[fromInfos.length - 1] || null;
+    }
+  }
+
+  private toInfos(newTransition: OpaqueTransition, newRouteInfos: InternalRouteInfo<T>[]) {
+    if (newRouteInfos.length > 0) {
+      let toInfos = toReadOnlyRouteInfo(newRouteInfos, newTransition.queryParams);
+      newTransition!.to = toInfos[toInfos.length - 1] || null;
+    }
+  }
+
   private notifyExistingHandlers(
     newState: TransitionState<T>,
     newTransition: InternalTransition<T>
@@ -716,20 +745,9 @@ export default abstract class Router<T extends Route> {
       }
     }
 
-    if (oldRouteInfoLen > 0) {
-      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos);
-      newTransition!.from = fromInfos[fromInfos.length - 1];
-    }
-
-    if (newState.routeInfos.length > 0) {
-      let toInfos = toReadOnlyRouteInfo(newState.routeInfos);
-      newTransition!.to = toInfos[toInfos.length - 1];
-    }
-
     this.triggerEvent(oldRouteInfos, true, 'willTransition', [newTransition]);
-    if (this.willTransition) {
-      this.willTransition(oldRouteInfos, newState.routeInfos, newTransition);
-    }
+    this.routeWillChange(newTransition);
+    this.willTransition(oldRouteInfos, newState.routeInfos, newTransition);
   }
 
   /**
