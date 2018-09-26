@@ -34,7 +34,7 @@ export type OpaqueTransition = PublicTransition;
   @param {Object} error
   @private
  */
-export default class Transition<T extends Route> implements Promise<T> {
+export default class Transition<T extends Route> implements Partial<Promise<T>> {
   state?: TransitionState<T>;
   from: Maybe<RouteInfo> = null;
   to: Maybe<RouteInfo> = null;
