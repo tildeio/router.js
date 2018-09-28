@@ -6,8 +6,10 @@ import RouteInfo, {
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,
 } from 'router/route-info';
+import InternalTransition from 'router/transition';
+import URLTransitionIntent from 'router/transition-intent/url-transition-intent';
 import { reject, resolve } from 'rsvp';
-import { createHandler, createHandlerInfo, module, StubRouter, test } from './test_helpers';
+import { createHandler, createHandlerInfo, module, test, TestRouter } from './test_helpers';
 
 function noop() {
   return resolve(true);
@@ -16,15 +18,18 @@ function noop() {
 module('HandlerInfo');
 
 test('ResolvedHandlerInfos resolve to themselves', function(assert) {
-  let router = new StubRouter();
+  let router = new TestRouter();
   let handlerInfo = new ResolvedRouteInfo(router, 'foo', [], {}, createHandler('empty'));
-  handlerInfo.resolve().then(function(resolvedHandlerInfo) {
-    assert.equal(handlerInfo, resolvedHandlerInfo);
-  });
+  let intent = new URLTransitionIntent(router, 'foo');
+  handlerInfo
+    .resolve(() => false, new InternalTransition(router, intent, undefined))
+    .then(function(resolvedHandlerInfo) {
+      assert.equal(handlerInfo, resolvedHandlerInfo);
+    });
 });
 
 test('UnresolvedHandlerInfoByParam defaults params to {}', function(assert) {
-  let router = new StubRouter();
+  let router = new TestRouter();
   let handlerInfo = new UnresolvedRouteInfoByParam(router, 'empty', [], {});
   assert.deepEqual(handlerInfo.params, {});
 
@@ -120,7 +125,7 @@ test('HandlerInfo#resolve runs afterModel hook on handler', function(assert) {
 
 test('UnresolvedHandlerInfoByParam gets its model hook called', function(assert) {
   assert.expect(2);
-  let router = new StubRouter();
+  let router = new TestRouter();
 
   let transition = {};
 
@@ -154,7 +159,7 @@ test('UnresolvedHandlerInfoByObject does NOT get its model hook called', functio
     });
   }
   let routeInfo = new TestRouteInfo(
-    new StubRouter(),
+    new TestRouter(),
     'unresolved',
     ['wat'],
     resolve({ name: 'dorkletons' })

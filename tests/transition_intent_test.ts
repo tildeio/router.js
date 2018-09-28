@@ -1,9 +1,9 @@
 import NamedTransitionIntent from 'router/transition-intent/named-transition-intent';
 import URLTransitionIntent from 'router/transition-intent/url-transition-intent';
 import TransitionState from 'router/transition-state';
-import { createHandler, module, test } from './test_helpers';
+import { createHandler, module, test, TestRouter } from './test_helpers';
 
-import Router, { Route, Transition } from 'router';
+import Router, { Route } from 'router';
 import { Dict } from 'router/core';
 import InternalRouteInfo, {
   ResolvedRouteInfo,
@@ -32,34 +32,7 @@ let scenarios = [
 ];
 
 scenarios.forEach(function(scenario) {
-  class TestRouter extends Router<Route> {
-    getSerializer(_name: string) {
-      return () => {};
-    }
-    updateURL(_url: string): void {
-      throw new Error('Method not implemented.');
-    }
-    replaceURL(_url: string): void {
-      throw new Error('Method not implemented.');
-    }
-    willTransition(
-      _oldHandlerInfos: InternalRouteInfo<Route>[],
-      _newHandlerInfos: InternalRouteInfo<Route>[],
-      _transition: Transition
-    ): void {
-      throw new Error('Method not implemented.');
-    }
-    didTransition(_handlerInfos: InternalRouteInfo<Route>[]): void {
-      throw new Error('Method not implemented.');
-    }
-    triggerEvent(
-      _handlerInfos: InternalRouteInfo<Route>[],
-      _ignoreFailure: boolean,
-      _name: string,
-      _args: unknown[]
-    ): void {
-      throw new Error('Method not implemented.');
-    }
+  class TransitionRouter extends TestRouter {
     getRoute(name: string) {
       return scenario.getHandler(name);
     }
@@ -143,7 +116,7 @@ scenarios.forEach(function(scenario) {
         },
       };
 
-      router = new TestRouter();
+      router = new TransitionRouter();
       router.recognizer = recognizer;
     },
   });

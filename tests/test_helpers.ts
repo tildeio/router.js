@@ -2,7 +2,9 @@ import Backburner from 'backburner';
 import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
 import RouteInfo, { UnresolvedRouteInfoByParam } from 'router/route-info';
+import { logAbort, PublicTransition } from 'router/transition';
 import TransitionAbortedError from 'router/transition-aborted-error';
+import { TransitionError } from 'router/transition-state';
 import { UnrecognizedURLError } from 'router/unrecognized-url-error';
 import { configure, resolve } from 'rsvp';
 
@@ -132,36 +134,33 @@ export function createHandler(name: string, options?: Dict<unknown>): Route {
   );
 }
 
-export class StubRouter extends Router<Route> {
-  getRoute(_name: string) {
-    return {} as Route;
-  }
-  getSerializer(_name: string) {
-    return () => {};
-  }
-  updateURL(_url: string): void {
-    throw new Error('Method not implemented.');
-  }
-  replaceURL(_url: string): void {
-    throw new Error('Method not implemented.');
-  }
-  willTransition(
-    _oldHandlerInfos: RouteInfo<Route>[],
-    _newHandlerInfos: RouteInfo<Route>[],
-    _transition: Transition
-  ): void {
-    throw new Error('Method not implemented.');
-  }
-  didTransition(_handlerInfos: RouteInfo<Route>[]): void {
-    throw new Error('Method not implemented.');
-  }
+export class TestRouter extends Router<Route> {
+  didTransition() {}
+  willTransition() {}
+  updateURL(_url: string): void {}
+  replaceURL(_url: string): void {}
   triggerEvent(
     _handlerInfos: RouteInfo<Route>[],
     _ignoreFailure: boolean,
     _name: string,
-    _args: unknown[]
-  ): void {
-    throw new Error('Method not implemented.');
+    _args: any[]
+  ) {}
+  routeDidChange() {}
+  routeWillChange() {}
+  transitionDidError(error: TransitionError, transition: PublicTransition) {
+    if (error.wasAborted || transition.isAborted) {
+      return logAbort(transition);
+    } else {
+      transition.trigger(false, 'error', error.error, this, error.route);
+      transition.abort();
+      return error.error;
+    }
+  }
+  getRoute(_name: string): any {
+    return {};
+  }
+  getSerializer(_name: string): any {
+    return () => {};
   }
 }
 
@@ -182,7 +181,7 @@ export function createHandlerInfo(name: string, options: Dict<unknown> = {}): Ro
   delete options.handler;
 
   Object.assign(Stub.prototype, options);
-  let stub = new Stub(name, new StubRouter(), handler);
+  let stub = new Stub(name, new TestRouter(), handler);
   return stub;
 }
 

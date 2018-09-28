@@ -36,8 +36,8 @@ export type OpaqueTransition = PublicTransition;
  */
 export default class Transition<T extends Route> implements Partial<Promise<T>> {
   state?: TransitionState<T>;
-  from: Maybe<RouteInfo> = null;
-  to: Maybe<RouteInfo> = null;
+  from?: RouteInfo = undefined;
+  to?: RouteInfo = undefined;
   router: Router<T>;
   data: Dict<unknown>;
   intent: Maybe<OpaqueIntent>;
@@ -133,13 +133,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
           return Promise.resolve(true);
         }, this)
         .catch((result: TransitionError) => {
-          if (result.wasAborted || this.isAborted) {
-            return Promise.reject(logAbort(this));
-          } else {
-            this.trigger(false, 'error', result.error, this, result.route);
-            this.abort();
-            return Promise.reject(result.error);
-          }
+          return Promise.reject(this.router.transitionDidError(result, this));
         }, promiseLabel('Handle Abort'));
     } else {
       this.promise = Promise.resolve(this.state!);
@@ -239,17 +233,31 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     @public
    */
   abort() {
-    if (this.isAborted) {
-      return this;
-    }
-    log(this.router, this.sequence, this.targetName + ': transition was aborted');
-    if (this.intent !== undefined && this.intent !== null) {
-      this.intent.preTransitionState = this.router.state;
-    }
-    this.isAborted = true;
-    this.isActive = false;
-    this.router.activeTransition = undefined;
+    this.rollback();
+    let transition = new Transition(this.router, undefined, undefined, undefined);
+    transition.to = this.from;
+    transition.from = this.from;
+    transition.isAborted = true;
+    this.router.routeWillChange(transition);
+    this.router.routeDidChange(transition);
     return this;
+  }
+
+  rollback() {
+    if (!this.isAborted) {
+      log(this.router, this.sequence, this.targetName + ': transition was aborted');
+      if (this.intent !== undefined && this.intent !== null) {
+        this.intent.preTransitionState = this.router.state;
+      }
+      this.isAborted = true;
+      this.isActive = false;
+      this.router.activeTransition = undefined;
+    }
+  }
+
+  redirect(newTransition: Transition<T>) {
+    this.rollback();
+    this.router.routeWillChange(newTransition);
   }
 
   /**

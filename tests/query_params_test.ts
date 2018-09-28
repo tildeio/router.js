@@ -8,6 +8,7 @@ import {
   flushBackburner,
   module,
   test,
+  TestRouter,
   transitionTo,
   trigger,
 } from './test_helpers';
@@ -45,7 +46,9 @@ scenarios.forEach(function(scenario) {
   });
 
   function map(assert: Assert, fn: MatchCallback) {
-    class TestRouter extends Router<Route> {
+    class QPRouter extends TestRouter {
+      routeDidChange() {}
+      routeWillChange() {}
       didTransition() {}
       willTransition() {}
       triggerEvent(
@@ -71,7 +74,7 @@ scenarios.forEach(function(scenario) {
         }
       }
     }
-    router = new TestRouter();
+    router = new QPRouter();
     router.map(fn);
   }
 

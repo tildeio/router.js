@@ -13,8 +13,8 @@ import {
   createHandlerInfo,
   flushBackburner,
   module,
-  StubRouter,
   test,
+  TestRouter,
 } from './test_helpers';
 
 module('TransitionState');
@@ -96,7 +96,7 @@ test('Integration w/ HandlerInfos', function(assert) {
   assert.expect(4);
 
   let state = new TransitionState();
-  let router = new StubRouter();
+  let router = new TestRouter();
   let fooModel = {};
   let barModel = {};
   let transition = {};
