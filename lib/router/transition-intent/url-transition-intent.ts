@@ -41,8 +41,18 @@ export default class URLTransitionIntent<T extends Route> extends TransitionInte
     for (i = 0, len = results.length; i < len; ++i) {
       let result = results[i]!;
       let name = result.handler as string;
+      let paramNames: string[] = [];
 
-      let newRouteInfo = new UnresolvedRouteInfoByParam(this.router, name, [], result.params);
+      if (this.router.recognizer.hasRoute(name)) {
+        paramNames = this.router.recognizer.handlersFor(name)[i].names;
+      }
+
+      let newRouteInfo = new UnresolvedRouteInfoByParam(
+        this.router,
+        name,
+        paramNames,
+        result.params
+      );
 
       let route = newRouteInfo.route;
 
