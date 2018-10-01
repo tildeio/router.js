@@ -28,7 +28,7 @@ export interface Route {
   setup?(context: Dict<unknown>, transition: Transition): void;
   enter?(transition: Transition): void;
   exit?(transition?: Transition): void;
-  reset?(wasReset: boolean, transition?: Transition): void;
+  _internalReset?(wasReset: boolean, transition?: Transition): void;
   contextDidChange?(): void;
   redirect?(context: Dict<unknown>, transition: Transition): void;
 }
