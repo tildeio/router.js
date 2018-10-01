@@ -378,8 +378,8 @@ export default abstract class Router<T extends Route> {
       delete route!.context;
 
       if (route !== undefined) {
-        if (route.reset !== undefined) {
-          route.reset(true, transition);
+        if (route._internalReset !== undefined) {
+          route._internalReset(true, transition);
         }
 
         if (route.exit !== undefined) {
@@ -396,8 +396,8 @@ export default abstract class Router<T extends Route> {
       for (i = 0, l = partition.reset.length; i < l; i++) {
         route = partition.reset[i].route;
         if (route !== undefined) {
-          if (route.reset !== undefined) {
-            route.reset(false, transition);
+          if (route._internalReset !== undefined) {
+            route._internalReset(false, transition);
           }
         }
       }
