@@ -83,6 +83,9 @@ scenarios.forEach(function(scenario) {
           }
           return;
         },
+        hasRoute: function(name: string) {
+          return name === 'comments';
+        },
         recognize: function(url: string) {
           if (url === '/foo/bar') {
             return [

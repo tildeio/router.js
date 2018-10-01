@@ -473,7 +473,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('basic route change events with params', function(assert) {
-    assert.expect(14);
+    assert.expect(18);
     map(assert, function(match) {
       match('/').to('index');
       match('/posts/:id').to('post');
@@ -489,6 +489,7 @@ scenarios.forEach(function(scenario) {
 
     router.routeWillChange = (transition: Transition) => {
       enteredWillChange++;
+      assert.deepEqual(transition.to!.paramNames, ['id']);
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(transition.from!.localName, 'post');
@@ -502,6 +503,7 @@ scenarios.forEach(function(scenario) {
 
     router.routeDidChange = (transition: Transition) => {
       enteredDidChange++;
+      assert.deepEqual(transition.to!.paramNames, ['id']);
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(transition.from!.localName, 'post');

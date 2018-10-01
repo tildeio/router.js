@@ -41,6 +41,7 @@ export interface RouteInfo {
   readonly child: RouteInfo | null;
   readonly localName: string;
   readonly params: Dict<unknown>;
+  readonly paramNames: string[];
   readonly queryParams: Dict<unknown>;
   find(
     predicate: (this: any, routeInfo: RouteInfo, i?: number) => boolean,
