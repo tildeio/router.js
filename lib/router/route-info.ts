@@ -49,15 +49,20 @@ export interface RouteInfo {
   ): RouteInfo | undefined;
 }
 
+export interface RouteInfoWithAttributes extends RouteInfo {
+  attributes: Dict<unknown>;
+}
+
 let ROUTE_INFOS = new WeakMap<InternalRouteInfo<Route>, RouteInfo>();
 
 export function toReadOnlyRouteInfo(
   routeInfos: InternalRouteInfo<Route>[],
-  queryParams: Dict<unknown> = {}
+  queryParams: Dict<unknown> = {},
+  includeAttributes = false
 ) {
   return routeInfos.map((info, i) => {
-    let { name, params, paramNames } = info;
-    let publicRouteInfo = new class implements RouteInfo {
+    let { name, params, paramNames, context } = info;
+    let RoutInfoImpl = class RoutInfoImpl {
       find(
         predicate: (this: any, routeInfo: RouteInfo, i?: number, arr?: RouteInfo[]) => boolean,
         thisArg: any
@@ -119,7 +124,20 @@ export function toReadOnlyRouteInfo(
       get queryParams() {
         return queryParams;
       }
-    }();
+    };
+
+    let publicRouteInfo;
+
+    if (includeAttributes) {
+      class RouteInfoWithAttributes extends RoutInfoImpl {
+        get attributes() {
+          return context;
+        }
+      }
+      publicRouteInfo = new RouteInfoWithAttributes();
+    } else {
+      publicRouteInfo = new RoutInfoImpl();
+    }
 
     ROUTE_INFOS.set(info, publicRouteInfo);
 

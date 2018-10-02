@@ -1,7 +1,12 @@
 import RouteRecognizer, { MatchCallback, Params } from 'route-recognizer';
 import { Promise } from 'rsvp';
-import { Dict, Maybe } from './core';
-import InternalRouteInfo, { Route, toReadOnlyRouteInfo } from './route-info';
+import { Dict, Maybe, Option } from './core';
+import InternalRouteInfo, {
+  Route,
+  RouteInfo,
+  RouteInfoWithAttributes,
+  toReadOnlyRouteInfo,
+} from './route-info';
 import InternalTransition, {
   logAbort,
   OpaqueTransition,
@@ -147,6 +152,45 @@ export default abstract class Router<T extends Route> {
       return this.getTransitionByIntent(intent, isIntermediate);
     } catch (e) {
       return new InternalTransition(this, intent, undefined, e, undefined);
+    }
+  }
+
+  recognize(url: string): Option<RouteInfo> {
+    let intent = new URLTransitionIntent<T>(this, url);
+    let newState = this.generateNewState(intent);
+
+    if (newState === null) {
+      return newState;
+    }
+
+    let readonlyInfos = toReadOnlyRouteInfo(newState.routeInfos, newState.queryParams);
+    return readonlyInfos[readonlyInfos.length - 1];
+  }
+
+  recognizeAndLoad(url: string): Promise<RouteInfoWithAttributes> {
+    let intent = new URLTransitionIntent<T>(this, url);
+    let newState = this.generateNewState(intent);
+
+    if (newState === null) {
+      return Promise.reject(`URL ${url} was not recognized`);
+    }
+
+    let newTransition: OpaqueTransition = new InternalTransition(this, intent, newState, undefined);
+    return newTransition.then(() => {
+      let routeInfosWithAttributes = toReadOnlyRouteInfo(
+        newState!.routeInfos,
+        newTransition.queryParams,
+        true
+      ) as RouteInfoWithAttributes[];
+      return routeInfosWithAttributes[routeInfosWithAttributes.length - 1];
+    });
+  }
+
+  private generateNewState(intent: TransitionIntent<T>): Option<TransitionState<T>> {
+    try {
+      return intent.applyToState(this.state!, false);
+    } catch (e) {
+      return null;
     }
   }
 
