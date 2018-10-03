@@ -3,8 +3,10 @@ import { Dict, Option } from './core';
 import Router, { SerializerFunc } from './router';
 import InternalTransition, {
   isTransition,
+  PARAMS_SYMBOL,
   prepareResult,
   PublicTransition as Transition,
+  QUERY_PARAMS_SYMBOL,
 } from './transition';
 import { isParam, isPromise, merge } from './utils';
 
@@ -190,8 +192,8 @@ export default class InternalRouteInfo<T extends Route> {
 
     if (transition) {
       this.stashResolvedModel(transition, resolvedContext);
-      transition.params = transition.params || {};
-      transition.params[this.name] = params;
+      transition[PARAMS_SYMBOL] = transition[PARAMS_SYMBOL] || {};
+      transition[PARAMS_SYMBOL][this.name] = params;
     }
 
     let context;
@@ -401,10 +403,10 @@ export class UnresolvedRouteInfoByParam<T extends Route> extends InternalRouteIn
 
   getModel(transition: InternalTransition<T>) {
     let fullParams = this.params;
-    if (transition && transition.queryParams) {
+    if (transition && transition[QUERY_PARAMS_SYMBOL]) {
       fullParams = {};
       merge(fullParams, this.params);
-      fullParams.queryParams = transition.queryParams;
+      fullParams.queryParams = transition[QUERY_PARAMS_SYMBOL];
     }
 
     let route = this.route!;

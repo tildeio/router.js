@@ -19,6 +19,10 @@ export type OnRejected<T, TResult2> =
 export type PublicTransition = Transition<any>;
 export type OpaqueTransition = PublicTransition;
 
+export const STATE_SYMBOL = `__STATE__-2619860001345920-3322w3`;
+export const PARAMS_SYMBOL = `__PARAMS__-261986232992830203-23323`;
+export const QUERY_PARAMS_SYMBOL = `__QPS__-2619863929824844-32323`;
+
 /**
   A Transition is a thennable (a promise-like object) that represents
   an attempt to transition to another route. It can be aborted, either
@@ -35,17 +39,17 @@ export type OpaqueTransition = PublicTransition;
   @private
  */
 export default class Transition<T extends Route> implements Partial<Promise<T>> {
-  state?: TransitionState<T>;
+  [STATE_SYMBOL]: TransitionState<T>;
   from?: RouteInfo = undefined;
   to?: RouteInfo = undefined;
   router: Router<T>;
   data: Dict<unknown>;
   intent: Maybe<OpaqueIntent>;
   resolvedModels: Dict<Dict<unknown>>;
-  queryParams: Dict<unknown>;
+  [QUERY_PARAMS_SYMBOL]: Dict<unknown>;
   promise?: Promise<any>; // Todo: Fix this shit its actually TransitionState | IHandler | undefined | Error
   error: Maybe<Error>;
-  params: Dict<unknown>;
+  [PARAMS_SYMBOL]: Dict<unknown>;
   routeInfos: InternalRouteInfo<Route>[];
   targetName: Maybe<string>;
   pivotHandler: Maybe<Route>;
@@ -68,15 +72,15 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     error: Maybe<Error> = undefined,
     previousTransition: Maybe<Transition<T>> = undefined
   ) {
-    this.state = state || router.state;
+    this[STATE_SYMBOL] = state! || router.state!;
     this.intent = intent;
     this.router = router;
     this.data = (intent && intent.data) || {};
     this.resolvedModels = {};
-    this.queryParams = {};
+    this[QUERY_PARAMS_SYMBOL] = {};
     this.promise = undefined;
     this.error = undefined;
-    this.params = {};
+    this[PARAMS_SYMBOL] = {};
     this.routeInfos = [];
     this.targetName = undefined;
     this.pivotHandler = undefined;
@@ -104,8 +108,8 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
           previousTransition.isCausedByAbortingReplaceTransition));
 
     if (state) {
-      this.params = state.params;
-      this.queryParams = state.queryParams;
+      this[PARAMS_SYMBOL] = state.params;
+      this[QUERY_PARAMS_SYMBOL] = state.queryParams;
       this.routeInfos = state.routeInfos;
 
       let len = state.routeInfos.length;
@@ -136,8 +140,8 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
           return Promise.reject(this.router.transitionDidError(result, this));
         }, promiseLabel('Handle Abort'));
     } else {
-      this.promise = Promise.resolve(this.state!);
-      this.params = {};
+      this.promise = Promise.resolve(this[STATE_SYMBOL]!);
+      this[PARAMS_SYMBOL] = {};
     }
   }
 
@@ -340,7 +344,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
    */
   trigger(ignoreFailure: boolean, name: string, ...args: any[]) {
     this.router.triggerEvent(
-      this.state!.routeInfos.slice(0, this.resolveIndex + 1),
+      this[STATE_SYMBOL]!.routeInfos.slice(0, this.resolveIndex + 1),
       ignoreFailure,
       name,
       args
