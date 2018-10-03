@@ -1,7 +1,7 @@
 import { MatchCallback } from 'route-recognizer';
 import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
-import RouteInfo from 'router/route-info';
+import RouteInfo, { RouteInfoWithAttributes } from 'router/route-info';
 import { SerializerFunc } from 'router/router';
 import { logAbort } from 'router/transition';
 import { TransitionError } from 'router/transition-state';
@@ -525,6 +525,516 @@ scenarios.forEach(function(scenario) {
         assert.equal(enteredWillChange, 2);
         assert.equal(enteredDidChange, 2);
       });
+  });
+
+  test('top-level recognizeAndLoad url', function(assert) {
+    map(assert, function(match) {
+      match('/').to('index');
+    });
+
+    routes = {
+      index: createHandler('index', {
+        model() {
+          return { name: 'index', data: 1 };
+        },
+      }),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    router.recognizeAndLoad('/').then((routeInfoWithAttributes: RouteInfoWithAttributes) => {
+      assert.notOk(router.activeTransition, 'Does not create an active transition');
+      if (routeInfoWithAttributes === null) {
+        assert.ok(false);
+        return;
+      }
+      assert.equal(routeInfoWithAttributes.name, 'index');
+      assert.equal(routeInfoWithAttributes.localName, 'index');
+      assert.equal(routeInfoWithAttributes.parent, null);
+      assert.equal(routeInfoWithAttributes.child, null);
+      assert.deepEqual(routeInfoWithAttributes.attributes, { name: 'index', data: 1 });
+      assert.deepEqual(routeInfoWithAttributes.queryParams, {});
+      assert.deepEqual(routeInfoWithAttributes.params, {});
+      assert.deepEqual(routeInfoWithAttributes.paramNames, []);
+    });
+  });
+
+  test('top-level parameterized recognizeAndLoad', function(assert) {
+    map(assert, function(match) {
+      match('/posts/:id').to('posts');
+    });
+
+    routes = {
+      posts: createHandler('posts', {
+        model(params: { id: string }) {
+          return { name: 'posts', data: params.id };
+        },
+      }),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    router
+      .recognizeAndLoad('/posts/123')
+      .then((routeInfoWithAttributes: RouteInfoWithAttributes) => {
+        assert.notOk(router.activeTransition, 'Does not create an active transition');
+        if (routeInfoWithAttributes === null) {
+          assert.ok(false);
+          return;
+        }
+        assert.equal(routeInfoWithAttributes.name, 'posts');
+        assert.equal(routeInfoWithAttributes.localName, 'posts');
+        assert.equal(routeInfoWithAttributes.parent, null);
+        assert.equal(routeInfoWithAttributes.child, null);
+        assert.deepEqual(routeInfoWithAttributes.attributes, { name: 'posts', data: '123' });
+        assert.deepEqual(routeInfoWithAttributes.queryParams, {});
+        assert.deepEqual(routeInfoWithAttributes.params, { id: '123' });
+        assert.deepEqual(routeInfoWithAttributes.paramNames, ['id']);
+      });
+  });
+
+  test('nested recognizeAndLoad', function(assert) {
+    routes = {
+      postIndex: createHandler('postIndex'),
+      showPopularPosts: createHandler('showPopularPosts', {
+        model() {
+          return { name: 'showPopularPosts', data: 123 };
+        },
+      }),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    router
+      .recognizeAndLoad('/posts/popular')
+      .then((routeInfoWithAttributes: RouteInfoWithAttributes) => {
+        assert.notOk(router.activeTransition, 'Does not create an active transition');
+        if (routeInfoWithAttributes === null) {
+          assert.ok(false);
+          return;
+        }
+        assert.equal(routeInfoWithAttributes.name, 'showPopularPosts');
+        assert.equal(routeInfoWithAttributes.localName, 'showPopularPosts');
+        assert.equal(routeInfoWithAttributes.parent!.name, 'postIndex');
+        assert.equal(routeInfoWithAttributes.child, null);
+        assert.deepEqual(routeInfoWithAttributes.attributes, {
+          name: 'showPopularPosts',
+          data: 123,
+        });
+        assert.deepEqual(routeInfoWithAttributes.queryParams, {});
+        assert.deepEqual(routeInfoWithAttributes.params, {});
+        assert.deepEqual(routeInfoWithAttributes.paramNames, []);
+      });
+  });
+
+  test('nested params recognizeAndLoad', function(assert) {
+    routes = {
+      postIndex: createHandler('postIndex'),
+      showFilteredPosts: createHandler('showFilteredPosts', {
+        model(params: { filter_id: string }) {
+          return { name: 'showFilteredPosts', data: params.filter_id };
+        },
+      }),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    router
+      .recognizeAndLoad('/posts/filter/1')
+      .then((routeInfoWithAttributes: RouteInfoWithAttributes) => {
+        assert.notOk(router.activeTransition, 'Does not create an active transition');
+        if (routeInfoWithAttributes === null) {
+          assert.ok(false);
+          return;
+        }
+        assert.equal(routeInfoWithAttributes.name, 'showFilteredPosts');
+        assert.equal(routeInfoWithAttributes.localName, 'showFilteredPosts');
+        assert.equal(routeInfoWithAttributes.parent!.name, 'postIndex');
+        assert.equal(routeInfoWithAttributes.child, null);
+        assert.deepEqual(routeInfoWithAttributes.attributes, {
+          name: 'showFilteredPosts',
+          data: '1',
+        });
+        assert.deepEqual(routeInfoWithAttributes.queryParams, {});
+        assert.deepEqual(routeInfoWithAttributes.params, { filter_id: '1' });
+        assert.deepEqual(routeInfoWithAttributes.paramNames, ['filter_id']);
+      });
+  });
+
+  test('top-level QPs recognizeAndLoad', function(assert) {
+    routes = {
+      showAllPosts: createHandler('showAllPosts', {
+        model() {
+          return { name: 'showAllPosts', data: 'qp' };
+        },
+      }),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    router
+      .recognizeAndLoad('/posts/?a=b')
+      .then((routeInfoWithAttributes: RouteInfoWithAttributes) => {
+        assert.notOk(router.activeTransition, 'Does not create an active transition');
+        if (routeInfoWithAttributes === null) {
+          assert.ok(false);
+          return;
+        }
+        assert.equal(routeInfoWithAttributes.name, 'showAllPosts');
+        assert.equal(routeInfoWithAttributes.localName, 'showAllPosts');
+        assert.equal(routeInfoWithAttributes.parent!.name, 'postIndex');
+        assert.equal(routeInfoWithAttributes.child, null);
+        assert.deepEqual(routeInfoWithAttributes.attributes, {
+          name: 'showAllPosts',
+          data: 'qp',
+        });
+        assert.deepEqual(routeInfoWithAttributes.queryParams, { a: 'b' });
+        assert.deepEqual(routeInfoWithAttributes.params, {});
+        assert.deepEqual(routeInfoWithAttributes.paramNames, []);
+      });
+  });
+
+  test('top-level params and QPs recognizeAndLoad', function(assert) {
+    routes = {
+      postsIndex: createHandler('postsIndex'),
+      showFilteredPosts: createHandler('showFilteredPosts', {
+        model(params: { filter_id: string }) {
+          return { name: 'showFilteredPosts', data: params.filter_id };
+        },
+      }),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    router
+      .recognizeAndLoad('/posts/filter/123?a=b')
+      .then((routeInfoWithAttributes: RouteInfoWithAttributes) => {
+        assert.notOk(router.activeTransition, 'Does not create an active transition');
+        if (routeInfoWithAttributes === null) {
+          assert.ok(false);
+          return;
+        }
+        assert.equal(routeInfoWithAttributes.name, 'showFilteredPosts');
+        assert.equal(routeInfoWithAttributes.localName, 'showFilteredPosts');
+        assert.equal(routeInfoWithAttributes.parent!.name, 'postIndex');
+        assert.equal(routeInfoWithAttributes.child, null);
+        assert.deepEqual(routeInfoWithAttributes.attributes, {
+          name: 'showFilteredPosts',
+          data: '123',
+        });
+        assert.deepEqual(routeInfoWithAttributes.queryParams, { a: 'b' });
+        assert.deepEqual(routeInfoWithAttributes.params, { filter_id: '123' });
+        assert.deepEqual(routeInfoWithAttributes.paramNames, ['filter_id']);
+      });
+  });
+
+  test('unrecognized url rejects', function(assert) {
+    router.recognizeAndLoad('/fixzzz').then(
+      () => {
+        assert.ok(false, 'never here');
+      },
+      (reason: string) => {
+        assert.equal(reason, `URL /fixzzz was not recognized`);
+      }
+    );
+  });
+
+  test('top-level recognize url', function(assert) {
+    map(assert, function(match) {
+      match('/').to('index');
+    });
+
+    routes = {
+      post: createHandler('post'),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+    let routeInfo = router.recognize('/');
+
+    assert.notOk(router.activeTransition, 'Does not create an active transition');
+
+    if (routeInfo === null) {
+      assert.ok(false);
+      return;
+    }
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    assert.equal(routeInfo.name, 'index');
+    assert.equal(routeInfo.localName, 'index');
+    assert.equal(routeInfo.parent, null);
+    assert.equal(routeInfo.child, null);
+    assert.deepEqual(routeInfo.queryParams, {});
+    assert.deepEqual(routeInfo.params, {});
+    assert.deepEqual(routeInfo.paramNames, []);
+  });
+
+  test('top-level recognize url with params', function(assert) {
+    map(assert, function(match) {
+      match('/posts/:id').to('post');
+    });
+
+    routes = {
+      post: createHandler('post'),
+    };
+
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    let routeInfo = router.recognize('/posts/123');
+
+    assert.notOk(router.activeTransition, 'Does not create an active transition');
+
+    if (routeInfo === null) {
+      assert.ok(false);
+      return;
+    }
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    assert.equal(routeInfo.name, 'post');
+    assert.equal(routeInfo.localName, 'post');
+    assert.equal(routeInfo.parent, null);
+    assert.equal(routeInfo.child, null);
+    assert.deepEqual(routeInfo.queryParams, {});
+    assert.deepEqual(routeInfo.params, { id: '123' });
+    assert.deepEqual(routeInfo.paramNames, ['id']);
+  });
+
+  test('nested recognize url', function(assert) {
+    routes = {
+      postIndex: createHandler('postIndex'),
+      showPopularPosts: createHandler('showPopularPosts'),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    let routeInfo = router.recognize('/posts/popular');
+
+    assert.notOk(router.activeTransition, 'Does not create an active transition');
+
+    if (routeInfo === null) {
+      assert.ok(false);
+      return;
+    }
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    assert.equal(routeInfo.name, 'showPopularPosts');
+    assert.equal(routeInfo.localName, 'showPopularPosts');
+    assert.equal(routeInfo.parent!.name, 'postIndex');
+    assert.equal(routeInfo.child, null);
+    assert.deepEqual(routeInfo.queryParams, {});
+    assert.deepEqual(routeInfo.params, {});
+    assert.deepEqual(routeInfo.paramNames, []);
+  });
+
+  test('nested recognize url with params', function(assert) {
+    routes = {
+      postIndex: createHandler('postIndex'),
+      showFilteredPosts: createHandler('showFilteredPosts'),
+    };
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    let routeInfo = router.recognize('/posts/filter/123');
+
+    assert.notOk(router.activeTransition, 'Does not create an active transition');
+
+    if (routeInfo === null) {
+      assert.ok(false);
+      return;
+    }
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    assert.equal(routeInfo.name, 'showFilteredPosts');
+    assert.equal(routeInfo.localName, 'showFilteredPosts');
+    assert.equal(routeInfo.parent!.name, 'postIndex');
+    assert.equal(routeInfo.child, null);
+    assert.deepEqual(routeInfo.queryParams, {});
+    assert.deepEqual(routeInfo.params, { filter_id: '123' });
+    assert.deepEqual(routeInfo.paramNames, ['filter_id']);
+  });
+
+  test('top-level recognize url with QPs', function(assert) {
+    map(assert, function(match) {
+      match('/').to('index');
+    });
+
+    routes = {
+      index: createHandler('index'),
+    };
+
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    let routeInfo = router.recognize('/?a=123');
+
+    assert.notOk(router.activeTransition, 'Does not create an active transition');
+
+    if (routeInfo === null) {
+      assert.ok(false);
+      return;
+    }
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    assert.equal(routeInfo.name, 'index');
+    assert.equal(routeInfo.localName, 'index');
+    assert.equal(routeInfo.parent, null);
+    assert.equal(routeInfo.child, null);
+    assert.deepEqual(routeInfo.queryParams, { a: '123' });
+    assert.deepEqual(routeInfo.params, {});
+    assert.deepEqual(routeInfo.paramNames, []);
+  });
+
+  test('nested recognize url with QPs', function(assert) {
+    routes = {
+      postIndex: createHandler('postIndex'),
+      showPopularPosts: createHandler('showPopularPosts'),
+    };
+
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    let routeInfo = router.recognize('/posts/popular?fizz=bar');
+
+    assert.notOk(router.activeTransition, 'Does not create an active transition');
+
+    if (routeInfo === null) {
+      assert.ok(false);
+      return;
+    }
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    assert.equal(routeInfo.name, 'showPopularPosts');
+    assert.equal(routeInfo.localName, 'showPopularPosts');
+    assert.equal(routeInfo.parent!.name, 'postIndex');
+    assert.equal(routeInfo.child, null);
+    assert.deepEqual(routeInfo.queryParams, { fizz: 'bar' });
+    assert.deepEqual(routeInfo.params, {});
+    assert.deepEqual(routeInfo.paramNames, []);
+  });
+
+  test('nested recognize url with QPs and params', function(assert) {
+    routes = {
+      postIndex: createHandler('postIndex'),
+      showFilteredPosts: createHandler('showFilteredPosts'),
+    };
+
+    assert.notOk(router.activeTransition, 'Does not start with an active transition');
+
+    let routeInfo = router.recognize('/posts/filter/123?fizz=bar');
+
+    assert.notOk(router.activeTransition, 'Does not create an active transition');
+
+    if (routeInfo === null) {
+      assert.ok(false);
+      return;
+    }
+
+    router.replaceURL = () => {
+      assert.ok(false, 'Should not replace the URL');
+    };
+
+    router.updateURL = () => {
+      assert.ok(false, 'Should not update the URL');
+    };
+
+    assert.equal(routeInfo.name, 'showFilteredPosts');
+    assert.equal(routeInfo.localName, 'showFilteredPosts');
+    assert.equal(routeInfo.parent!.name, 'postIndex');
+    assert.equal(routeInfo.child, null);
+    assert.deepEqual(routeInfo.queryParams, { fizz: 'bar' });
+    assert.deepEqual(routeInfo.params, { filter_id: '123' });
+    assert.deepEqual(routeInfo.paramNames, ['filter_id']);
+  });
+
+  test('unrecognized url returns null', function(assert) {
+    map(assert, function(match) {
+      match('/').to('index');
+      match('/posts/:id').to('post');
+    });
+
+    routes = {
+      post: createHandler('post'),
+    };
+    let routeInfo = router.recognize('/fixzzz');
+    assert.equal(routeInfo, null, 'Unrecognized url');
   });
 
   test('basic route change events with nested params', function(assert) {

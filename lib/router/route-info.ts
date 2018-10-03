@@ -49,15 +49,20 @@ export interface RouteInfo {
   ): RouteInfo | undefined;
 }
 
+export interface RouteInfoWithAttributes extends RouteInfo {
+  attributes: Dict<unknown>;
+}
+
 let ROUTE_INFOS = new WeakMap<InternalRouteInfo<Route>, RouteInfo>();
 
 export function toReadOnlyRouteInfo(
   routeInfos: InternalRouteInfo<Route>[],
-  queryParams: Dict<unknown> = {}
+  queryParams: Dict<unknown> = {},
+  includeAttributes = false
 ) {
   return routeInfos.map((info, i) => {
-    let { name, params, paramNames } = info;
-    let publicRouteInfo = new class implements RouteInfo {
+    let { name, params, paramNames, context } = info;
+    let routeInfo: RouteInfo = {
       find(
         predicate: (this: any, routeInfo: RouteInfo, i?: number, arr?: RouteInfo[]) => boolean,
         thisArg: any
@@ -77,15 +82,15 @@ export function toReadOnlyRouteInfo(
         }
 
         return undefined;
-      }
+      },
 
       get name() {
         return name;
-      }
+      },
 
       get paramNames() {
         return paramNames;
-      }
+      },
 
       get parent() {
         let parent = routeInfos[i - 1];
@@ -95,7 +100,7 @@ export function toReadOnlyRouteInfo(
         }
 
         return ROUTE_INFOS.get(parent)!;
-      }
+      },
 
       get child() {
         let child = routeInfos[i + 1];
@@ -105,25 +110,33 @@ export function toReadOnlyRouteInfo(
         }
 
         return ROUTE_INFOS.get(child)!;
-      }
+      },
 
       get localName() {
         let parts = this.name.split('.');
         return parts[parts.length - 1];
-      }
+      },
 
       get params() {
         return params;
-      }
+      },
 
       get queryParams() {
         return queryParams;
-      }
-    }();
+      },
+    };
 
-    ROUTE_INFOS.set(info, publicRouteInfo);
+    if (includeAttributes) {
+      routeInfo = Object.assign(routeInfo, {
+        get attributes() {
+          return context;
+        },
+      });
+    }
 
-    return publicRouteInfo;
+    ROUTE_INFOS.set(info, routeInfo);
+
+    return routeInfo;
   });
 }
 
