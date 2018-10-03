@@ -3,7 +3,7 @@ import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
 import RouteInfo, { RouteInfoWithAttributes } from 'router/route-info';
 import { SerializerFunc } from 'router/router';
-import { logAbort } from 'router/transition';
+import { logAbort, PARAMS_SYMBOL, QUERY_PARAMS_SYMBOL, STATE_SYMBOL } from 'router/transition';
 import { TransitionError } from 'router/transition-state';
 import { Promise, reject } from 'rsvp';
 import {
@@ -201,7 +201,7 @@ scenarios.forEach(function(scenario) {
     routes = {
       index: createHandler('index', {
         model: function(_params: string[], transition: Transition) {
-          assert.deepEqual(transition.queryParams, {
+          assert.deepEqual(transition[QUERY_PARAMS_SYMBOL], {
             sort: 'date',
             filter: 'true',
           });
@@ -2523,7 +2523,7 @@ scenarios.forEach(function(scenario) {
     routes = {
       postIndex: createHandler('postIndex', {
         model: function(_params: Dict<unknown>, transition: Transition) {
-          assert.deepEqual(transition.params, {
+          assert.deepEqual(transition[PARAMS_SYMBOL], {
             postIndex: {},
             showFilteredPosts: { filter_id: 'sad' },
           });
@@ -2531,7 +2531,7 @@ scenarios.forEach(function(scenario) {
       }),
       showFilteredPosts: createHandler('showFilteredPosts', {
         model: function(_params: Dict<unknown>, transition: Transition) {
-          assert.deepEqual(transition.params, {
+          assert.deepEqual(transition[PARAMS_SYMBOL], {
             postIndex: {},
             showFilteredPosts: { filter_id: 'sad' },
           });
@@ -2602,7 +2602,7 @@ scenarios.forEach(function(scenario) {
 
     // Get a reference to the transition, mid-transition.
     router.willTransition = function() {
-      let midTransitionState = router.activeTransition!.state;
+      let midTransitionState = router.activeTransition![STATE_SYMBOL];
 
       // Make sure that the activeIntent doesn't match post 300.
       let isPost300Targeted = router.isActiveIntent(

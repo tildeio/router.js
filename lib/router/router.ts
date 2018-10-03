@@ -11,6 +11,8 @@ import InternalTransition, {
   logAbort,
   OpaqueTransition,
   PublicTransition as Transition,
+  QUERY_PARAMS_SYMBOL,
+  STATE_SYMBOL,
 } from './transition';
 import TransitionAbortedError from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
@@ -126,7 +128,7 @@ export default abstract class Router<T extends Route> {
         newTransition
       );
 
-      newTransition.queryParams = newState.queryParams;
+      newTransition[QUERY_PARAMS_SYMBOL] = newState.queryParams;
 
       this.toReadOnlyInfos(newTransition, newState.routeInfos);
 
@@ -179,7 +181,7 @@ export default abstract class Router<T extends Route> {
     return newTransition.then(() => {
       let routeInfosWithAttributes = toReadOnlyRouteInfo(
         newState!.routeInfos,
-        newTransition.queryParams,
+        newTransition[QUERY_PARAMS_SYMBOL],
         true
       ) as RouteInfoWithAttributes[];
       return routeInfosWithAttributes[routeInfosWithAttributes.length - 1];
@@ -199,7 +201,7 @@ export default abstract class Router<T extends Route> {
     isIntermediate: boolean
   ): InternalTransition<T> {
     let wasTransitioning = !!this.activeTransition;
-    let oldState = wasTransitioning ? this.activeTransition!.state : this.state;
+    let oldState = wasTransitioning ? this.activeTransition![STATE_SYMBOL] : this.state;
     let newTransition: InternalTransition<T>;
 
     let newState = intent.applyToState(oldState!, isIntermediate);
@@ -363,7 +365,7 @@ export default abstract class Router<T extends Route> {
       return routeInfos[routeInfos.length - 1].route!;
     } catch (e) {
       if (!(e instanceof TransitionAbortedError)) {
-        let infos = transition.state!.routeInfos;
+        let infos = transition[STATE_SYMBOL]!.routeInfos;
         transition.trigger(true, 'error', e, transition, infos[infos.length - 1].route);
         transition.abort();
       }
@@ -752,14 +754,14 @@ export default abstract class Router<T extends Route> {
 
   private fromInfos(newTransition: OpaqueTransition, oldRouteInfos: InternalRouteInfo<T>[]) {
     if (oldRouteInfos.length > 0) {
-      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos, newTransition.queryParams);
+      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos, newTransition[QUERY_PARAMS_SYMBOL]);
       newTransition!.from = fromInfos[fromInfos.length - 1] || null;
     }
   }
 
   private toInfos(newTransition: OpaqueTransition, newRouteInfos: InternalRouteInfo<T>[]) {
     if (newRouteInfos.length > 0) {
-      let toInfos = toReadOnlyRouteInfo(newRouteInfos, newTransition.queryParams);
+      let toInfos = toReadOnlyRouteInfo(newRouteInfos, newTransition[QUERY_PARAMS_SYMBOL]);
       newTransition!.to = toInfos[toInfos.length - 1] || null;
     }
   }
@@ -862,7 +864,7 @@ export default abstract class Router<T extends Route> {
 
   refresh(pivotRoute?: T) {
     let previousTransition = this.activeTransition;
-    let state = previousTransition ? previousTransition.state : this.state;
+    let state = previousTransition ? previousTransition[STATE_SYMBOL] : this.state;
     let routeInfos = state!.routeInfos;
 
     if (pivotRoute === undefined) {
@@ -935,7 +937,7 @@ export default abstract class Router<T extends Route> {
   applyIntent(routeName: string, contexts: Dict<unknown>[]): TransitionState<T> {
     let intent = new NamedTransitionIntent(this, routeName, undefined, contexts);
 
-    let state = (this.activeTransition && this.activeTransition.state) || this.state!;
+    let state = (this.activeTransition && this.activeTransition[STATE_SYMBOL]) || this.state!;
 
     return intent.applyToState(state, false);
   }
