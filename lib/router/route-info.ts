@@ -62,7 +62,7 @@ export function toReadOnlyRouteInfo(
 ) {
   return routeInfos.map((info, i) => {
     let { name, params, paramNames, context } = info;
-    let RoutInfoImpl = class RoutInfoImpl {
+    let routeInfo: RouteInfo = {
       find(
         predicate: (this: any, routeInfo: RouteInfo, i?: number, arr?: RouteInfo[]) => boolean,
         thisArg: any
@@ -82,15 +82,15 @@ export function toReadOnlyRouteInfo(
         }
 
         return undefined;
-      }
+      },
 
       get name() {
         return name;
-      }
+      },
 
       get paramNames() {
         return paramNames;
-      }
+      },
 
       get parent() {
         let parent = routeInfos[i - 1];
@@ -100,7 +100,7 @@ export function toReadOnlyRouteInfo(
         }
 
         return ROUTE_INFOS.get(parent)!;
-      }
+      },
 
       get child() {
         let child = routeInfos[i + 1];
@@ -110,38 +110,33 @@ export function toReadOnlyRouteInfo(
         }
 
         return ROUTE_INFOS.get(child)!;
-      }
+      },
 
       get localName() {
         let parts = this.name.split('.');
         return parts[parts.length - 1];
-      }
+      },
 
       get params() {
         return params;
-      }
+      },
 
       get queryParams() {
         return queryParams;
-      }
+      },
     };
 
-    let publicRouteInfo;
-
     if (includeAttributes) {
-      class RouteInfoWithAttributes extends RoutInfoImpl {
+      routeInfo = Object.assign(routeInfo, {
         get attributes() {
           return context;
-        }
-      }
-      publicRouteInfo = new RouteInfoWithAttributes();
-    } else {
-      publicRouteInfo = new RoutInfoImpl();
+        },
+      });
     }
 
-    ROUTE_INFOS.set(info, publicRouteInfo);
+    ROUTE_INFOS.set(info, routeInfo);
 
-    return publicRouteInfo;
+    return routeInfo;
   });
 }
 
