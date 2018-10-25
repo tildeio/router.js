@@ -46,13 +46,13 @@ export interface RouteInfo {
   readonly paramNames: string[];
   readonly queryParams: Dict<unknown>;
   find(
-    predicate: (this: any, routeInfo: RouteInfo, i?: number) => boolean,
+    predicate: (this: any, routeInfo: RouteInfo, i: number) => boolean,
     thisArg?: any
   ): RouteInfo | undefined;
 }
 
 export interface RouteInfoWithAttributes extends RouteInfo {
-  attributes: Dict<unknown>;
+  attributes: any;
 }
 
 let ROUTE_INFOS = new WeakMap<InternalRouteInfo<Route>, RouteInfo>();
@@ -66,7 +66,7 @@ export function toReadOnlyRouteInfo(
     let { name, params, paramNames, context } = info;
     let routeInfo: RouteInfo = {
       find(
-        predicate: (this: any, routeInfo: RouteInfo, i?: number, arr?: RouteInfo[]) => boolean,
+        predicate: (this: any, routeInfo: RouteInfo, i: number, arr?: RouteInfo[]) => boolean,
         thisArg: any
       ) {
         let publicInfo;
@@ -76,7 +76,7 @@ export function toReadOnlyRouteInfo(
           arr = routeInfos.map(info => ROUTE_INFOS.get(info)!);
         }
 
-        for (let i = 0; routeInfos.length > 0; i++) {
+        for (let i = 0; routeInfos.length > i; i++) {
           publicInfo = ROUTE_INFOS.get(routeInfos[i])!;
           if (predicate.call(thisArg, publicInfo, i, arr)) {
             return publicInfo;
