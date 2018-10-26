@@ -177,7 +177,7 @@ export default class InternalRouteInfo<T extends Route> {
     return Promise.resolve(this.routePromise)
       .then((route: Route) => this.checkForAbort(shouldContinue, route))
       .then(() => this.runBeforeModelHook(transition))
-      .then(() => this.checkForAbort(shouldContinue, null))
+      .then(resolved => this.checkForAbort(shouldContinue, resolved))
       .then(() => this.getModel(transition))
       .then(resolvedModel => this.checkForAbort(shouldContinue, resolvedModel))
       .then(resolvedModel => this.runAfterModelHook(transition, resolvedModel))
