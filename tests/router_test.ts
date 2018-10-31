@@ -1,7 +1,10 @@
 import { MatchCallback } from 'route-recognizer';
 import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
-import RouteInfo, { RouteInfoWithAttributes } from 'router/route-info';
+import RouteInfo, {
+  RouteInfo as PublicRouteInfo,
+  RouteInfoWithAttributes,
+} from 'router/route-info';
 import { SerializerFunc } from 'router/router';
 import { logAbort, PARAMS_SYMBOL, QUERY_PARAMS_SYMBOL, STATE_SYMBOL } from 'router/transition';
 import { TransitionError } from 'router/transition-state';
@@ -25,6 +28,10 @@ import {
 let router: Router<Route>;
 let url: string;
 let routes: Dict<Route>;
+
+function isPresent(maybe: Maybe<PublicRouteInfo>): maybe is PublicRouteInfo {
+  return maybe !== undefined && maybe !== null;
+}
 
 let serializers: Dict<SerializerFunc>, expectedUrl: Maybe<string>;
 let scenarios = [
@@ -338,16 +345,20 @@ scenarios.forEach(function(scenario) {
 
     router.routeWillChange = (transition: Transition) => {
       enteredWillChange++;
-      assert.equal(transition.to!.localName, 'postDetails');
-      assert.equal(transition.from!, null);
-      assert.equal(transition.to!.parent!.localName, 'post');
+      if (isPresent(transition.to)) {
+        assert.equal(transition.to.localName, 'postDetails');
+        assert.equal(transition.from, null);
+        assert.equal(transition.to.parent!.localName, 'post');
+      }
     };
 
     router.routeDidChange = (transition: Transition) => {
       enteredDidChange++;
-      assert.equal(transition.to!.localName, 'postDetails');
-      assert.equal(transition.from!, null);
-      assert.equal(transition.to!.parent!.localName, 'post');
+      if (isPresent(transition.to)) {
+        assert.equal(transition.to.localName, 'postDetails');
+        assert.equal(transition.from!, null);
+        assert.equal(transition.to.parent!.localName, 'post');
+      }
     };
 
     router.transitionTo('/posts/1/details').then(() => {
@@ -378,27 +389,31 @@ scenarios.forEach(function(scenario) {
 
     router.routeWillChange = (transition: Transition) => {
       enteredWillChange++;
-      if (replacement) {
-        assert.equal(transition.to!.localName, 'canonicalPostDetails');
-        assert.equal(transition.from!.localName, 'postDetails');
-        assert.equal(transition.to!.parent!, null);
-      } else {
-        assert.equal(transition.to!.localName, 'postDetails');
-        assert.equal(transition.from!, null);
-        assert.equal(transition.to!.parent!.localName, 'post');
+      if (isPresent(transition.to)) {
+        if (replacement) {
+          assert.equal(transition.to.localName, 'canonicalPostDetails');
+          assert.equal(isPresent(transition.from) && transition.from.localName, 'postDetails');
+          assert.equal(transition.to!.parent!, null);
+        } else {
+          assert.equal(transition.to!.localName, 'postDetails');
+          assert.equal(transition.from!, null);
+          assert.equal(transition.to!.parent!.localName, 'post');
+        }
       }
     };
 
     router.routeDidChange = (transition: Transition) => {
       enteredDidChange++;
-      if (replacement) {
-        assert.equal(transition.to!.localName, 'canonicalPostDetails');
-        assert.equal(transition.from!.localName, 'postDetails');
-        assert.equal(transition.to!.parent, null);
-      } else {
-        assert.equal(transition.to!.localName, 'postDetails');
-        assert.equal(transition.from!, null);
-        assert.equal(transition.to!.parent!.localName, 'post');
+      if (isPresent(transition.to)) {
+        if (replacement) {
+          assert.equal(transition.to!.localName, 'canonicalPostDetails');
+          assert.equal(isPresent(transition.from) && transition.from.localName, 'postDetails');
+          assert.equal(transition.to!.parent, null);
+        } else {
+          assert.equal(transition.to!.localName, 'postDetails');
+          assert.equal(transition.from!, null);
+          assert.equal(transition.to!.parent!.localName, 'post');
+        }
       }
     };
 
@@ -441,15 +456,17 @@ scenarios.forEach(function(scenario) {
 
     router.routeWillChange = (transition: Transition) => {
       enteredWillChange++;
-      if (replacement) {
-        assert.equal(transition.to!.localName, 'canonicalPostDetails');
-        assert.equal(transition.from!, null);
-        assert.equal(transition.to!.parent!, null);
-      } else {
-        assert.equal(transition.to!.localName, 'postDetails');
-        assert.equal(transition.from!, null);
-        assert.equal(transition.to!.parent!.localName, 'post');
-        replacement = true;
+      if (isPresent(transition.to)) {
+        if (replacement) {
+          assert.equal(transition.to.localName, 'canonicalPostDetails');
+          assert.equal(transition.from!, null);
+          assert.equal(transition.to.parent!, null);
+        } else {
+          assert.equal(transition.to.localName, 'postDetails');
+          assert.equal(transition.from!, null);
+          assert.equal(transition.to.parent!.localName, 'post');
+          replacement = true;
+        }
       }
     };
 
@@ -492,7 +509,7 @@ scenarios.forEach(function(scenario) {
       assert.deepEqual(transition.to!.paramNames, ['id']);
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'post');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.params, { id: '2' });
       } else {
         assert.equal(transition.to!.localName, 'post');
@@ -506,7 +523,7 @@ scenarios.forEach(function(scenario) {
       assert.deepEqual(transition.to!.paramNames, ['id']);
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'post');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.params, { id: '2' });
       } else {
         assert.equal(transition.to!.localName, 'post');
@@ -1056,7 +1073,7 @@ scenarios.forEach(function(scenario) {
       enteredWillChange++;
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'post');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.params, { id: '2' });
       } else {
         assert.equal(transition.to!.localName, 'post');
@@ -1069,7 +1086,7 @@ scenarios.forEach(function(scenario) {
       enteredDidChange++;
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'post');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.params, { id: '2' });
       } else {
         assert.equal(transition.to!.localName, 'post');
@@ -1109,7 +1126,7 @@ scenarios.forEach(function(scenario) {
       enteredWillChange++;
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'post');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.queryParams, { trk: 'b' });
       } else {
         assert.equal(transition.to!.localName, 'post');
@@ -1124,7 +1141,7 @@ scenarios.forEach(function(scenario) {
       enteredDidChange++;
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'post');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.queryParams, { trk: 'b' });
       } else {
         assert.equal(transition.to!.localName, 'post');
@@ -1196,15 +1213,15 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.parent, null);
       } else if (redirected1) {
         assert.equal(transition.to!.localName, 'bar');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'index');
         assert.equal(transition.to!.parent!.localName, 'foo');
       } else if (redirected2) {
         assert.equal(transition.to!.localName, 'ok');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'index');
         assert.equal(transition.to!.parent!, null);
       } else {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'index');
         assert.equal(transition.to!.parent, null);
       }
     };
@@ -1217,7 +1234,7 @@ scenarios.forEach(function(scenario) {
         initial = false;
       } else {
         assert.equal(transition.to!.localName, 'ok');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'index');
       }
     };
 
@@ -1284,7 +1301,7 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.parent, null);
       } else if (redirected) {
         assert.equal(transition.to!.localName, 'bar');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'index');
         assert.equal(transition.to!.parent!.localName, 'foo');
       } else if (aborted) {
         assert.equal(transition.isAborted, true);
@@ -1293,7 +1310,7 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.localName, 'index');
       } else {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'index');
         assert.equal(transition.to!.parent, null);
       }
     };
@@ -1306,7 +1323,7 @@ scenarios.forEach(function(scenario) {
         initial = false;
       } else {
         assert.equal(transition.to!.localName, 'index');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from.localName, 'index');
       }
     };
 
@@ -1396,15 +1413,15 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.parent, null);
       } else if (redirected) {
         assert.equal(transition.to!.localName, 'bar');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index');
         assert.equal(transition.to!.parent!.localName, 'foo');
       } else if (errored) {
         assert.equal(transition.isAborted, false);
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index');
         assert.equal(transition.to!.localName, 'fooError');
       } else {
         assert.equal(transition.to!.localName, 'post');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index');
         assert.equal(transition.to!.parent, null);
       }
     };
@@ -1417,7 +1434,7 @@ scenarios.forEach(function(scenario) {
         initial = false;
       } else {
         assert.equal(transition.to!.localName, 'fooError');
-        assert.equal(transition.from!.localName, 'index');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index');
       }
     };
 

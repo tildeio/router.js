@@ -40,7 +40,7 @@ export const QUERY_PARAMS_SYMBOL = `__QPS__-2619863929824844-32323`;
  */
 export default class Transition<T extends Route> implements Partial<Promise<T>> {
   [STATE_SYMBOL]: TransitionState<T>;
-  from?: RouteInfo = undefined;
+  from: Maybe<RouteInfo> = null;
   to?: RouteInfo = undefined;
   router: Router<T>;
   data: Dict<unknown>;
@@ -239,7 +239,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   abort() {
     this.rollback();
     let transition = new Transition(this.router, undefined, undefined, undefined);
-    transition.to = this.from;
+    transition.to = this.from as RouteInfo;
     transition.from = this.from;
     transition.isAborted = true;
     this.router.routeWillChange(transition);
