@@ -26,7 +26,7 @@ import {
 } from './test_helpers';
 
 let router: Router<Route>;
-let url: string;
+let url: string | undefined;
 let routes: Dict<Route>;
 
 function isPresent(maybe: Maybe<PublicRouteInfo>): maybe is PublicRouteInfo {
@@ -64,6 +64,7 @@ scenarios.forEach(function(scenario) {
     setup: function(assert: Assert) {
       routes = {};
       expectedUrl = undefined;
+      url = undefined;
 
       map(assert, function(match) {
         match('/index').to('index');
@@ -490,7 +491,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('basic route change events with params', function(assert) {
-    assert.expect(18);
+    assert.expect(22);
     map(assert, function(match) {
       match('/').to('index');
       match('/posts/:id').to('post');
@@ -511,9 +512,11 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.params, { id: '2' });
+        assert.equal(url, '/posts/1');
       } else {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(transition.from, null);
+        assert.notOk(url);
         assert.deepEqual(transition.to!.params, { id: '1' });
       }
     };
@@ -525,9 +528,11 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.params, { id: '2' });
+        assert.equal(url, '/posts/2');
       } else {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(transition.from, null);
+        assert.equal(url, '/posts/1');
         assert.deepEqual(transition.to!.params, { id: '1' });
       }
     };
