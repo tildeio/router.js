@@ -1113,7 +1113,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('basic route change events with query params', function(assert) {
-    assert.expect(18);
+    assert.expect(20);
     map(assert, function(match) {
       match('/').to('index');
       match('/posts/:id').to('post');
@@ -1133,6 +1133,7 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.queryParams, { trk: 'b' });
+        assert.deepEqual(isPresent(transition.from) && transition.from!.queryParams, { trk: 'a' });
       } else {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(transition.from, null);
@@ -1148,6 +1149,7 @@ scenarios.forEach(function(scenario) {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
         assert.deepEqual(transition.to!.queryParams, { trk: 'b' });
+        assert.deepEqual(isPresent(transition.from) && transition.from!.queryParams, { trk: 'a' });
       } else {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(transition.from, null);
@@ -1167,6 +1169,49 @@ scenarios.forEach(function(scenario) {
         assert.equal(enteredWillChange, 2);
         assert.equal(enteredDidChange, 2);
       });
+  });
+
+  test('basic route to one with query params', function(assert) {
+    assert.expect(8);
+    map(assert, function(match) {
+      match('/').to('index');
+      match('/search').to('search');
+    });
+
+    routes = {
+      search: createHandler('search'),
+    };
+
+    let newParam = false;
+
+    router.routeWillChange = (transition: Transition) => {
+      if (newParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'b' }, 'going to page with qps');
+        assert.deepEqual(
+          isPresent(transition.from) && transition.from!.queryParams,
+          {},
+          'from never has qps'
+        );
+      } else {
+        assert.equal(transition.from, null);
+        assert.deepEqual(transition.to!.queryParams, {});
+      }
+    };
+
+    router.routeDidChange = (transition: Transition) => {
+      if (newParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'b' });
+        assert.deepEqual(isPresent(transition.from) && transition.from!.queryParams, {});
+      } else {
+        assert.equal(transition.from, null);
+        assert.deepEqual(transition.to!.queryParams, {});
+      }
+    };
+
+    router.transitionTo('/').then(() => {
+      newParam = true;
+      return router.transitionTo('search', { queryParams: { term: 'b' } });
+    });
   });
 
   test('redirects route events', function(assert) {

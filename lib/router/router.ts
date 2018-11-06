@@ -39,6 +39,7 @@ export interface ParsedHandler {
 }
 
 export default abstract class Router<T extends Route> {
+  private _lastQueryParams = {};
   log?: (message: string) => void;
   state?: TransitionState<T> = undefined;
   oldState: Maybe<TransitionState<T>> = undefined;
@@ -130,7 +131,7 @@ export default abstract class Router<T extends Route> {
 
       newTransition[QUERY_PARAMS_SYMBOL] = newState.queryParams;
 
-      this.toReadOnlyInfos(newTransition, newState.routeInfos);
+      this.toReadOnlyInfos(newTransition, newState);
 
       this.routeWillChange(newTransition);
 
@@ -246,7 +247,7 @@ export default abstract class Router<T extends Route> {
       newTransition.queryParamsOnly = true;
     }
 
-    this.toReadOnlyInfos(newTransition, newState.routeInfos);
+    this.toReadOnlyInfos(newTransition, newState);
     // Abort and usurp any previously active transition.
     if (this.activeTransition) {
       this.activeTransition.redirect(newTransition);
@@ -746,22 +747,26 @@ export default abstract class Router<T extends Route> {
     return finalQueryParams;
   }
 
-  private toReadOnlyInfos(newTransition: OpaqueTransition, newRouteInfos: InternalRouteInfo<T>[]) {
+  private toReadOnlyInfos(newTransition: OpaqueTransition, newState: TransitionState<T>) {
     let oldRouteInfos = this.state!.routeInfos;
     this.fromInfos(newTransition, oldRouteInfos);
-    this.toInfos(newTransition, newRouteInfos);
+    this.toInfos(newTransition, newState.routeInfos);
+    this._lastQueryParams = newState.queryParams;
   }
 
   private fromInfos(newTransition: OpaqueTransition, oldRouteInfos: InternalRouteInfo<T>[]) {
     if (oldRouteInfos.length > 0) {
-      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos, newTransition[QUERY_PARAMS_SYMBOL]);
+      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos, Object.assign({}, this._lastQueryParams));
       newTransition!.from = fromInfos[fromInfos.length - 1] || null;
     }
   }
 
   private toInfos(newTransition: OpaqueTransition, newRouteInfos: InternalRouteInfo<T>[]) {
     if (newRouteInfos.length > 0) {
-      let toInfos = toReadOnlyRouteInfo(newRouteInfos, newTransition[QUERY_PARAMS_SYMBOL]);
+      let toInfos = toReadOnlyRouteInfo(
+        newRouteInfos,
+        Object.assign({}, newTransition[QUERY_PARAMS_SYMBOL])
+      );
       newTransition!.to = toInfos[toInfos.length - 1] || null;
     }
   }
