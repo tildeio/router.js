@@ -1,6 +1,6 @@
 {
   "name": "router_js",
-  "version": "6.0.2",
+  "version": "6.0.3",
   "description":
     "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
   "keywords": ["route-recognizer", "router", "rsvp"],
