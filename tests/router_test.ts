@@ -3538,6 +3538,35 @@ scenarios.forEach(function(scenario) {
     });
   });
 
+  test('transitions that abort and enter into a substate', function(assert) {
+    assert.expect(3);
+
+    routes = {
+      index: createHandler('index'),
+      about: createHandler('about', {
+        setup: function() {
+          assert.ok(true, 'about setup called');
+        },
+        events: {
+          willTransition: function(transition: Transition) {
+            assert.ok(true, 'willTransition');
+            transition.abort();
+            router.intermediateTransitionTo('faq');
+          },
+        },
+      }),
+      faq: createHandler('faq', {
+        setup: function() {
+          assert.ok(true, 'faq setup called');
+        },
+      }),
+    };
+
+    router.handleURL('/about').then(() => {
+      return router.transitionTo('index');
+    });
+  });
+
   test('aborted transitions can be saved and later retried', function(assert) {
     assert.expect(9);
 
@@ -5030,6 +5059,47 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
         });
       });
     },
+  });
+
+  test('intermediateTransitionTo() has the correct RouteInfo objects', function(assert) {
+    assert.expect(5);
+    routes = {
+      application: createHandler('application'),
+      foo: createHandler('foo', {
+        model: function() {
+          router.intermediateTransitionTo('loading');
+          return new Promise(function(resolve) {
+            resolve();
+          });
+        },
+      }),
+      loading: createHandler('loading'),
+    };
+
+    let enteredCount = 0;
+    router.routeWillChange = (transition: Transition) => {
+      if (enteredCount === 0) {
+        assert.equal(transition.to!.name, 'foo', 'going to');
+        enteredCount++;
+      } else if (enteredCount === 1) {
+        assert.equal(transition.to!.name, 'loading', 'entering');
+        enteredCount++;
+      } else {
+        assert.equal(transition.to!.name, 'foo', 'back to');
+        enteredCount++;
+      }
+      assert.equal(transition.from, null);
+    };
+
+    router.routeDidChange = (transition: Transition) => {
+      if (enteredCount === 1) {
+        assert.equal(transition.to!.name, 'loading');
+      } else {
+        assert.equal(transition.to!.name, 'foo', 'landed at');
+      }
+    };
+
+    transitionTo(router, '/foo');
   });
 
   test("intermediateTransitionTo() forces an immediate intermediate transition that doesn't cancel currently active async transitions", function(assert) {
