@@ -227,8 +227,14 @@ export default abstract class Router<T extends Route> {
 
     if (isIntermediate) {
       this.setupContexts(newState);
-      this.toInfos(this.activeTransition!, newState.routeInfos);
-      this.routeWillChange(this.activeTransition!);
+      let transition = this.activeTransition!;
+      if (!transition.isCausedByAbortingTransition) {
+        transition = new InternalTransition(this, undefined, undefined);
+        transition.from = transition.from;
+      }
+
+      this.toInfos(transition, newState.routeInfos);
+      this.routeWillChange(transition);
       return this.activeTransition!;
     }
 
@@ -755,14 +761,14 @@ export default abstract class Router<T extends Route> {
   }
 
   private fromInfos(newTransition: OpaqueTransition, oldRouteInfos: InternalRouteInfo<T>[]) {
-    if (oldRouteInfos.length > 0) {
+    if (newTransition !== undefined && oldRouteInfos.length > 0) {
       let fromInfos = toReadOnlyRouteInfo(oldRouteInfos, Object.assign({}, this._lastQueryParams));
       newTransition!.from = fromInfos[fromInfos.length - 1] || null;
     }
   }
 
   private toInfos(newTransition: OpaqueTransition, newRouteInfos: InternalRouteInfo<T>[]) {
-    if (newRouteInfos.length > 0) {
+    if (newTransition !== undefined && newRouteInfos.length > 0) {
       let toInfos = toReadOnlyRouteInfo(
         newRouteInfos,
         Object.assign({}, newTransition[QUERY_PARAMS_SYMBOL])
