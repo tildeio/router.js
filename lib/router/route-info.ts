@@ -66,8 +66,9 @@ export function toReadOnlyRouteInfo(
     let { name, params, paramNames, context } = info;
     if (ROUTE_INFOS.has(info) && includeAttributes) {
       let routeInfo = ROUTE_INFOS.get(info)!;
-      ROUTE_INFOS.set(info, createRouteInfoWithAttributes(routeInfo, context));
-      return routeInfo as RouteInfoWithAttributes;
+      let routeInfoWithAttribute = createRouteInfoWithAttributes(routeInfo, context);
+      ROUTE_INFOS.set(info, routeInfoWithAttribute);
+      return routeInfoWithAttribute as RouteInfoWithAttributes;
     }
     let routeInfo: RouteInfo = {
       find(
@@ -147,11 +148,19 @@ function createRouteInfoWithAttributes(
   routeInfo: RouteInfo,
   context: any
 ): RouteInfoWithAttributes {
-  return Object.assign(routeInfo, {
-    get attributes() {
-      return context;
+  let objects: {}[] = [
+    {
+      get attributes() {
+        return context;
+      },
     },
-  });
+  ];
+  if (Object.isFrozen(routeInfo)) {
+    objects.unshift({}, routeInfo);
+  } else {
+    objects.unshift(routeInfo);
+  }
+  return Object.assign.apply(null, objects);
 }
 
 export default class InternalRouteInfo<T extends Route> {
