@@ -39,8 +39,8 @@ export type Continuation = () => PromiseLike<boolean> | boolean;
 
 export interface RouteInfo {
   readonly name: string;
-  readonly parent: RouteInfo | null;
-  readonly child: RouteInfo | null;
+  readonly parent: RouteInfo | RouteInfoWithAttributes | null;
+  readonly child: RouteInfo | RouteInfoWithAttributes | null;
   readonly localName: string;
   readonly params: Dict<unknown>;
   readonly paramNames: string[];
@@ -55,15 +55,20 @@ export interface RouteInfoWithAttributes extends RouteInfo {
   attributes: any;
 }
 
-let ROUTE_INFOS = new WeakMap<InternalRouteInfo<Route>, RouteInfo>();
+let ROUTE_INFOS = new WeakMap<InternalRouteInfo<Route>, RouteInfo | RouteInfoWithAttributes>();
 
 export function toReadOnlyRouteInfo(
   routeInfos: InternalRouteInfo<Route>[],
   queryParams: Dict<unknown> = {},
   includeAttributes = false
-) {
+): RouteInfoWithAttributes[] | RouteInfo[] {
   return routeInfos.map((info, i) => {
     let { name, params, paramNames, context } = info;
+    if (ROUTE_INFOS.has(info) && includeAttributes) {
+      let routeInfo = ROUTE_INFOS.get(info)!;
+      ROUTE_INFOS.set(info, createRouteInfoWithAttributes(routeInfo, context));
+      return routeInfo as RouteInfoWithAttributes;
+    }
     let routeInfo: RouteInfo = {
       find(
         predicate: (this: any, routeInfo: RouteInfo, i: number, arr?: RouteInfo[]) => boolean,
@@ -129,16 +134,23 @@ export function toReadOnlyRouteInfo(
     };
 
     if (includeAttributes) {
-      routeInfo = Object.assign(routeInfo, {
-        get attributes() {
-          return context;
-        },
-      });
+      routeInfo = createRouteInfoWithAttributes(routeInfo, context);
     }
 
     ROUTE_INFOS.set(info, routeInfo);
 
     return routeInfo;
+  });
+}
+
+function createRouteInfoWithAttributes(
+  routeInfo: RouteInfo,
+  context: any
+): RouteInfoWithAttributes {
+  return Object.assign(routeInfo, {
+    get attributes() {
+      return context;
+    },
   });
 }
 

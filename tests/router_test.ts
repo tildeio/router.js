@@ -329,7 +329,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('basic route change events', function(assert) {
-    assert.expect(8);
+    assert.expect(11);
     map(assert, function(match) {
       match('/').to('index');
       match('/posts/:id').to('post', function(match) {
@@ -340,25 +340,40 @@ scenarios.forEach(function(scenario) {
     let enteredWillChange = 0;
     let enteredDidChange = 0;
     routes = {
-      post: createHandler('post'),
-      postDetails: createHandler('postDetails'),
+      post: createHandler('post', {
+        model() {
+          return { title: 'The Title' };
+        },
+      }),
+      postDetails: createHandler('postDetails', {
+        model() {
+          return { body: 'The Content' };
+        },
+      }),
     };
 
     router.routeWillChange = (transition: Transition) => {
       enteredWillChange++;
+
       if (isPresent(transition.to)) {
         assert.equal(transition.to.localName, 'postDetails');
         assert.equal(transition.from, null);
         assert.equal(transition.to.parent!.localName, 'post');
+        assert.equal((transition.to as any).attributes, undefined);
       }
     };
 
     router.routeDidChange = (transition: Transition) => {
       enteredDidChange++;
+      let to = transition.to! as RouteInfoWithAttributes;
       if (isPresent(transition.to)) {
-        assert.equal(transition.to.localName, 'postDetails');
+        assert.equal(to.localName, 'postDetails');
         assert.equal(transition.from!, null);
-        assert.equal(transition.to.parent!.localName, 'post');
+        assert.equal(to.parent!.localName, 'post');
+        assert.deepEqual(to.attributes, { body: 'The Content' });
+        assert.deepEqual((to.parent! as RouteInfoWithAttributes).attributes, {
+          title: 'The Title',
+        });
       }
     };
 
@@ -491,7 +506,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('basic route change events with params', function(assert) {
-    assert.expect(22);
+    assert.expect(26);
     map(assert, function(match) {
       match('/').to('index');
       match('/posts/:id').to('post');
@@ -500,7 +515,16 @@ scenarios.forEach(function(scenario) {
     let enteredWillChange = 0;
     let enteredDidChange = 0;
     routes = {
-      post: createHandler('post'),
+      index: createHandler('index', {
+        model() {
+          return Promise.resolve('Index');
+        },
+      }),
+      post: createHandler('post', {
+        model(params: Dict<any>) {
+          return Promise.resolve(params.id);
+        },
+      }),
     };
 
     let newParam = false;
@@ -511,6 +535,7 @@ scenarios.forEach(function(scenario) {
       if (newParam) {
         assert.equal(transition.to!.localName, 'post');
         assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
+        assert.deepEqual(isPresent(transition.from) && transition.from.attributes, '1');
         assert.deepEqual(transition.to!.params, { id: '2' });
         assert.equal(url, '/posts/1');
       } else {
@@ -523,17 +548,21 @@ scenarios.forEach(function(scenario) {
 
     router.routeDidChange = (transition: Transition) => {
       enteredDidChange++;
+      let to = transition.to! as RouteInfoWithAttributes;
       assert.deepEqual(transition.to!.paramNames, ['id']);
       if (newParam) {
-        assert.equal(transition.to!.localName, 'post');
+        assert.equal(to.localName, 'post');
         assert.equal(isPresent(transition.from) && transition.from.localName, 'post');
-        assert.deepEqual(transition.to!.params, { id: '2' });
+        assert.deepEqual(to.params, { id: '2' });
+        assert.deepEqual(to.attributes, '2');
+        assert.deepEqual(isPresent(transition.from) && transition.from.attributes, '1');
         assert.equal(url, '/posts/2');
       } else {
-        assert.equal(transition.to!.localName, 'post');
+        assert.equal(to.localName, 'post');
         assert.equal(transition.from, null);
         assert.equal(url, '/posts/1');
-        assert.deepEqual(transition.to!.params, { id: '1' });
+        assert.deepEqual(to.params, { id: '1' });
+        assert.deepEqual(to.attributes, '1');
       }
     };
 
