@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict, Maybe, Option } from './core';
-import InternalRouteInfo, { Route, RouteInfo } from './route-info';
+import InternalRouteInfo, { Route, RouteInfo, RouteInfoWithAttributes } from './route-info';
 import Router from './router';
 import TransitionAborted, { ITransitionAbortedError } from './transition-aborted-error';
 import { OpaqueIntent } from './transition-intent';
@@ -40,8 +40,8 @@ export const QUERY_PARAMS_SYMBOL = `__QPS__-2619863929824844-32323`;
  */
 export default class Transition<T extends Route> implements Partial<Promise<T>> {
   [STATE_SYMBOL]: TransitionState<T>;
-  from: Maybe<RouteInfo> = null;
-  to?: RouteInfo = undefined;
+  from: Maybe<RouteInfoWithAttributes> = null;
+  to?: RouteInfo | RouteInfoWithAttributes = undefined;
   router: Router<T>;
   data: Dict<unknown>;
   intent: Maybe<OpaqueIntent>;
@@ -239,7 +239,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   abort() {
     this.rollback();
     let transition = new Transition(this.router, undefined, undefined, undefined);
-    transition.to = this.from as RouteInfo;
+    transition.to = this.from as RouteInfoWithAttributes;
     transition.from = this.from;
     transition.isAborted = true;
     this.router.routeWillChange(transition);
