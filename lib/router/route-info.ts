@@ -148,19 +148,17 @@ function createRouteInfoWithAttributes(
   routeInfo: RouteInfo,
   context: any
 ): RouteInfoWithAttributes {
-  let objects: {}[] = [
-    {
-      get attributes() {
-        return context;
-      },
+  let attributes = {
+    get attributes() {
+      return context;
     },
-  ];
+  };
+
   if (Object.isFrozen(routeInfo)) {
-    objects.unshift({}, routeInfo);
-  } else {
-    objects.unshift(routeInfo);
+    return Object.assign({}, routeInfo, attributes);
   }
-  return Object.assign.apply(null, objects);
+
+  return Object.assign(routeInfo, attributes);
 }
 
 export default class InternalRouteInfo<T extends Route> {
