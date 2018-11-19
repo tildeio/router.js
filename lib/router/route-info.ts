@@ -154,7 +154,7 @@ function createRouteInfoWithAttributes(
     },
   };
 
-  if (Object.isFrozen(routeInfo)) {
+  if (Object.isFrozen(routeInfo) || routeInfo.hasOwnProperty('attributes')) {
     return Object.assign({}, routeInfo, attributes);
   }
 
