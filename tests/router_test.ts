@@ -383,6 +383,86 @@ scenarios.forEach(function(scenario) {
     });
   });
 
+  test('basic events with route metadata', function(assert) {
+    assert.expect(10);
+    map(assert, function(match) {
+      match('/').to('index');
+      match('/profile').to('profile');
+      match('/posts/:id').to('post', function(match) {
+        match('/details').to('postDetails');
+      });
+    });
+
+    routes = {
+      post: createHandler('post', {
+        buildRouteInfoMetadata() {
+          return 'post-page';
+        },
+        model() {
+          return { title: 'The Title' };
+        },
+      }),
+      profile: createHandler('profile', {
+        buildRouteInfoMetadata() {
+          return 'profile-page';
+        },
+      }),
+      postDetails: createHandler('postDetails', {
+        buildRouteInfoMetadata() {
+          return 'post-details-page';
+        },
+        model() {
+          return { body: 'The Content' };
+        },
+      }),
+    };
+
+    router.routeWillChange = (transition: Transition) => {
+      if (!isPresent(transition.from) && isPresent(transition.to)) {
+        if (scenario.async) {
+          assert.equal(transition.to.metadata, null, 'initial to leaf');
+          assert.equal(transition.to.parent!.metadata, null, 'initial to leaf');
+        } else {
+          assert.equal(transition.to.metadata, 'post-details-page');
+          assert.equal(transition.to.parent!.metadata, 'post-page');
+        }
+      }
+
+      if (isPresent(transition.from) && isPresent(transition.to)) {
+        if (scenario.async) {
+          assert.equal(transition.from.metadata, 'post-details-page', 'from leaf');
+          assert.equal(transition.from.parent!.metadata, 'post-page', 'from parent');
+          assert.equal(transition.to.metadata, null, 'to leaf');
+        } else {
+          assert.equal(transition.from.metadata, 'post-details-page');
+          assert.equal(transition.from.parent!.metadata, 'post-page');
+          assert.equal(transition.to.metadata, 'profile-page');
+        }
+      }
+    };
+
+    router.routeDidChange = (transition: Transition) => {
+      if (!isPresent(transition.from) && isPresent(transition.to)) {
+        assert.equal(transition.to.metadata, 'post-details-page', 'initial to leaf');
+        assert.equal(transition.to.parent!.metadata, 'post-page', 'initial to parent');
+      }
+
+      if (isPresent(transition.from) && isPresent(transition.to)) {
+        assert.equal(transition.from.metadata, 'post-details-page', 'from: /profile visited');
+        assert.equal(
+          transition.from.parent!.metadata,
+          'post-page',
+          'from: /profile visited parent'
+        );
+        assert.equal(transition.to.metadata, 'profile-page', 'to: /profile');
+      }
+    };
+
+    router.transitionTo('/posts/1/details').then(() => {
+      return router.transitionTo('/profile');
+    });
+  });
+
   test('basic route change events with replacement', function(assert) {
     assert.expect(14);
     map(assert, function(match) {

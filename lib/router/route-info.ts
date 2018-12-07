@@ -33,6 +33,7 @@ export interface Route {
   _internalReset?(wasReset: boolean, transition?: Transition): void;
   contextDidChange?(): void;
   redirect?(context: Dict<unknown>, transition: Transition): void;
+  buildRouteInfoMetadata?(): unknown;
 }
 
 export type Continuation = () => PromiseLike<boolean> | boolean;
@@ -45,6 +46,7 @@ export interface RouteInfo {
   readonly params: Dict<unknown>;
   readonly paramNames: string[];
   readonly queryParams: Dict<unknown>;
+  readonly metadata: unknown;
   find(
     predicate: (this: any, routeInfo: RouteInfo, i: number) => boolean,
     thisArg?: any
@@ -63,9 +65,10 @@ export function toReadOnlyRouteInfo(
   includeAttributes = false
 ): RouteInfoWithAttributes[] | RouteInfo[] {
   return routeInfos.map((info, i) => {
-    let { name, params, paramNames, context } = info;
+    let { name, params, paramNames, context, route } = info;
     if (ROUTE_INFOS.has(info) && includeAttributes) {
       let routeInfo = ROUTE_INFOS.get(info)!;
+      routeInfo = attachMetadata(route!, routeInfo);
       let routeInfoWithAttribute = createRouteInfoWithAttributes(routeInfo, context);
       ROUTE_INFOS.set(info, routeInfoWithAttribute);
       return routeInfoWithAttribute as RouteInfoWithAttributes;
@@ -98,6 +101,10 @@ export function toReadOnlyRouteInfo(
 
       get paramNames() {
         return paramNames;
+      },
+
+      get metadata() {
+        return buildRouteInfoMetadata(route);
       },
 
       get parent() {
@@ -155,10 +162,32 @@ function createRouteInfoWithAttributes(
   };
 
   if (Object.isFrozen(routeInfo) || routeInfo.hasOwnProperty('attributes')) {
-    return Object.assign({}, routeInfo, attributes);
+    return Object.freeze(Object.assign({}, routeInfo, attributes));
   }
 
   return Object.assign(routeInfo, attributes);
+}
+
+function buildRouteInfoMetadata(route?: Route) {
+  if (route !== undefined && route !== null && route.buildRouteInfoMetadata !== undefined) {
+    return route.buildRouteInfoMetadata();
+  }
+
+  return null;
+}
+
+function attachMetadata(route: Route, routeInfo: RouteInfo) {
+  let metadata = {
+    get metadata() {
+      return buildRouteInfoMetadata(route);
+    },
+  };
+
+  if (Object.isFrozen(routeInfo) || routeInfo.hasOwnProperty('metadata')) {
+    return Object.freeze(Object.assign({}, routeInfo, metadata));
+  }
+
+  return Object.assign(routeInfo, metadata);
 }
 
 export default class InternalRouteInfo<T extends Route> {
