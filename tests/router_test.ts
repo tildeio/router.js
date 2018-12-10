@@ -3732,6 +3732,51 @@ scenarios.forEach(function(scenario) {
     });
   });
 
+  test('aborted transitions can be saved and later retried asynchronously', function(assert) {
+    assert.expect(2);
+
+    let abortedTransition: Transition;
+    let shouldPrevent = true;
+    routes = {
+      index: createHandler('index', {
+        events: {
+          willTransition: function(transition: Transition) {
+            if (shouldPrevent) {
+              abortedTransition = transition.abort();
+              router.intermediateTransitionTo('loading');
+            }
+          },
+        },
+      }),
+      about: createHandler('about', {
+        setup: function() {
+          assert.ok(true, 'about setup called');
+        },
+      }),
+      loading: createHandler('loading', {
+        setup: function() {
+          assert.ok(true, 'loading setup called');
+        },
+      }),
+    };
+
+    router.handleURL('/index').then(function() {
+      return router
+        .transitionTo('about')
+        .then(shouldNotHappen(assert), function() {
+          shouldPrevent = false;
+          return new Promise(resolve => {
+            let transition = abortedTransition.retry();
+            resolve(transition);
+          });
+        })
+        .then(function() {
+          assert.ok(true, 'transition succeeded via .retry()');
+        }, shouldNotHappen(assert))
+        .catch(shouldNotHappen(assert));
+    });
+  });
+
   test('if an aborted transition is retried, it preserves the urlMethod of the original one', function(assert) {
     assert.expect(9);
 
