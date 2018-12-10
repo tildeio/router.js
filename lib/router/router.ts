@@ -229,7 +229,7 @@ export default abstract class Router<T extends Route> {
     if (isIntermediate) {
       this.setupContexts(newState);
       let transition = this.activeTransition!;
-      if (!transition.isCausedByAbortingTransition) {
+      if (transition !== undefined && !transition.isCausedByAbortingTransition) {
         transition = new InternalTransition(this, undefined, undefined);
         transition.from = transition.from;
       }
