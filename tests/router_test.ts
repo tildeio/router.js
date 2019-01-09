@@ -1414,7 +1414,7 @@ scenarios.forEach(function(scenario) {
   });
 
   test('abort route events', function(assert) {
-    assert.expect(20);
+    assert.expect(19);
     map(assert, function(match) {
       match('/').to('index');
       match('/posts', function(match) {
@@ -1465,7 +1465,6 @@ scenarios.forEach(function(scenario) {
       } else if (aborted) {
         assert.equal(transition.isAborted, true);
         assert.equal(transition.to, transition.from);
-        assert.equal(transition.to, transition.from);
         assert.equal(transition.to!.localName, 'index');
       } else {
         assert.equal(transition.to!.localName, 'post');
@@ -1496,6 +1495,107 @@ scenarios.forEach(function(scenario) {
         return router.activeTransition as any;
       })
       .then(() => {
+        assert.equal(enteredWillChange, 4);
+        assert.equal(enteredDidChange, 2);
+      });
+  });
+
+  test('always has a transition through the substates', function(assert) {
+    map(assert, function(match) {
+      match('/').to('index');
+      match('/posts', function(match) {
+        match('/:id').to('post');
+        match('/details').to('postDetails');
+      });
+      match('/foo', function(match) {
+        match('/').to('foo', function(match) {
+          match('/bar').to('bar');
+        });
+      });
+      match('/err').to('fooError');
+    });
+
+    let enterSubstate = false;
+    let initial = true;
+    let isAborted = false;
+    let errorHandled = false;
+    let enteredWillChange = 0;
+    let enteredDidChange = 0;
+
+    routes = {
+      post: createHandler('post', {
+        beforeModel(transition: Transition) {
+          isAborted = true;
+          transition.abort();
+          enterSubstate = true;
+          router.intermediateTransitionTo('fooError');
+        },
+      }),
+      foo: createHandler('foo'),
+    };
+
+    router.transitionDidError = (error: TransitionError, transition: Transition) => {
+      if (error.wasAborted || transition.isAborted) {
+        return logAbort(transition);
+      } else {
+        transition.trigger(false, 'error', error.error, transition, error.route);
+        if (errorHandled) {
+          transition.rollback();
+          router.routeDidChange(transition);
+          return transition;
+        } else {
+          transition.abort();
+          return error.error;
+        }
+      }
+    };
+
+    router.routeWillChange = (transition: Transition) => {
+      enteredWillChange++;
+      if (initial) {
+        assert.equal(transition.to!.localName, 'index', 'initial');
+        assert.equal(transition.from!, null, 'initial');
+        assert.equal(transition.to!.parent, null, 'initial');
+      } else if (isAborted) {
+        assert.equal(transition.to!.localName, 'index', 'aborted');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index', 'aborted');
+      } else if (enterSubstate) {
+        assert.equal(transition.to!.localName, 'fooError', 'substate');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index', 'substate');
+        assert.equal(transition.to!.parent!.localName, 'foo', 'substate');
+      } else {
+        assert.equal(transition.to!.localName, 'post', 'to post');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index', 'to post');
+        assert.equal(transition.to!.parent, null, 'to post');
+      }
+    };
+
+    router.routeDidChange = (transition: Transition) => {
+      enteredDidChange++;
+      if (initial) {
+        assert.equal(transition.to!.localName, 'index', 'initial');
+        assert.equal(transition.from!, null, 'initial');
+        initial = false;
+      } else if (isAborted) {
+        assert.equal(transition.to!.localName, 'index', 'aborted');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index', 'aborted');
+        isAborted = false;
+      } else {
+        assert.equal(transition.to!.localName, 'bar');
+        assert.equal(isPresent(transition.from) && transition.from!.localName, 'index');
+      }
+    };
+
+    router
+      .transitionTo('/')
+      .then(() => {
+        return router.transitionTo('/posts/1');
+      })
+      .catch((err: any) => {
+        assert.equal(err.name, 'TransitionAborted');
+        return router.activeTransition as any;
+      })
+      .finally(() => {
         assert.equal(enteredWillChange, 4);
         assert.equal(enteredDidChange, 2);
       });
@@ -1555,6 +1655,7 @@ scenarios.forEach(function(scenario) {
         transition.trigger(false, 'error', error.error, transition, error.route);
         if (errorHandled) {
           transition.rollback();
+          router.toInfos(transition, router.state!.routeInfos, true);
           router.routeDidChange(transition);
           return transition;
         } else {

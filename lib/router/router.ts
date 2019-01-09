@@ -227,14 +227,10 @@ export default abstract class Router<T extends Route> {
     }
 
     if (isIntermediate) {
+      let transition = new InternalTransition(this, undefined, undefined);
+      this.toReadOnlyInfos(transition, newState);
       this.setupContexts(newState);
-      let transition = this.activeTransition!;
-      if (transition !== undefined && !transition.isCausedByAbortingTransition) {
-        transition = new InternalTransition(this, undefined, undefined);
-        transition.from = transition.from;
-      }
 
-      this.toInfos(transition, newState.routeInfos);
       this.routeWillChange(transition);
       return this.activeTransition!;
     }
@@ -773,7 +769,7 @@ export default abstract class Router<T extends Route> {
     }
   }
 
-  private toInfos(
+  public toInfos(
     newTransition: OpaqueTransition,
     newRouteInfos: InternalRouteInfo<T>[],
     includeAttributes = false
