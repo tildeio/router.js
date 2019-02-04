@@ -17,6 +17,7 @@ interface IModel {
 export interface Route {
   inaccessibleByURL?: boolean;
   routeName: string;
+  fullRouteName?: string;
   context: unknown;
   events?: Dict<Function>;
   model?(
