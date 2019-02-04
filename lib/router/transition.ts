@@ -320,7 +320,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
 
   // Alias 'trigger' as 'send'
   send(
-    ignoreFailure: boolean,
+    ignoreFailure = false,
     _name: string,
     err?: Error,
     transition?: Transition<T>,
@@ -342,7 +342,13 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     @param {String} name the name of the event to fire
     @public
    */
-  trigger(ignoreFailure: boolean, name: string, ...args: any[]) {
+  trigger(ignoreFailure = false, name: string, ...args: any[]) {
+    // TODO: Deprecate the current signature
+    if (typeof ignoreFailure === 'string') {
+      name = ignoreFailure;
+      ignoreFailure = false;
+    }
+
     this.router.triggerEvent(
       this[STATE_SYMBOL]!.routeInfos.slice(0, this.resolveIndex + 1),
       ignoreFailure,
