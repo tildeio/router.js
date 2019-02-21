@@ -71,7 +71,7 @@ export function log(router: Router<any>, ...args: (string | number)[]): void {
     return;
   }
 
-  if (arguments.length === 2) {
+  if (args.length === 2) {
     let [sequence, msg] = args;
     router.log('Transition #' + sequence + ': ' + msg);
   } else {
