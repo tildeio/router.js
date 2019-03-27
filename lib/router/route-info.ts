@@ -17,6 +17,7 @@ interface IModel {
 export interface Route {
   inaccessibleByURL?: boolean;
   routeName: string;
+  _internalName: string;
   context: unknown;
   events?: Dict<Function>;
   model?(
@@ -321,6 +322,7 @@ export default class InternalRouteInfo<T extends Route> {
   }
 
   private updateRoute(route: T) {
+    route._internalName = this.name;
     return (this.route = route);
   }
 

@@ -58,7 +58,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
     // Pivot handlers are provided for refresh transitions
     if (this.pivotHandler) {
       for (i = 0, len = parsedHandlers.length; i < len; ++i) {
-        if (parsedHandlers[i].handler === this.pivotHandler.routeName) {
+        if (parsedHandlers[i].handler === this.pivotHandler._internalName) {
           invalidateIndex = i;
           break;
         }
