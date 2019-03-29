@@ -129,7 +129,7 @@ export {
 
 export function createHandler(name: string, options?: Dict<unknown>): Route {
   return Object.assign(
-    { name, routeName: name, context: undefined, names: [], handler: name },
+    { name, routeName: name, context: undefined, names: [], handler: name, _internalName: name },
     options
   );
 }
