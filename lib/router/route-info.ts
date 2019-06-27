@@ -105,7 +105,7 @@ export function toReadOnlyRouteInfo(
       },
 
       get metadata() {
-        return buildRouteInfoMetadata(route);
+        return buildRouteInfoMetadata(info.route);
       },
 
       get parent() {
