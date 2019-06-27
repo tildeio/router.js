@@ -206,6 +206,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
 
     // Soak up all the provided string/numbers
     let numNames = names.length;
+    let missingParams = [];
     while (numNames--) {
       // Only use old params if the names match with the new handler
       let oldParams =
@@ -222,12 +223,15 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
         if (oldParams.hasOwnProperty(paramName)) {
           params[paramName] = oldParams[paramName];
         } else {
-          throw new Error(
-            "You didn't provide enough string/numeric parameters to satisfy all of the dynamic segments for route " +
-              name
-          );
+          missingParams.push(paramName);
         }
       }
+    }
+    if (missingParams.length > 0) {
+      throw new Error(
+        `You didn't provide enough string/numeric parameters to satisfy all of the dynamic segments for route ${name}.` +
+          ` Missing params: ${missingParams}`
+      );
     }
 
     return new UnresolvedRouteInfoByParam(this.router, name, names, params);
