@@ -5,7 +5,6 @@ const Funnel = require('broccoli-funnel');
 const MergeTrees = require('broccoli-merge-trees');
 const Babel = require('broccoli-babel-transpiler');
 const Concat = require('broccoli-concat');
-const TSLint = require('broccoli-tslinter');
 const typescript = require('broccoli-typescript-compiler').default;
 
 function findLib(name, libPath) {
@@ -68,23 +67,11 @@ module.exports = function() {
     new Funnel(cjs, { srcDir: 'router', destDir: 'cjs' }),
   ];
 
-  let lintedLib = new TSLint('lib/router', {
-    configuration: 'tslint.json',
-  });
-
-  let lintedTests = new TSLint('tests', {
-    configuration: 'tslint.json',
-  });
-
   let tsTests = typescript('tests');
 
   let testAMD = toAMD(tsTests);
 
-  let tests = new MergeTrees([testAMD, lintedLib, lintedTests], {
-    overwrite: true,
-  });
-
-  let concattedTests = new Concat(tests, {
+  let concattedTests = new Concat(testAMD, {
     inputFiles: ['**/*.js'],
     outputFile: 'tests/tests.js',
   });
