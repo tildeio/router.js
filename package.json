@@ -38,9 +38,9 @@
     "broccoli-babel-transpiler": "^6.1.2",
     "broccoli-concat": "^3.7.4",
     "broccoli-funnel": "^2.0.2",
-    "broccoli-merge-trees": "^2.0.0",
+    "broccoli-merge-trees": "^3.0.2",
     "broccoli-typescript-compiler": "^4.0.1",
-    "ember-cli": "^3.12.0",
+    "ember-cli": "~3.9.0",
     "loader.js": "^4.7.0",
     "prettier": "1.18.2",
     "qunit": "^2.9.2",
@@ -48,8 +48,7 @@
     "rsvp": "^4.8.5",
     "tslint": "^5.20.0",
     "tslint-config-prettier": "^1.18.0",
-    "tslint-plugin-prettier": "^2.0.1",
-    "typescript": "~3.0.1"
+    "tslint-plugin-prettier": "^2.0.1"
   },
   "peerDependencies": {
     "route-recognizer": "^0.3.4",
