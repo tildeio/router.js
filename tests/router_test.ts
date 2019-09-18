@@ -4207,8 +4207,9 @@ scenarios.forEach(function(scenario) {
   test('transitions have a .promise property', function(assert) {
     assert.expect(2);
 
-    router.handleURL('/index').promise!
-      .then(function() {
+    router
+      .handleURL('/index')
+      .promise!.then(function() {
         let promise = router.transitionTo('about').abort().promise;
         assert.ok(promise, 'promise exists on aborted transitions');
         return promise;

@@ -1,9 +1,12 @@
 {
   "name": "router_js",
   "version": "6.2.5",
-  "description":
-    "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
-  "keywords": ["route-recognizer", "router", "rsvp"],
+  "description": "A lightweight JavaScript library is built on top of route-recognizer and rsvp.js to provide an API for handling routes",
+  "keywords": [
+    "route-recognizer",
+    "router",
+    "rsvp"
+  ],
   "bugs": {
     "url": "https://github.com/tildeio/router.js/issues"
   },
@@ -18,33 +21,34 @@
   "scripts": {
     "prepublish": "ember build",
     "problems": "tsc -p tsconfig.json --noEmit",
+    "pretest": "tslint -c tslint.json --project tsconfig.json",
     "start": "ember server",
     "test": "ember test"
   },
-  "files": ["dist/cjs", "dist/modules"],
-  "dependencies": {
-    "@types/node": "^10.5.5"
-  },
+  "files": [
+    "dist/cjs",
+    "dist/modules"
+  ],
+  "dependencies": {},
   "devDependencies": {
-    "@types/qunit": "^2.5.2",
-    "babel-preset-env": "^1.6.1",
-    "backburner.js": "^2.1.0",
+    "@types/node": "^12.7.5",
+    "@types/qunit": "^2.9.0",
+    "babel-preset-env": "^1.7.0",
+    "backburner.js": "^2.6.0",
     "broccoli-babel-transpiler": "^6.1.2",
-    "broccoli-concat": "^3.2.2",
-    "broccoli-funnel": "^2.0.1",
-    "broccoli-merge-trees": "^2.0.0",
-    "broccoli-tslinter": "^3.0.1",
-    "broccoli-typescript-compiler": "^4.0.1",
-    "ember-cli": "2.18.1",
-    "loader.js": "^4.6.0",
-    "prettier": "1.10.2",
-    "qunit": "^2.5.0",
+    "broccoli-concat": "^3.7.4",
+    "broccoli-funnel": "^2.0.2",
+    "broccoli-merge-trees": "^3.0.2",
+    "broccoli-typescript-compiler": "~4.0.1",
+    "ember-cli": "~3.9.0",
+    "loader.js": "^4.7.0",
+    "prettier": "1.18.2",
+    "qunit": "^2.9.2",
     "route-recognizer": "^0.3.4",
-    "rsvp": "^4.8.1",
-    "tslint": "^5.11.0",
-    "tslint-config-prettier": "^1.14.0",
-    "tslint-plugin-prettier": "^1.3.0",
-    "typescript": "~3.0.1"
+    "rsvp": "^4.8.5",
+    "tslint": "^5.20.0",
+    "tslint-config-prettier": "^1.18.0",
+    "tslint-plugin-prettier": "^2.0.1"
   },
   "peerDependencies": {
     "route-recognizer": "^0.3.4",
