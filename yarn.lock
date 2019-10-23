@@ -1449,10 +1449,10 @@ broccoli-stew@^2.0.1:
     symlink-or-copy "^1.2.0"
     walk-sync "^0.3.3"
 
-broccoli-typescript-compiler@~4.0.1:
-  version "4.0.1"
-  resolved "https://registry.yarnpkg.com/broccoli-typescript-compiler/-/broccoli-typescript-compiler-4.0.1.tgz#7a03e003b3032acf9a2feaae973ae2e257393d04"
-  integrity sha512-3psnblHnaMTfh3sE9lkLTKs8XjK563vbKMh/1mslmabqt9wuAOfTMUNEMbmGCofVoMUd9C/ydrmN5eZ6mJUNpQ==
+broccoli-typescript-compiler@~4.2.0:
+  version "4.2.0"
+  resolved "https://registry.yarnpkg.com/broccoli-typescript-compiler/-/broccoli-typescript-compiler-4.2.0.tgz#b0c75898c75b897f40d3f627d548a64e0bb3d9f2"
+  integrity sha512-Fk17EapT3Yye5pUNC3lzxq78KdFTWGC7m8Zi8BnIfwD6ZPzVT+uEYMEcYXsfCtMD//jHSIXDQi9YlWZcHVjiDw==
   dependencies:
     broccoli-funnel "^2.0.1"
     broccoli-merge-trees "^3.0.0"
@@ -1460,7 +1460,7 @@ broccoli-typescript-compiler@~4.0.1:
     fs-tree-diff "^0.5.7"
     heimdalljs "0.3.3"
     md5-hex "^2.0.0"
-    typescript "~3.0.1"
+    typescript "~3.5.3"
     walk-sync "^0.3.2"
 
 broccoli@^2.0.1:
@@ -6008,10 +6008,10 @@ type-is@~1.6.17, type-is@~1.6.18:
     media-typer "0.3.0"
     mime-types "~2.1.24"
 
-typescript@~3.0.1:
-  version "3.0.1"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.0.1.tgz#43738f29585d3a87575520a4b93ab6026ef11fdb"
-  integrity sha512-zQIMOmC+372pC/CCVLqnQ0zSBiY7HHodU7mpQdjiZddek4GMj31I3dUJ7gAs9o65X7mnRma6OokOkc6f9jjfBg==
+typescript@~3.5.3:
+  version "3.5.3"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.5.3.tgz#c830f657f93f1ea846819e929092f5fe5983e977"
+  integrity sha512-ACzBtm/PhXBDId6a6sDJfroT2pOWt/oOnk4/dElG5G33ZL776N3Y6/6bKZJBFpd+b05F3Ct9qDjMeJmRWtE2/g==
 
 uc.micro@^1.0.1, uc.micro@^1.0.3:
   version "1.0.3"
