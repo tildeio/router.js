@@ -25,10 +25,13 @@ export interface Route {
     transition: Transition
   ): Promise<Dict<unknown> | null | undefined> | undefined | Dict<unknown>;
   deserialize?(params: Dict<unknown>, transition: Transition): Dict<unknown>;
-  serialize?(model: {}, params: string[]): {} | undefined;
+  serialize?(model: {}, params: string[]): Dict<unknown> | undefined;
   beforeModel?(transition: Transition): Promise<any> | any;
   afterModel?(resolvedModel: any, transition: Transition): Promise<any> | any;
-  setup?(context: Dict<unknown>, transition: Transition): void;
+  setup?(
+    context: Dict<unknown> | PromiseLike<Dict<unknown> | null | undefined>,
+    transition: Transition
+  ): void;
   enter?(transition: Transition): void;
   exit?(transition?: Transition): void;
   _internalReset?(wasReset: boolean, transition?: Transition): void;
@@ -199,7 +202,7 @@ export default class InternalRouteInfo<T extends Route> {
   name: string;
   params: Dict<unknown> = {};
   queryParams?: Dict<unknown>;
-  context?: Dict<unknown>;
+  context?: Dict<unknown> | PromiseLike<Dict<unknown> | null | undefined> | null;
   isResolved = false;
 
   constructor(router: Router<T>, name: string, paramNames: string[], route?: T) {
@@ -215,7 +218,7 @@ export default class InternalRouteInfo<T extends Route> {
     return Promise.resolve(this.context);
   }
 
-  serialize(_context?: Dict<unknown>) {
+  serialize(_context?: Dict<unknown>): Dict<unknown> | undefined {
     return this.params || {};
   }
 
@@ -237,7 +240,7 @@ export default class InternalRouteInfo<T extends Route> {
     transition: InternalTransition<T> | null,
     resolvedContext: Dict<unknown>
   ): ResolvedRouteInfo<T> {
-    let params = this.serialize(resolvedContext);
+    let params = this.serialize(resolvedContext) as Dict<unknown>;
 
     if (transition) {
       this.stashResolvedModel(transition, resolvedContext);
@@ -347,7 +350,7 @@ export default class InternalRouteInfo<T extends Route> {
 
   private runAfterModelHook(
     transition: InternalTransition<T>,
-    resolvedModel?: Dict<unknown>
+    resolvedModel?: Dict<unknown> | null
   ): Promise<Dict<unknown>> {
     // Stash the resolved model on the payload.
     // This makes it possible for users to swap out
@@ -432,9 +435,9 @@ export class ResolvedRouteInfo<T extends Route> extends InternalRouteInfo<T> {
   ): Promise<InternalRouteInfo<T>> {
     // A ResolvedRouteInfo just resolved with itself.
     if (transition && transition.resolvedModels) {
-      transition.resolvedModels[this.name] = this.context!;
+      transition.resolvedModels[this.name] = this.context as Dict<unknown>;
     }
-    return Promise.resolve<this>(this);
+    return Promise.resolve(this);
   }
 }
 
@@ -461,7 +464,7 @@ export class UnresolvedRouteInfoByParam<T extends Route> extends InternalRouteIn
 
     let route = this.route!;
 
-    let result: Dict<unknown> | undefined = undefined;
+    let result: Dict<unknown> | undefined | Promise<Dict<unknown> | null | undefined>;
 
     if (route.deserialize) {
       result = route.deserialize(fullParams, transition);
@@ -479,7 +482,12 @@ export class UnresolvedRouteInfoByParam<T extends Route> extends InternalRouteIn
 
 export class UnresolvedRouteInfoByObject<T extends Route> extends InternalRouteInfo<T> {
   serializer?: SerializerFunc;
-  constructor(router: Router<T>, name: string, paramNames: string[], context: Dict<unknown>) {
+  constructor(
+    router: Router<T>,
+    name: string,
+    paramNames: string[],
+    context: Dict<unknown> | PromiseLike<Dict<unknown>>
+  ) {
     super(router, name, paramNames);
     this.context = context;
     this.serializer = this.router.getSerializer(name);

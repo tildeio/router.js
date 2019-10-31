@@ -30,7 +30,7 @@ import {
 } from './utils';
 
 export interface SerializerFunc {
-  (model: {}, params: string[]): unknown;
+  (model: {}, params: string[]): Dict<unknown>;
 }
 
 export interface ParsedHandler {
@@ -931,7 +931,7 @@ export default abstract class Router<T extends Route> {
 
     @return {String} a URL
   */
-  generate(routeName: string, ...args: any[]) {
+  generate(routeName: string, ...args: unknown[]) {
     let partitionedArgs = extractQueryParams(args),
       suppliedParams = partitionedArgs[0],
       queryParams = partitionedArgs[1];
@@ -962,8 +962,8 @@ export default abstract class Router<T extends Route> {
 
   isActiveIntent(
     routeName: string,
-    contexts: any[],
-    queryParams?: Dict<unknown>,
+    contexts: unknown[],
+    queryParams?: Dict<unknown> | null,
     _state?: TransitionState<T>
   ) {
     let state = _state || this.state!,

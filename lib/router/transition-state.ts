@@ -90,7 +90,7 @@ export default class TransitionState<T extends Route> {
         let { route } = resolvedRouteInfo;
         if (route !== undefined) {
           if (route.redirect) {
-            route.redirect(resolvedRouteInfo.context!, transition);
+            route.redirect(resolvedRouteInfo.context as Dict<unknown>, transition);
           }
         }
       }

@@ -401,7 +401,7 @@ export function logAbort(transition: Transition<any>): ITransitionAbortedError {
   return new TransitionAborted();
 }
 
-export function isTransition(obj: Dict<unknown> | undefined): obj is typeof Transition {
+export function isTransition(obj: unknown): obj is typeof Transition {
   return typeof obj === 'object' && obj instanceof Transition && obj.isTransition;
 }
 

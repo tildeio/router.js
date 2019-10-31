@@ -63,8 +63,7 @@ function transitionTo(
 }
 
 function transitionToWithAbort(assert: Assert, router: Router<Route>, path: string) {
-  let args = [path];
-  router.transitionTo.apply(router, args).then(shouldNotHappen, assertAbort(assert));
+  router.transitionTo(path).then(shouldNotHappen(assert), assertAbort(assert));
   flushBackburner();
 }
 

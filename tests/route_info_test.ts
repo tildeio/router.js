@@ -167,6 +167,7 @@ test('UnresolvedRouteInfoByObject does NOT get its model hook called', function(
   );
 
   routeInfo.resolve(noop, {} as Transition).then(function(resolvedRouteInfo: RouteInfo<Route>) {
+    // @ts-ignore
     assert.equal(resolvedRouteInfo.context!.name, 'dorkletons');
   });
 });
