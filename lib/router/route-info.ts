@@ -162,7 +162,7 @@ function createRouteInfoWithAttributes(
     },
   };
 
-  if (Object.isFrozen(routeInfo) || routeInfo.hasOwnProperty('attributes')) {
+  if (!Object.isExtensible(routeInfo) || routeInfo.hasOwnProperty('attributes')) {
     return Object.freeze(Object.assign({}, routeInfo, attributes));
   }
 
@@ -184,7 +184,7 @@ function attachMetadata(route: Route, routeInfo: RouteInfo) {
     },
   };
 
-  if (Object.isFrozen(routeInfo) || routeInfo.hasOwnProperty('metadata')) {
+  if (!Object.isExtensible(routeInfo) || routeInfo.hasOwnProperty('metadata')) {
     return Object.freeze(Object.assign({}, routeInfo, metadata));
   }
 
