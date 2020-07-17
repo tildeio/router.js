@@ -137,10 +137,12 @@ export default abstract class Router<T extends Route> {
 
       newTransition.promise = newTransition.promise!.then(
         (result: TransitionState<T> | Route | Error | undefined) => {
-          this._updateURL(newTransition, oldState);
-          this.didTransition(this.currentRouteInfos!);
-          this.toInfos(newTransition, newState.routeInfos, true);
-          this.routeDidChange(newTransition);
+          if (!newTransition.isAborted) {
+            this._updateURL(newTransition, oldState);
+            this.didTransition(this.currentRouteInfos!);
+            this.toInfos(newTransition, newState.routeInfos, true);
+            this.routeDidChange(newTransition);
+          }
           return result;
         },
         null,
