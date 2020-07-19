@@ -1500,6 +1500,62 @@ scenarios.forEach(function(scenario) {
       });
   });
 
+  test('abort query param only', function(assert) {
+    assert.expect(6);
+    map(assert, function(match) {
+      match('/').to('index');
+    });
+
+    routes = {
+      search: createHandler('search'),
+    };
+
+    let newParam = false;
+    let initial = true;
+
+    router.updateURL = function(updateUrl) {
+      url = updateUrl;
+      if (!initial) {
+        assert.ok(false, 'updateURL should not be called');
+      }
+    };
+
+    router.routeWillChange = (transition: Transition) => {
+      if (!transition.isAborted) {
+        if (newParam) {
+          assert.deepEqual(transition.to!.queryParams, { term: 'b' }, 'going to page with qps');
+          assert.deepEqual(
+            isPresent(transition.from) && transition.from!.queryParams,
+            {},
+            'from never has qps'
+          );
+        } else {
+          assert.strictEqual(transition.from, null, 'null transition from');
+          assert.deepEqual(transition.to!.queryParams, {}, 'empty transition queryParams');
+        }
+      }
+      if (!initial) {
+        if (!transition.isAborted) {
+          newParam = false;
+          transition.abort();
+        }
+      }
+    };
+
+    router.routeDidChange = (transition: Transition) => {
+      if (!transition.isAborted) {
+        assert.strictEqual(transition.from, null, 'routeDidChange null from transition');
+        assert.deepEqual(transition.to!.queryParams, {}, 'routeDidChange empty queryParams');
+      }
+    };
+
+    router.transitionTo('/').then(() => {
+      newParam = true;
+      initial = false;
+      return router.transitionTo({ queryParams: { term: 'b' } });
+    });
+  });
+
   test('always has a transition through the substates', function(assert) {
     map(assert, function(match) {
       match('/').to('index');
@@ -4511,7 +4567,7 @@ scenarios.forEach(function(scenario) {
   });
 
   /* TODO: revisit this idea
-test("exceptions thrown from model hooks aren't swallowed", function(assert) {
+  test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   assert.expect(7);
 
   enableErrorHandlingDeferredActionQueue();
@@ -4548,8 +4604,8 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   flush(anError);
 
   assert.ok(routeWasEntered, "route was finally entered");
-});
-*/
+  });
+  */
 
   test('Transition#followRedirects() returns a promise that fulfills when any redirecting transitions complete', function(assert) {
     assert.expect(3);
@@ -5148,7 +5204,7 @@ test("exceptions thrown from model hooks aren't swallowed", function(assert) {
   });
 
   /* TODO revisit
-test("A failed handler's setup shouldn't prevent future transitions", function(assert) {
+  test("A failed handler's setup shouldn't prevent future transitions", function(assert) {
   assert.expect(2);
 
   enableErrorHandlingDeferredActionQueue();
@@ -5185,8 +5241,8 @@ test("A failed handler's setup shouldn't prevent future transitions", function(a
 
   router.handleURL('/parent/articles');
   flush(error);
-});
-*/
+  });
+  */
 
   test("beforeModel shouldn't be refired with incorrect params during redirect", function(assert) {
     // Source: https://github.com/emberjs/ember.js/issues/3407
