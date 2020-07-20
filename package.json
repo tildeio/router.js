@@ -24,7 +24,6 @@
     "lint:types": "tsc -p tsconfig.json --noEmit",
     "prepublish": "ember build",
     "problems": "tsc -p tsconfig.json --noEmit",
-    "pretest": "tslint -c tslint.json --project tsconfig.json",
     "start": "ember server",
     "test": "ember test"
   },
@@ -54,10 +53,7 @@
     "prettier": "1.18.2",
     "qunit": "^2.9.2",
     "route-recognizer": "^0.3.4",
-    "rsvp": "^4.8.5",
-    "tslint": "^5.20.0",
-    "tslint-config-prettier": "^1.18.0",
-    "tslint-plugin-prettier": "^2.0.1"
+    "rsvp": "^4.8.5"
   },
   "peerDependencies": {
     "route-recognizer": "^0.3.4",
