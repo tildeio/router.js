@@ -1,1 +1,1 @@
-declare module "backburner"
+declare module 'backburner';
