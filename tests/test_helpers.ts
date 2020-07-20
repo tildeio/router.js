@@ -25,7 +25,7 @@ let test = QUnit.test;
 function module(name: string, options?: any) {
   options = options || {};
   QUnit.module(name, {
-    beforeEach: function() {
+    beforeEach: function () {
       configure('async', customAsync);
       bb.begin();
 
@@ -33,7 +33,7 @@ function module(name: string, options?: any) {
         options.setup.apply(this, arguments);
       }
     },
-    afterEach: function() {
+    afterEach: function () {
       bb.end();
 
       if (options.teardown) {
@@ -106,9 +106,9 @@ function stubbedHandlerInfoFactory(name: string, props: Dict<unknown>) {
 
 module('backburner sanity test');
 
-test('backburnerized testing works as expected', function(assert) {
+test('backburnerized testing works as expected', function (assert) {
   assert.expect(1);
-  resolve('hello').then(function(word: string) {
+  resolve('hello').then(function (word: string) {
     assert.equal(word, 'hello', 'backburner flush in teardown resolved this promise');
   });
 });
@@ -206,7 +206,7 @@ export function trigger(
     // If there is no handler, it means the handler hasn't resolved yet which
     // means that we should trigger the event later when the handler is available
     if (!currentHandler) {
-      currentHandlerInfo.routePromise!.then(function(resolvedHandler) {
+      currentHandlerInfo.routePromise!.then(function (resolvedHandler) {
         resolvedHandler.events![name].apply(resolvedHandler, args);
       });
       continue;

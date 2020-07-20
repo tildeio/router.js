@@ -97,9 +97,10 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
         // If we're performing an isActive check, we want to
         // serialize URL params with the provided context, but
         // ignore mismatches between old and new context.
-        newHandlerInfo = newHandlerInfo.becomeResolved(null, newHandlerInfo.context as Dict<
-          unknown
-        >);
+        newHandlerInfo = newHandlerInfo.becomeResolved(
+          null,
+          newHandlerInfo.context as Dict<unknown>
+        );
         let oldContext = oldHandlerInfo && oldHandlerInfo.context;
         if (
           result.names.length > 0 &&

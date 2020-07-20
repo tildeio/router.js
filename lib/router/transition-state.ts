@@ -15,7 +15,7 @@ export default class TransitionState<T extends Route> {
 
   promiseLabel(label: string) {
     let targetName = '';
-    forEach(this.routeInfos, function(routeInfo) {
+    forEach(this.routeInfos, function (routeInfo) {
       if (targetName !== '') {
         targetName += '.';
       }
@@ -29,7 +29,7 @@ export default class TransitionState<T extends Route> {
     // First, calculate params for this state. This is useful
     // information to provide to the various route hooks.
     let params = this.params;
-    forEach(this.routeInfos, routeInfo => {
+    forEach(this.routeInfos, (routeInfo) => {
       params[routeInfo.name] = routeInfo.params || {};
       return true;
     });
@@ -48,7 +48,7 @@ export default class TransitionState<T extends Route> {
       return Promise.resolve(
         shouldContinue(),
         currentState.promiseLabel('Check if should continue')
-      ).catch(function(reason) {
+      ).catch(function (reason) {
         // We distinguish between errors that occurred
         // during resolution (e.g. before"Model/model/afterModel),
         // and aborts due to a rejecting promise from shouldContinue().

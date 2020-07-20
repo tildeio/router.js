@@ -7,7 +7,7 @@ export interface UnrecognizedURLError extends Error {
   constructor: UnrecognizedURLContructor;
 }
 
-const UnrecognizedURLError: UnrecognizedURLContructor = (function() {
+const UnrecognizedURLError: UnrecognizedURLContructor = (function () {
   UnrecognizedURLError.prototype = Object.create(Error.prototype);
   UnrecognizedURLError.prototype.constructor = UnrecognizedURLError;
 

@@ -3,7 +3,7 @@ import { module, test } from './test_helpers';
 
 module('transition-aborted-error');
 
-test('correct inheritance and name', function(assert) {
+test('correct inheritance and name', function (assert) {
   let error;
 
   try {

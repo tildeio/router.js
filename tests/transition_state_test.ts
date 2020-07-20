@@ -19,12 +19,12 @@ import {
 
 module('TransitionState');
 
-test('it starts off with default state', function(assert) {
+test('it starts off with default state', function (assert) {
   let state = new TransitionState();
   assert.deepEqual(state.routeInfos, [], 'it has an array of handlerInfos');
 });
 
-test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
+test("#resolve delegates to handleInfo objects' resolve()", function (assert) {
   assert.expect(7);
 
   let state = new TransitionState();
@@ -35,7 +35,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
 
   state.routeInfos = [
     createHandlerInfo('one', {
-      resolve: function(shouldContinue: Continuation) {
+      resolve: function (shouldContinue: Continuation) {
         ++counter;
         assert.equal(counter, 1);
         shouldContinue();
@@ -43,7 +43,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
       },
     }),
     createHandlerInfo('two', {
-      resolve: function(shouldContinue: Continuation) {
+      resolve: function (shouldContinue: Continuation) {
         ++counter;
         assert.equal(counter, 2);
         shouldContinue();
@@ -57,24 +57,24 @@ test("#resolve delegates to handleInfo objects' resolve()", function(assert) {
     return Promise.resolve(false);
   }
 
-  state.resolve(keepGoing, {} as Transition).then(function(result: TransitionState<Route>) {
+  state.resolve(keepGoing, {} as Transition).then(function (result: TransitionState<Route>) {
     assert.deepEqual(result.routeInfos, resolvedHandlerInfos);
   });
 });
 
-test('State resolution can be halted', function(assert) {
+test('State resolution can be halted', function (assert) {
   assert.expect(2);
 
   let state = new TransitionState();
 
   state.routeInfos = [
     createHandlerInfo('one', {
-      resolve: function(shouldContinue: Continuation) {
+      resolve: function (shouldContinue: Continuation) {
         return shouldContinue();
       },
     }),
     createHandlerInfo('two', {
-      resolve: function() {
+      resolve: function () {
         assert.ok(false, 'I should not be entered because we threw an error in shouldContinue');
       },
     }),
@@ -84,7 +84,7 @@ test('State resolution can be halted', function(assert) {
     return reject('NOPE');
   }
 
-  state.resolve(keepGoing, {} as Transition).catch(function(reason: TransitionError) {
+  state.resolve(keepGoing, {} as Transition).catch(function (reason: TransitionError) {
     assert.equal(reason.error, 'NOPE');
     assert.ok(reason.wasAborted, 'state resolution was correctly marked as aborted');
   });
@@ -92,7 +92,7 @@ test('State resolution can be halted', function(assert) {
   flushBackburner();
 });
 
-test('Integration w/ HandlerInfos', function(assert) {
+test('Integration w/ HandlerInfos', function (assert) {
   assert.expect(4);
 
   let state = new TransitionState();
@@ -108,7 +108,7 @@ test('Integration w/ HandlerInfos', function(assert) {
       ['foo_id'],
       { foo_id: '123' },
       createHandler('foo', {
-        model: function(params: Dict<unknown>, payload: Dict<unknown>) {
+        model: function (params: Dict<unknown>, payload: Dict<unknown>) {
           assert.equal(payload, transition);
           assert.equal(params.foo_id, '123', 'foo#model received expected params');
           return resolve(fooModel);
@@ -124,7 +124,7 @@ test('Integration w/ HandlerInfos', function(assert) {
 
   state
     .resolve(noop, transition as Transition)
-    .then(function(result: TransitionState<Route>) {
+    .then(function (result: TransitionState<Route>) {
       let models = [];
       for (let i = 0; i < result.routeInfos.length; i++) {
         models.push(result.routeInfos[i].context);
@@ -134,7 +134,7 @@ test('Integration w/ HandlerInfos', function(assert) {
       assert.equal(models[1], barModel);
       return Promise.resolve(new TransitionState());
     })
-    .catch(function(error: Error) {
+    .catch(function (error: Error) {
       assert.ok(false, 'Caught error: ' + error);
     });
 });

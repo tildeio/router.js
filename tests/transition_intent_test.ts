@@ -18,20 +18,20 @@ let scenarios = [
   {
     name: 'Sync Get Handler',
     async: false,
-    getHandler: function(name: string) {
+    getHandler: function (name: string) {
       return handlers[name] || (handlers[name] = createHandler(name));
     },
   },
   {
     name: 'Async Get Handler',
     async: true,
-    getHandler: function(name: string) {
+    getHandler: function (name: string) {
       return Promise.resolve(handlers[name] || (handlers[name] = createHandler(name)));
     },
   },
 ];
 
-scenarios.forEach(function(scenario) {
+scenarios.forEach(function (scenario) {
   class TransitionRouter extends TestRouter {
     getRoute(name: string) {
       return scenario.getHandler(name);
@@ -51,7 +51,7 @@ scenarios.forEach(function(scenario) {
       return assert.equal(handlerInfo.route, expected);
     } else {
       assert.equal(handlerInfo.route, undefined);
-      return handlerInfo.routePromise.then(function(handler) {
+      return handlerInfo.routePromise.then(function (handler) {
         assert.equal(handler, expected);
       });
     }
@@ -59,7 +59,7 @@ scenarios.forEach(function(scenario) {
 
   // TODO: remove repetition, DRY in to test_helpers.
   module('TransitionIntent (' + scenario.name + ')', {
-    setup: function() {
+    setup: function () {
       handlers = {};
 
       handlers.foo = createHandler('foo');
@@ -68,7 +68,7 @@ scenarios.forEach(function(scenario) {
       handlers.comments = createHandler('comments');
 
       recognizer = {
-        handlersFor: function(name: string) {
+        handlersFor: function (name: string) {
           if (name === 'comments') {
             return [
               {
@@ -83,10 +83,10 @@ scenarios.forEach(function(scenario) {
           }
           return;
         },
-        hasRoute: function(name: string) {
+        hasRoute: function (name: string) {
           return name === 'comments';
         },
-        recognize: function(url: string) {
+        recognize: function (url: string) {
           if (url === '/foo/bar') {
             return [
               {
@@ -124,7 +124,7 @@ scenarios.forEach(function(scenario) {
     },
   });
 
-  test('URLTransitionIntent can be applied to an empty state', function(assert) {
+  test('URLTransitionIntent can be applied to an empty state', function (assert) {
     let state = new TransitionState();
     let intent = new URLTransitionIntent(router, '/foo/bar');
     let newState = intent.applyToState(state);
@@ -145,7 +145,7 @@ scenarios.forEach(function(scenario) {
     ]);
   });
 
-  test('URLTransitionIntent applied to single unresolved URL handlerInfo', function(assert) {
+  test('URLTransitionIntent applied to single unresolved URL handlerInfo', function (assert) {
     let state = new TransitionState();
 
     let startingHandlerInfo = new UnresolvedRouteInfoByParam(router, 'foo', [], {}, handlers.foo);
@@ -174,7 +174,7 @@ scenarios.forEach(function(scenario) {
     assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
   });
 
-  test('URLTransitionIntent applied to an already-resolved handlerInfo', function(assert) {
+  test('URLTransitionIntent applied to an already-resolved handlerInfo', function (assert) {
     let state = new TransitionState();
 
     let startingHandlerInfo = new ResolvedRouteInfo(router, 'foo', [], {}, handlers.foo);
@@ -198,7 +198,7 @@ scenarios.forEach(function(scenario) {
     assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
   });
 
-  test('URLTransitionIntent applied to an already-resolved handlerInfo (non-empty params)', function(assert) {
+  test('URLTransitionIntent applied to an already-resolved handlerInfo (non-empty params)', function (assert) {
     let state = new TransitionState();
     let article = {};
 
@@ -230,7 +230,7 @@ scenarios.forEach(function(scenario) {
     assertHandlerEquals(assert, handlerInfos[1], handlers.comments);
   });
 
-  test('URLTransitionIntent applied to an already-resolved handlerInfo of different route', function(assert) {
+  test('URLTransitionIntent applied to an already-resolved handlerInfo of different route', function (assert) {
     let state = new TransitionState();
 
     let startingHandlerInfo = new ResolvedRouteInfo(router, 'alex', [], {}, handlers.foo);
@@ -253,7 +253,7 @@ scenarios.forEach(function(scenario) {
     assertHandlerEquals(assert, handlerInfos[1], handlers.bar);
   });
 
-  test('NamedTransitionIntent applied to an already-resolved handlerInfo (non-empty params)', function(assert) {
+  test('NamedTransitionIntent applied to an already-resolved handlerInfo (non-empty params)', function (assert) {
     let state = new TransitionState();
 
     let article = {};
