@@ -40,7 +40,7 @@ function toAMD(tree) {
   });
 }
 
-module.exports = function() {
+module.exports = function () {
   let ts = 'lib';
   let eslatest = new Funnel(typescript(ts), {
     srcDir: 'lib',

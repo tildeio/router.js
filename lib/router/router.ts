@@ -86,7 +86,7 @@ export default abstract class Router<T extends Route> {
     @param {Function} callback
   */
   map(callback: MatchCallback) {
-    this.recognizer.map(callback, function(recognizer, routes) {
+    this.recognizer.map(callback, function (recognizer, routes) {
       for (let i = routes.length - 1, proceed = true; i >= 0 && proceed; --i) {
         let route = routes[i];
         let handler = route.handler as string;
@@ -823,7 +823,7 @@ export default abstract class Router<T extends Route> {
   */
   reset() {
     if (this.state) {
-      forEach<InternalRouteInfo<T>>(this.state.routeInfos.slice().reverse(), function(routeInfo) {
+      forEach<InternalRouteInfo<T>>(this.state.routeInfos.slice().reverse(), function (routeInfo) {
         let route = routeInfo.route;
         if (route !== undefined) {
           if (route.exit !== undefined) {

@@ -3,7 +3,7 @@ import { module, test } from './test_helpers';
 
 module('utils');
 
-test('getChangelist', function(assert) {
+test('getChangelist', function (assert) {
   let result = getChangelist({}, { foo: '123' });
   assert.deepEqual(result, {
     all: { foo: '123' },

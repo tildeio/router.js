@@ -4,9 +4,9 @@ import { Promise } from 'rsvp';
 import { createHandler, TestRouter } from './test_helpers';
 
 function map(router: TestRouter) {
-  router.map(function(match) {
+  router.map(function (match) {
     match('/index').to('index');
-    match('/foo').to('foo', function(match) {
+    match('/foo').to('foo', function (match) {
       match('/').to('fooIndex');
       match('/bar').to('fooBar');
     });
@@ -19,23 +19,23 @@ function map(router: TestRouter) {
 let routes: Dict<Route>;
 let router: TestRouter;
 QUnit.module('Async Get Handler', {
-  beforeEach: function() {
+  beforeEach: function () {
     QUnit.config.testTimeout = 60000;
     routes = {};
   },
 
-  afterEach: function() {
+  afterEach: function () {
     QUnit.config.testTimeout = 1000;
   },
 });
 
-QUnit.test('can transition to lazily-resolved routes', function(assert) {
+QUnit.test('can transition to lazily-resolved routes', function (assert) {
   let done = assert.async();
 
   class LazyRouter extends TestRouter {
     getRoute(name: string) {
-      return new Promise(function(resolve) {
-        setTimeout(function() {
+      return new Promise(function (resolve) {
+        setTimeout(function () {
           resolve(routes[name] || (routes[name] = createHandler('empty')));
         }, 1);
       });
@@ -54,12 +54,12 @@ QUnit.test('can transition to lazily-resolved routes', function(assert) {
     },
   });
   routes.fooBar = createHandler('fooBar', {
-    model: function() {
+    model: function () {
       fooBarCalled = true;
     },
   });
 
-  router.transitionTo('/foo/bar').then(function() {
+  router.transitionTo('/foo/bar').then(function () {
     assert.ok(fooCalled, 'foo is called before transition ends');
     assert.ok(fooBarCalled, 'fooBar is called before transition ends');
     done();
@@ -69,16 +69,16 @@ QUnit.test('can transition to lazily-resolved routes', function(assert) {
   assert.ok(!fooBarCalled, 'fooBar is not called synchronously');
 });
 
-QUnit.test('calls hooks of lazily-resolved routes in order', function(assert) {
+QUnit.test('calls hooks of lazily-resolved routes in order', function (assert) {
   let done = assert.async();
   let operations: string[] = [];
 
   class LazyRouter extends TestRouter {
     getRoute(name: string) {
       operations.push('get handler ' + name);
-      return new Promise(function(resolve) {
+      return new Promise(function (resolve) {
         let timeoutLength = name === 'foo' ? 100 : 1;
-        setTimeout(function() {
+        setTimeout(function () {
           operations.push('resolved ' + name);
           resolve(routes[name] || (routes[name] = createHandler('empty')));
         }, timeoutLength);
@@ -90,17 +90,17 @@ QUnit.test('calls hooks of lazily-resolved routes in order', function(assert) {
   map(router);
 
   routes.foo = createHandler('foo', {
-    model: function() {
+    model: function () {
       operations.push('model foo');
     },
   });
   routes.fooBar = createHandler('fooBar', {
-    model: function() {
+    model: function () {
       operations.push('model fooBar');
     },
   });
 
-  router.transitionTo('/foo/bar').then(function() {
+  router.transitionTo('/foo/bar').then(function () {
     assert.deepEqual(
       operations,
       [

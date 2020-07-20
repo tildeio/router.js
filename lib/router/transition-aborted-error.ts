@@ -7,7 +7,7 @@ export interface ITransitionAbortedError extends Error {
   constructor: TransitionAbortedErrorContructor;
 }
 
-const TransitionAbortedError: TransitionAbortedErrorContructor = (function() {
+const TransitionAbortedError: TransitionAbortedErrorContructor = (function () {
   TransitionAbortedError.prototype = Object.create(Error.prototype);
   TransitionAbortedError.prototype.constructor = TransitionAbortedError;
 

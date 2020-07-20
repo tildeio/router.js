@@ -3,7 +3,7 @@ import { module, test } from './test_helpers';
 
 module('unrecognized-url-error');
 
-test('correct inheritance', function(assert) {
+test('correct inheritance', function (assert) {
   let error;
 
   try {

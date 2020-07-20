@@ -86,7 +86,7 @@ export function toReadOnlyRouteInfo(
         let arr: RouteInfo[] = [];
 
         if (predicate.length === 3) {
-          arr = routeInfos.map(info => ROUTE_INFOS.get(info)!);
+          arr = routeInfos.map((info) => ROUTE_INFOS.get(info)!);
         }
 
         for (let i = 0; routeInfos.length > i; i++) {
@@ -231,9 +231,9 @@ export default class InternalRouteInfo<T extends Route> {
       .then(() => this.runBeforeModelHook(transition))
       .then(() => this.checkForAbort(shouldContinue, null))
       .then(() => this.getModel(transition))
-      .then(resolvedModel => this.checkForAbort(shouldContinue, resolvedModel))
-      .then(resolvedModel => this.runAfterModelHook(transition, resolvedModel))
-      .then(resolvedModel => this.becomeResolved(transition, resolvedModel));
+      .then((resolvedModel) => this.checkForAbort(shouldContinue, resolvedModel))
+      .then((resolvedModel) => this.runAfterModelHook(transition, resolvedModel))
+      .then((resolvedModel) => this.becomeResolved(transition, resolvedModel));
   }
 
   becomeResolved(
@@ -376,7 +376,7 @@ export default class InternalRouteInfo<T extends Route> {
   }
 
   private checkForAbort<T>(shouldContinue: Continuation, value: T) {
-    return Promise.resolve(shouldContinue()).then(function() {
+    return Promise.resolve(shouldContinue()).then(function () {
       // We don't care about shouldContinue's resolve value;
       // pass along the original value passed to this fn.
       return value;
@@ -400,7 +400,7 @@ export default class InternalRouteInfo<T extends Route> {
     // Wait until the 'route' property has been updated when chaining to a route
     // that is a promise
     if (isPromise(route)) {
-      this.routePromise = this.routePromise.then(r => {
+      this.routePromise = this.routePromise.then((r) => {
         return this.updateRoute(r);
       });
       // set to undefined to avoid recursive loop in the route getter

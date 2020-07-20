@@ -103,9 +103,9 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     // Every transition in the chain is a replace
     this.isCausedByAbortingReplaceTransition =
       !!previousTransition &&
-      (previousTransition.urlMethod === 'replace' &&
-        (!previousTransition.isCausedByAbortingTransition ||
-          previousTransition.isCausedByAbortingReplaceTransition));
+      previousTransition.urlMethod === 'replace' &&
+      (!previousTransition.isCausedByAbortingTransition ||
+        previousTransition.isCausedByAbortingReplaceTransition);
 
     if (state) {
       this[PARAMS_SYMBOL] = state.params;
@@ -371,7 +371,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
    */
   followRedirects(): Promise<T> {
     let router = this.router;
-    return this.promise!.catch(function(reason) {
+    return this.promise!.catch(function (reason) {
       if (router.activeTransition) {
         return router.activeTransition.followRedirects();
       }
