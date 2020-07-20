@@ -1,6 +1,6 @@
 # router.js
 
-[![Build Status](https://travis-ci.org/tildeio/router.js.svg?branch=master)](https://travis-ci.org/tildeio/router.js)
+[![CI](https://github.com/tildeio/router.js/workflows/CI/badge.svg)](https://github.com/tildeio/router.js/actions?query=workflow%3ACI)
 
 `router.js` is a lightweight JavaScript library
 that builds on
