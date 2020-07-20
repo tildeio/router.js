@@ -12,7 +12,7 @@ import { extractQueryParams, isParam, merge } from '../utils';
 export default class NamedTransitionIntent<T extends Route> extends TransitionIntent<T> {
   name: string;
   pivotHandler?: Route;
-  contexts: Dict<unknown>[];
+  contexts: unknown[];
   queryParams: Dict<unknown>;
   preTransitionState?: TransitionState<T> = undefined;
 
@@ -20,7 +20,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
     router: Router<T>,
     name: string,
     pivotHandler: Route | undefined,
-    contexts: Dict<unknown>[] = [],
+    contexts: unknown[] = [],
     queryParams: Dict<unknown> = {},
     data?: {}
   ) {
@@ -97,7 +97,9 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
         // If we're performing an isActive check, we want to
         // serialize URL params with the provided context, but
         // ignore mismatches between old and new context.
-        newHandlerInfo = newHandlerInfo.becomeResolved(null, newHandlerInfo.context!);
+        newHandlerInfo = newHandlerInfo.becomeResolved(null, newHandlerInfo.context as Dict<
+          unknown
+        >);
         let oldContext = oldHandlerInfo && oldHandlerInfo.context;
         if (
           result.names.length > 0 &&
@@ -119,7 +121,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
       }
 
       if (isIntermediate && !checkingIfActive) {
-        handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context!);
+        handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context as Dict<unknown>);
       }
 
       newState.routeInfos.unshift(handlerToUse);
@@ -160,12 +162,12 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
   getHandlerInfoForDynamicSegment(
     name: string,
     names: string[],
-    objects: Dict<unknown>[],
+    objects: unknown[],
     oldHandlerInfo: InternalRouteInfo<T>,
     _targetRouteName: string,
     i: number
   ) {
-    let objectToUse: Dict<unknown>;
+    let objectToUse: unknown;
     if (objects.length > 0) {
       // Use the objects provided for this transition.
       objectToUse = objects[objects.length - 1];
@@ -193,13 +195,13 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
       }
     }
 
-    return new UnresolvedRouteInfoByObject(this.router, name, names, objectToUse);
+    return new UnresolvedRouteInfoByObject(this.router, name, names, objectToUse as Dict<unknown>);
   }
 
   createParamHandlerInfo(
     name: string,
     names: string[],
-    objects: Dict<unknown>[],
+    objects: unknown[],
     oldHandlerInfo: InternalRouteInfo<T>
   ) {
     let params: Dict<unknown> = {};

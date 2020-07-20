@@ -1835,7 +1835,7 @@ scenarios.forEach(function(scenario) {
         return posts;
       },
 
-      setup: function(context: Dict<unknown>) {
+      setup: function(context: unknown) {
         if (counter === 0) {
           assert.equal(
             postIndexHandler.context,
@@ -2226,7 +2226,7 @@ scenarios.forEach(function(scenario) {
         },
 
         setup: function(posts: Dict<unknown>, transition: Transition) {
-          assert.ok(!isExiting(this as Route, transition.routeInfos));
+          assert.ok(!isExiting((this as unknown) as Route, transition.routeInfos));
           assert.equal(
             posts,
             allPosts,
@@ -2236,7 +2236,7 @@ scenarios.forEach(function(scenario) {
         },
 
         exit: function(transition: Transition) {
-          assert.ok(isExiting(this as Route, transition.routeInfos));
+          assert.ok(isExiting((this as unknown) as Route, transition.routeInfos));
         },
       }),
 
@@ -4924,10 +4924,12 @@ scenarios.forEach(function(scenario) {
         showAllPosts: createHandler('showAllPosts'),
       };
 
-      router.getRoute = function() {
+      router.getRoute = function(name) {
         count++;
 
-        return scenario.getRoute.apply(null, arguments).then(function(handler: Route) {
+        return (scenario.getRoute.call(null, name) as Promise<Route>).then(function(
+          handler: Route
+        ) {
           assert.equal(count, handlerCount);
           return handler;
         });
@@ -6262,6 +6264,6 @@ scenarios.forEach(function(scenario) {
       throw new Error('boom!');
     };
 
-    assert.equal(transitionTo(router, '/').error.message, 'boom!');
+    assert.equal((transitionTo(router, '/').error as Error).message, 'boom!');
   });
 });

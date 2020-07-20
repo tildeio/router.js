@@ -12,7 +12,7 @@ export function isPromise<T>(p: any): p is Promise<T> {
   return p !== null && typeof p === 'object' && typeof p.then === 'function';
 }
 
-export function merge(hash: Dict<unknown>, other: Dict<unknown>) {
+export function merge(hash: Dict<unknown>, other?: Dict<unknown>) {
   for (let prop in other) {
     if (hasOwnProperty.call(other, prop)) {
       hash[prop] = other[prop];
@@ -25,7 +25,7 @@ export function merge(hash: Dict<unknown>, other: Dict<unknown>) {
 
   Extracts query params from the end of an array
 **/
-export function extractQueryParams(array: unknown[]) {
+export function extractQueryParams<T>(array: T[]): [T[], Dict<unknown> | null] {
   let len = array && array.length,
     head,
     queryParams;
@@ -80,7 +80,7 @@ export function log(router: Router<any>, ...args: (string | number)[]): void {
   }
 }
 
-export function isParam(object: Dict<unknown>) {
+export function isParam(object: any): object is string | number {
   return (
     typeof object === 'string' ||
     object instanceof String ||
