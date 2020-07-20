@@ -6,6 +6,10 @@ const MergeTrees = require('broccoli-merge-trees');
 const Babel = require('broccoli-babel-transpiler');
 const Concat = require('broccoli-concat');
 const typescript = require('broccoli-typescript-compiler').default;
+const ensurePosix = require('ensure-posix-path');
+const moduleResolver = require('amd-name-resolver').resolveModules({
+  throwOnRootAccess: false,
+});
 
 function findLib(name, libPath) {
   let packagePath = path.join(name, 'package');
@@ -22,21 +26,24 @@ function getLibPath(packagePath) {
   return path.dirname(packageJson['module'] || packageJson['main']);
 }
 
+function getRelativeModulePath(modulePath) {
+  return ensurePosix(path.relative(process.cwd(), modulePath));
+}
+getRelativeModulePath.baseDir = () => __dirname;
+
+function resolveRelativeModulePath(name, child) {
+  return moduleResolver(name, getRelativeModulePath(child));
+}
+resolveRelativeModulePath.baseDir = () => __dirname;
+
 function toAMD(tree) {
   return new Babel(tree, {
-    presets: [
-      [
-        'env',
-        {
-          modules: 'amd',
-          targets: {
-            browsers: ['ie 9'],
-          },
-        },
-      ],
-    ],
-    resolveModuleSource: require('amd-name-resolver').moduleResolve,
     moduleIds: true,
+    getModuleId: getRelativeModulePath,
+    plugins: [
+      ['module-resolver', { resolvePath: resolveRelativeModulePath }],
+      ['@babel/plugin-transform-modules-amd', { noInterop: true }],
+    ],
   });
 }
 
@@ -49,17 +56,7 @@ module.exports = function () {
   let amd = toAMD(eslatest);
 
   let cjs = new Babel(eslatest, {
-    presets: [
-      [
-        'env',
-        {
-          modules: 'commonjs',
-          targets: {
-            node: 4,
-          },
-        },
-      ],
-    ],
+    plugins: [['@babel/plugin-transform-modules-commonjs']],
   });
 
   let trees = [
