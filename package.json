@@ -10,27 +10,27 @@
   "bugs": {
     "url": "https://github.com/tildeio/router.js/issues"
   },
-  "license": "MIT",
-  "author": "Tilde, Inc.",
-  "main": "dist/cjs/index.js",
-  "module": "dist/modules/index.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/tildeio/router.js.git"
   },
-  "scripts": {
-    "lint": "npm-run-all lint:*",
-    "lint:ts": "eslint --cache .",
-    "lint:types": "tsc -p tsconfig.json --noEmit",
-    "prepublish": "ember build",
-    "problems": "tsc -p tsconfig.json --noEmit",
-    "start": "ember server",
-    "test": "ember test"
-  },
+  "license": "MIT",
+  "author": "Tilde, Inc.",
+  "main": "dist/cjs/index.js",
+  "module": "dist/modules/index.js",
   "files": [
     "dist/cjs",
     "dist/modules"
   ],
+  "scripts": {
+    "lint": "npm-run-all lint:*",
+    "lint:ts": "eslint --cache .",
+    "lint:types": "tsc -p tsconfig.json --noEmit",
+    "prepare": "ember build",
+    "problems": "tsc -p tsconfig.json --noEmit",
+    "start": "ember server",
+    "test": "ember test"
+  },
   "dependencies": {},
   "devDependencies": {
     "@babel/plugin-transform-modules-amd": "^7.10.5",
@@ -54,6 +54,8 @@
     "npm-run-all": "^4.1.5",
     "prettier": "2.0.5",
     "qunit": "^2.10.1",
+    "release-it": "^13.6.5",
+    "release-it-lerna-changelog": "^2.3.0",
     "route-recognizer": "^0.3.4",
     "rsvp": "^4.8.5"
   },
@@ -64,5 +66,23 @@
   "engines": {
     "node": ">= 10"
   },
-  "namespace": "Router"
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  },
+  "namespace": "Router",
+  "release-it": {
+    "plugins": {
+      "release-it-lerna-changelog": {
+        "infile": "CHANGELOG.md",
+        "launchEditor": true
+      }
+    },
+    "git": {
+      "tagName": "v${version}"
+    },
+    "github": {
+      "release": true,
+      "tokenRef": "GITHUB_AUTH"
+    }
+  }
 }
