@@ -4,6 +4,7 @@ import { Dict, Maybe } from 'router/core';
 import RouteInfo from 'router/route-info';
 import { Promise } from 'rsvp';
 import {
+  consumeAllFinalQueryParams,
   createHandler,
   flushBackburner,
   module,
@@ -76,15 +77,6 @@ scenarios.forEach(function (scenario) {
     }
     router = new QPRouter();
     router.map(fn);
-  }
-
-  function consumeAllFinalQueryParams(params: Dict<unknown>, finalParams: Dict<unknown>[]) {
-    for (let key in params) {
-      let value = params[key];
-      delete params[key];
-      finalParams.push({ key: key, value: value });
-    }
-    return true;
   }
 
   test('a change in query params fires a queryParamsDidChange event', function (assert) {
