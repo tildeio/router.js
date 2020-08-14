@@ -120,8 +120,18 @@ export default abstract class Router<T extends Route> {
       // perform a URL update at the end. This gives
       // the user the ability to set the url update
       // method (default is replaceState).
-      let newTransition = new InternalTransition(this, undefined, undefined);
+      let newTransition = new InternalTransition(
+        this,
+        undefined,
+        undefined,
+        undefined,
+        this.activeTransition
+      );
       newTransition.queryParamsOnly = true;
+
+      if (this.activeTransition) {
+        this.activeTransition.redirect(newTransition);
+      }
 
       oldState.queryParams = this.finalizeQueryParamChange(
         newState.routeInfos,
@@ -699,7 +709,16 @@ export default abstract class Router<T extends Route> {
       let replacingReplace =
         urlMethod === 'replace' && transition.isCausedByAbortingReplaceTransition;
 
-      if (initial || replaceAndNotAborting || isQueryParamsRefreshTransition || replacingReplace) {
+      // If this is the initial transition and we cancelled it to add query params, we should
+      // *not* use the the original `replace` method; we need to fully update the URL to the initial
+      // URL _plus_ the new query params
+      let shouldHonorOriginalTransitionUpdateMethod =
+        urlMethod === 'replace' && transition.isCausedByUpdateTransition;
+
+      if (
+        !shouldHonorOriginalTransitionUpdateMethod &&
+        (initial || replaceAndNotAborting || isQueryParamsRefreshTransition || replacingReplace)
+      ) {
         this.replaceURL!(url);
       } else {
         this.updateURL(url);
