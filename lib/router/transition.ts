@@ -64,6 +64,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   isCausedByInitialTransition = false;
   isCausedByAbortingReplaceTransition = false;
   _visibleQueryParams: Dict<unknown> = {};
+  previousTransition: Maybe<Transition<T>>;
 
   constructor(
     router: Router<T>,
@@ -85,6 +86,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     this.targetName = undefined;
     this.pivotHandler = undefined;
     this.sequence = -1;
+    this.previousTransition = previousTransition;
 
     if (error) {
       this.promise = Promise.reject(error);
