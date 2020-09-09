@@ -37,12 +37,27 @@ function resolveRelativeModulePath(name, child) {
 resolveRelativeModulePath.baseDir = () => __dirname;
 
 function toAMD(tree) {
+  const isProduction = process.env.EMBER_ENV === 'production';
+  const isDebug = !isProduction;
+
   return new Babel(tree, {
     moduleIds: true,
     getModuleId: getRelativeModulePath,
     plugins: [
       ['module-resolver', { resolvePath: resolveRelativeModulePath }],
       ['@babel/plugin-transform-modules-amd', { noInterop: true }],
+      [
+        'babel-plugin-debug-macros',
+        {
+          flags: [
+            {
+              source: '@glimmer/env',
+              flags: { DEBUG: isDebug, CI: !!process.env.CI },
+            },
+          ],
+        },
+        '@glimmer/env inlining',
+      ],
     ],
   });
 }
@@ -95,7 +110,7 @@ module.exports = function () {
   });
   let rrAMD = toAMD(rr);
 
-  let backburner = findLib('backburner.js', 'dist/es6', {
+  let backburner = new Funnel(findLib('backburner.js', 'dist/es6'), {
     files: ['backburner.js'],
     annotation: 'backburner es',
   });
