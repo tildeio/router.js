@@ -1,3 +1,12 @@
+## v7.1.0 (2020-09-09)
+
+#### :rocket: Enhancement
+* [#305](https://github.com/tildeio/router.js/pull/305) Add better Transition debugging information. ([@rwjblue](https://github.com/rwjblue))
+
+#### Committers: 1
+- Robert Jackson ([@rwjblue](https://github.com/rwjblue))
+
+
 ## v7.0.0 (2020-07-21)
 
 #### :boom: Breaking Change
