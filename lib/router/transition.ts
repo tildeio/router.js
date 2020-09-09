@@ -6,6 +6,7 @@ import TransitionAborted, { ITransitionAbortedError } from './transition-aborted
 import { OpaqueIntent } from './transition-intent';
 import TransitionState, { TransitionError } from './transition-state';
 import { log, promiseLabel } from './utils';
+import { DEBUG } from '@glimmer/env';
 
 export type OnFulfilled<T, TResult1> =
   | ((value: T) => TResult1 | PromiseLike<TResult1>)
@@ -65,6 +66,35 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   isCausedByAbortingReplaceTransition = false;
   _visibleQueryParams: Dict<unknown> = {};
 
+  /**
+    In non-production builds, this function will return the stack that this Transition was
+    created within. In production builds, this function will not be present.
+
+    @method debugCreationStack
+    @return string
+  */
+  declare debugCreationStack?: () => string | undefined;
+
+  /**
+    In non-production builds, this function will return the stack that this Transition was
+    aborted within (or `undefined` if the Transition has not been aborted yet). In production
+    builds, this function will not be present.
+
+    @method debugAbortStack
+    @return string
+  */
+  declare debugAbortStack?: () => string | undefined;
+
+  /**
+    In non-production builds, this property references the Transition that _this_ Transition
+    was derived from or `undefined` if this transition did not derive from another. In
+    production builds, this property will not be present.
+
+    @property debugPreviousTransition
+    @type {Transition | undefined}
+  */
+  declare debugPreviousTransition: Maybe<Transition<T>>;
+
   constructor(
     router: Router<T>,
     intent: Maybe<OpaqueIntent>,
@@ -85,6 +115,17 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     this.targetName = undefined;
     this.pivotHandler = undefined;
     this.sequence = -1;
+
+    if (DEBUG) {
+      let error = new Error(`Transition creation stack`);
+
+      this.debugCreationStack = () => error.stack;
+
+      // not aborted yet, will be replaced when `this.isAborted` is set
+      this.debugAbortStack = () => undefined;
+
+      this.debugPreviousTransition = previousTransition;
+    }
 
     if (error) {
       this.promise = Promise.reject(error);
@@ -250,9 +291,17 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   rollback() {
     if (!this.isAborted) {
       log(this.router, this.sequence, this.targetName + ': transition was aborted');
+
+      if (DEBUG) {
+        let error = new Error(`Transition aborted stack`);
+
+        this.debugAbortStack = () => error.stack;
+      }
+
       if (this.intent !== undefined && this.intent !== null) {
         this.intent.preTransitionState = this.router.state;
       }
+
       this.isAborted = true;
       this.isActive = false;
       this.router.activeTransition = undefined;
