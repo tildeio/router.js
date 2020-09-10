@@ -1,11 +1,6 @@
 import { Transition } from 'router';
 import { Dict } from 'router/core';
-import {
-  Continuation,
-  Route,
-  UnresolvedRouteInfoByObject,
-  UnresolvedRouteInfoByParam,
-} from 'router/route-info';
+import { Route, UnresolvedRouteInfoByObject, UnresolvedRouteInfoByParam } from 'router/route-info';
 import TransitionState, { TransitionError } from 'router/transition-state';
 import { Promise, resolve } from 'rsvp';
 import {
@@ -25,7 +20,7 @@ test('it starts off with default state', function (assert) {
 });
 
 test("#resolve delegates to handleInfo objects' resolve()", function (assert) {
-  assert.expect(7);
+  assert.expect(3);
 
   let state = new TransitionState();
 
@@ -35,29 +30,22 @@ test("#resolve delegates to handleInfo objects' resolve()", function (assert) {
 
   state.routeInfos = [
     createHandlerInfo('one', {
-      resolve: function (shouldContinue: Continuation) {
+      resolve: function () {
         ++counter;
         assert.equal(counter, 1);
-        shouldContinue();
         return resolve(resolvedHandlerInfos[0]);
       },
     }),
     createHandlerInfo('two', {
-      resolve: function (shouldContinue: Continuation) {
+      resolve: function () {
         ++counter;
         assert.equal(counter, 2);
-        shouldContinue();
         return resolve(resolvedHandlerInfos[1]);
       },
     }),
   ];
 
-  function keepGoing() {
-    assert.ok(true, 'continuation function was called');
-    return true;
-  }
-
-  state.resolve(keepGoing, {} as Transition).then(function (result: TransitionState<Route>) {
+  state.resolve({} as Transition).then(function (result: TransitionState<Route>) {
     assert.deepEqual(result.routeInfos, resolvedHandlerInfos);
   });
 });
@@ -69,9 +57,7 @@ test('State resolution can be halted', function (assert) {
 
   state.routeInfos = [
     createHandlerInfo('one', {
-      resolve: function (shouldContinue: Continuation) {
-        return shouldContinue();
-      },
+      resolve: function () {},
     }),
     createHandlerInfo('two', {
       resolve: function () {
@@ -80,11 +66,10 @@ test('State resolution can be halted', function (assert) {
     }),
   ];
 
-  function keepGoing() {
-    return false;
-  }
+  let fakeTransition = {} as Transition;
+  fakeTransition.isAborted = true;
 
-  state.resolve(keepGoing, {} as Transition).catch(function (reason: TransitionError) {
+  state.resolve(fakeTransition).catch(function (reason: TransitionError) {
     assert.ok(reason.wasAborted, 'state resolution was correctly marked as aborted');
   });
 
@@ -118,7 +103,7 @@ test('Integration w/ HandlerInfos', function (assert) {
   ];
 
   state
-    .resolve(() => true, transition as Transition)
+    .resolve(transition as Transition)
     .then(function (result: TransitionState<Route>) {
       let models = [];
       for (let i = 0; i < result.routeInfos.length; i++) {

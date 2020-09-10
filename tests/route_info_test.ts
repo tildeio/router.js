@@ -18,11 +18,12 @@ test('ResolvedRouteInfo resolve to themselves', function (assert) {
   let router = new TestRouter();
   let routeInfo = new ResolvedRouteInfo(router, 'foo', [], {}, createHandler('empty'));
   let intent = new URLTransitionIntent(router, 'foo');
-  routeInfo
-    .resolve(() => false, new InternalTransition(router, intent, undefined))
-    .then(function (resolvedRouteInfo) {
-      assert.equal(routeInfo, resolvedRouteInfo);
-    });
+
+  let transition = new InternalTransition(router, intent, undefined);
+
+  routeInfo.resolve(transition).then(function (resolvedRouteInfo) {
+    assert.equal(routeInfo, resolvedRouteInfo);
+  });
 });
 
 test('UnresolvedRouteInfoByParam defaults params to {}', function (assert) {
@@ -35,17 +36,14 @@ test('UnresolvedRouteInfoByParam defaults params to {}', function (assert) {
 });
 
 test('RouteInfo can be aborted mid-resolve', function (assert) {
-  assert.expect(2);
+  assert.expect(1);
 
   let routeInfo = createHandlerInfo('stub');
 
-  function abortResolve(): boolean {
-    assert.ok(true, 'abort was called');
+  let transition = {} as Transition;
+  transition.isAborted = true;
 
-    throw new Error('foo');
-  }
-
-  routeInfo.resolve(abortResolve, {} as Transition).catch(function (error: Error) {
+  routeInfo.resolve(transition).catch(function (error: Error) {
     assert.equal(error, 'LOL');
   });
 });
@@ -54,17 +52,15 @@ test('RouteInfo#resolve resolves with a ResolvedRouteInfo', function (assert) {
   assert.expect(1);
 
   let routeInfo = createHandlerInfo('stub');
-  routeInfo
-    .resolve(() => false, {} as Transition)
-    .then(function (resolvedRouteInfo: RouteInfo<Route>) {
-      assert.ok(resolvedRouteInfo instanceof ResolvedRouteInfo);
-    });
+  routeInfo.resolve({} as Transition).then(function (resolvedRouteInfo: RouteInfo<Route>) {
+    assert.ok(resolvedRouteInfo instanceof ResolvedRouteInfo);
+  });
 });
 
 test('RouteInfo#resolve runs beforeModel hook on handler', function (assert) {
   assert.expect(1);
 
-  let transition = {};
+  let transition = {} as Transition;
 
   let routeInfo = createHandlerInfo('stub', {
     route: createHandler('stub', {
@@ -78,13 +74,13 @@ test('RouteInfo#resolve runs beforeModel hook on handler', function (assert) {
     }),
   });
 
-  routeInfo.resolve(() => true, transition as Transition);
+  routeInfo.resolve(transition);
 });
 
 test('RouteInfo#resolve runs getModel hook', function (assert) {
   assert.expect(1);
 
-  let transition = {};
+  let transition = {} as Transition;
 
   let routeInfo = createHandlerInfo('stub', {
     getModel(payload: Dict<unknown>) {
@@ -92,13 +88,13 @@ test('RouteInfo#resolve runs getModel hook', function (assert) {
     },
   });
 
-  routeInfo.resolve(() => true, transition as Transition);
+  routeInfo.resolve(transition);
 });
 
 test('RouteInfo#resolve runs afterModel hook on handler', function (assert) {
   assert.expect(3);
 
-  let transition = {};
+  let transition = {} as Transition;
   let model = {};
 
   let routeInfo = createHandlerInfo('foo', {
@@ -114,18 +110,16 @@ test('RouteInfo#resolve runs afterModel hook on handler', function (assert) {
     },
   });
 
-  routeInfo
-    .resolve(() => true, transition as Transition)
-    .then(function (resolvedRouteInfo: RouteInfo<Route>) {
-      assert.equal(resolvedRouteInfo.context, model, 'RouteInfo resolved with correct model');
-    });
+  routeInfo.resolve(transition).then(function (resolvedRouteInfo: RouteInfo<Route>) {
+    assert.equal(resolvedRouteInfo.context, model, 'RouteInfo resolved with correct model');
+  });
 });
 
 test('UnresolvedRouteInfoByParam gets its model hook called', function (assert) {
   assert.expect(2);
   let router = new TestRouter();
 
-  let transition = {};
+  let transition = {} as Transition;
 
   let routeInfo = new UnresolvedRouteInfoByParam(
     router,
@@ -143,7 +137,7 @@ test('UnresolvedRouteInfoByParam gets its model hook called', function (assert) 
     })
   );
 
-  routeInfo.resolve(() => true, transition as Transition);
+  routeInfo.resolve(transition);
 });
 
 test('UnresolvedRouteInfoByObject does NOT get its model hook called', function (assert) {
@@ -170,12 +164,10 @@ test('UnresolvedRouteInfoByObject does NOT get its model hook called', function 
     resolve({ name: 'dorkletons' })
   );
 
-  routeInfo
-    .resolve(() => true, {} as Transition)
-    .then(function (resolvedRouteInfo: RouteInfo<Route>) {
-      // @ts-ignore
-      assert.equal(resolvedRouteInfo.context!.name, 'dorkletons');
-    });
+  routeInfo.resolve({} as Transition).then(function (resolvedRouteInfo: RouteInfo<Route>) {
+    // @ts-ignore
+    assert.equal(resolvedRouteInfo.context!.name, 'dorkletons');
+  });
 });
 
 test('RouteInfo.find', function (assert) {

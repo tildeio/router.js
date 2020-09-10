@@ -40,8 +40,6 @@ export interface Route {
   buildRouteInfoMetadata?(): unknown;
 }
 
-export type Continuation = () => boolean;
-
 export interface RouteInfo {
   readonly name: string;
   readonly parent: RouteInfo | RouteInfoWithAttributes | null;
@@ -222,16 +220,13 @@ export default class InternalRouteInfo<T extends Route> {
     return this.params || {};
   }
 
-  resolve(
-    shouldContinue: Continuation,
-    transition: InternalTransition<T>
-  ): Promise<ResolvedRouteInfo<T>> {
+  resolve(transition: InternalTransition<T>): Promise<ResolvedRouteInfo<T>> {
     return Promise.resolve(this.routePromise)
-      .then((route: Route) => this.checkForAbort(shouldContinue, route))
+      .then((route: Route) => this.checkForAbort(transition, route))
       .then(() => this.runBeforeModelHook(transition))
-      .then(() => this.checkForAbort(shouldContinue, null))
+      .then(() => this.checkForAbort(transition, null))
       .then(() => this.getModel(transition))
-      .then((resolvedModel) => this.checkForAbort(shouldContinue, resolvedModel))
+      .then((resolvedModel) => this.checkForAbort(transition, resolvedModel))
       .then((resolvedModel) => this.runAfterModelHook(transition, resolvedModel))
       .then((resolvedModel) => this.becomeResolved(transition, resolvedModel));
   }
@@ -375,8 +370,10 @@ export default class InternalRouteInfo<T extends Route> {
     });
   }
 
-  private checkForAbort<T>(shouldContinue: Continuation, value: T) {
-    shouldContinue();
+  private checkForAbort<U>(transition: InternalTransition<T>, value: U) {
+    if (transition.isAborted) {
+      throw new Error('Transition aborted');
+    }
 
     return value;
   }
@@ -427,10 +424,7 @@ export class ResolvedRouteInfo<T extends Route> extends InternalRouteInfo<T> {
     this.context = context;
   }
 
-  resolve(
-    _shouldContinue: Continuation,
-    transition: InternalTransition<T>
-  ): Promise<InternalRouteInfo<T>> {
+  resolve(transition: InternalTransition<T>): Promise<InternalRouteInfo<T>> {
     // A ResolvedRouteInfo just resolved with itself.
     if (transition && transition.resolvedModels) {
       transition.resolvedModels[this.name] = this.context as Dict<unknown>;
