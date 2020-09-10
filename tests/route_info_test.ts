@@ -9,12 +9,8 @@ import RouteInfo, {
 } from 'router/route-info';
 import InternalTransition from 'router/transition';
 import URLTransitionIntent from 'router/transition-intent/url-transition-intent';
-import { reject, resolve } from 'rsvp';
+import { resolve } from 'rsvp';
 import { createHandler, createHandlerInfo, module, test, TestRouter } from './test_helpers';
-
-function noop() {
-  return resolve(true);
-}
 
 module('RouteInfo');
 
@@ -43,9 +39,10 @@ test('RouteInfo can be aborted mid-resolve', function (assert) {
 
   let routeInfo = createHandlerInfo('stub');
 
-  function abortResolve() {
+  function abortResolve(): boolean {
     assert.ok(true, 'abort was called');
-    return reject('LOL');
+
+    throw new Error('foo');
   }
 
   routeInfo.resolve(abortResolve, {} as Transition).catch(function (error: Error) {
@@ -81,7 +78,7 @@ test('RouteInfo#resolve runs beforeModel hook on handler', function (assert) {
     }),
   });
 
-  routeInfo.resolve(noop, transition as Transition);
+  routeInfo.resolve(() => true, transition as Transition);
 });
 
 test('RouteInfo#resolve runs getModel hook', function (assert) {
@@ -95,7 +92,7 @@ test('RouteInfo#resolve runs getModel hook', function (assert) {
     },
   });
 
-  routeInfo.resolve(noop, transition as Transition);
+  routeInfo.resolve(() => true, transition as Transition);
 });
 
 test('RouteInfo#resolve runs afterModel hook on handler', function (assert) {
@@ -118,7 +115,7 @@ test('RouteInfo#resolve runs afterModel hook on handler', function (assert) {
   });
 
   routeInfo
-    .resolve(noop, transition as Transition)
+    .resolve(() => true, transition as Transition)
     .then(function (resolvedRouteInfo: RouteInfo<Route>) {
       assert.equal(resolvedRouteInfo.context, model, 'RouteInfo resolved with correct model');
     });
@@ -146,7 +143,7 @@ test('UnresolvedRouteInfoByParam gets its model hook called', function (assert) 
     })
   );
 
-  routeInfo.resolve(noop, transition as Transition);
+  routeInfo.resolve(() => true, transition as Transition);
 });
 
 test('UnresolvedRouteInfoByObject does NOT get its model hook called', function (assert) {
@@ -173,10 +170,12 @@ test('UnresolvedRouteInfoByObject does NOT get its model hook called', function 
     resolve({ name: 'dorkletons' })
   );
 
-  routeInfo.resolve(noop, {} as Transition).then(function (resolvedRouteInfo: RouteInfo<Route>) {
-    // @ts-ignore
-    assert.equal(resolvedRouteInfo.context!.name, 'dorkletons');
-  });
+  routeInfo
+    .resolve(() => true, {} as Transition)
+    .then(function (resolvedRouteInfo: RouteInfo<Route>) {
+      // @ts-ignore
+      assert.equal(resolvedRouteInfo.context!.name, 'dorkletons');
+    });
 });
 
 test('RouteInfo.find', function (assert) {

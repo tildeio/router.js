@@ -7,7 +7,7 @@ import {
   UnresolvedRouteInfoByParam,
 } from 'router/route-info';
 import TransitionState, { TransitionError } from 'router/transition-state';
-import { Promise, reject, resolve } from 'rsvp';
+import { Promise, resolve } from 'rsvp';
 import {
   createHandler,
   createHandlerInfo,
@@ -54,7 +54,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function (assert) {
 
   function keepGoing() {
     assert.ok(true, 'continuation function was called');
-    return Promise.resolve(false);
+    return true;
   }
 
   state.resolve(keepGoing, {} as Transition).then(function (result: TransitionState<Route>) {
@@ -63,7 +63,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function (assert) {
 });
 
 test('State resolution can be halted', function (assert) {
-  assert.expect(2);
+  assert.expect(1);
 
   let state = new TransitionState();
 
@@ -81,11 +81,10 @@ test('State resolution can be halted', function (assert) {
   ];
 
   function keepGoing() {
-    return reject('NOPE');
+    return false;
   }
 
   state.resolve(keepGoing, {} as Transition).catch(function (reason: TransitionError) {
-    assert.equal(reason.error, 'NOPE');
     assert.ok(reason.wasAborted, 'state resolution was correctly marked as aborted');
   });
 
@@ -118,12 +117,8 @@ test('Integration w/ HandlerInfos', function (assert) {
     new UnresolvedRouteInfoByObject(router, 'bar', ['bar_id'], resolve(barModel)),
   ];
 
-  function noop() {
-    return Promise.resolve(false);
-  }
-
   state
-    .resolve(noop, transition as Transition)
+    .resolve(() => true, transition as Transition)
     .then(function (result: TransitionState<Route>) {
       let models = [];
       for (let i = 0; i < result.routeInfos.length; i++) {

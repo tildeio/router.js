@@ -1,6 +1,6 @@
 import { Promise } from 'rsvp';
 import { Dict } from './core';
-import InternalRouteInfo, { Continuation, Route } from './route-info';
+import InternalRouteInfo, { Continuation, Route, ResolvedRouteInfo } from './route-info';
 import Transition from './transition';
 import { forEach, promiseLabel } from './utils';
 
@@ -42,22 +42,24 @@ export default class TransitionState<T extends Route> {
     // The prelude RSVP.resolve() async moves us into the promise land.
     return Promise.resolve(null, this.promiseLabel('Start transition'))
       .then(resolveOneRouteInfo, null, this.promiseLabel('Resolve route'))
-      .catch(handleError, this.promiseLabel('Handle error'));
+      .catch(handleError, this.promiseLabel('Handle error'))
+      .then(() => {
+        return currentState;
+      });
 
     function innerShouldContinue() {
-      return Promise.resolve(
-        shouldContinue(),
-        currentState.promiseLabel('Check if should continue')
-      ).catch(function (reason) {
+      if (shouldContinue()) {
+        return true;
+      } else {
         // We distinguish between errors that occurred
         // during resolution (e.g. before"Model/model/afterModel),
         // and aborts due to a rejecting promise from shouldContinue().
         wasAborted = true;
-        return Promise.reject(reason);
-      }, currentState.promiseLabel('Handle abort'));
+        throw new Error('Transition aborted');
+      }
     }
 
-    function handleError(error: Error) {
+    function handleError(error: Error): never {
       // This is the only possible
       // reject value of TransitionState#resolve
       let routeInfos = currentState.routeInfos;
@@ -65,17 +67,16 @@ export default class TransitionState<T extends Route> {
         transition.resolveIndex >= routeInfos.length
           ? routeInfos.length - 1
           : transition.resolveIndex;
-      return Promise.reject(
-        new TransitionError(
-          error,
-          currentState.routeInfos[errorHandlerIndex].route!,
-          wasAborted,
-          currentState
-        )
+
+      throw new TransitionError(
+        error,
+        currentState.routeInfos[errorHandlerIndex].route!,
+        wasAborted,
+        currentState
       );
     }
 
-    function proceed(resolvedRouteInfo: InternalRouteInfo<T>): Promise<InternalRouteInfo<T>> {
+    function proceed(resolvedRouteInfo: ResolvedRouteInfo<T>): void | Promise<void> {
       let wasAlreadyResolved = currentState.routeInfos[transition.resolveIndex].isResolved;
 
       // Swap the previously unresolved routeInfo with
@@ -97,18 +98,16 @@ export default class TransitionState<T extends Route> {
 
       // Proceed after ensuring that the redirect hook
       // didn't abort this transition by transitioning elsewhere.
-      return innerShouldContinue().then(
-        resolveOneRouteInfo,
-        null,
-        currentState.promiseLabel('Resolve route')
-      );
+      if (innerShouldContinue()) {
+        return resolveOneRouteInfo();
+      }
     }
 
-    function resolveOneRouteInfo(): TransitionState<T> | Promise<any> {
+    function resolveOneRouteInfo(): void | Promise<void> {
       if (transition.resolveIndex === currentState.routeInfos.length) {
         // This is is the only possible
         // fulfill value of TransitionState#resolve
-        return currentState;
+        return;
       }
 
       let routeInfo = currentState.routeInfos[transition.resolveIndex];

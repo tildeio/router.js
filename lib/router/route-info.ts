@@ -40,7 +40,7 @@ export interface Route {
   buildRouteInfoMetadata?(): unknown;
 }
 
-export type Continuation = () => PromiseLike<boolean> | boolean;
+export type Continuation = () => boolean;
 
 export interface RouteInfo {
   readonly name: string;
@@ -376,11 +376,9 @@ export default class InternalRouteInfo<T extends Route> {
   }
 
   private checkForAbort<T>(shouldContinue: Continuation, value: T) {
-    return Promise.resolve(shouldContinue()).then(function () {
-      // We don't care about shouldContinue's resolve value;
-      // pass along the original value passed to this fn.
-      return value;
-    }, null);
+    shouldContinue();
+
+    return value;
   }
 
   private stashResolvedModel(transition: InternalTransition<T>, resolvedModel: Dict<unknown>) {
