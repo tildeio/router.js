@@ -2,7 +2,7 @@ import { Promise } from 'rsvp';
 import { Dict, Maybe, Option } from './core';
 import InternalRouteInfo, { Route, RouteInfo, RouteInfoWithAttributes } from './route-info';
 import Router from './router';
-import TransitionAborted, { ITransitionAbortedError } from './transition-aborted-error';
+import { TransitionAbortedError, buildTransitionAborted } from './transition-aborted-error';
 import { OpaqueIntent } from './transition-intent';
 import TransitionState, { TransitionError } from './transition-state';
 import { log, promiseLabel } from './utils';
@@ -439,9 +439,10 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
 
   Logs and returns an instance of TransitionAborted.
  */
-export function logAbort(transition: Transition<any>): ITransitionAbortedError {
+export function logAbort(transition: Transition<any>): TransitionAbortedError {
   log(transition.router, transition.sequence, 'detected abort.');
-  return new TransitionAborted();
+
+  return buildTransitionAborted();
 }
 
 export function isTransition(obj: unknown): obj is typeof Transition {
