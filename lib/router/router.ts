@@ -122,6 +122,7 @@ export default abstract class Router<T extends Route> {
       // method (default is replaceState).
       let newTransition = new InternalTransition(this, undefined, newState);
       newTransition.queryParamsOnly = true;
+      this.setupContexts(newState, newTransition);
 
       oldState.queryParams = this.finalizeQueryParamChange(
         newState.routeInfos,
