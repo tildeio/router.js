@@ -5379,7 +5379,7 @@ scenarios.forEach(function (scenario) {
   });
 
   test('intermediateTransitionTo() has the correct RouteInfo objects', function (assert) {
-    assert.expect(5);
+    assert.expect(6);
     routes = {
       application: createHandler('application'),
       foo: createHandler('foo', {
@@ -5400,6 +5400,8 @@ scenarios.forEach(function (scenario) {
         enteredCount++;
       } else if (enteredCount === 1) {
         assert.equal(transition.to!.name, 'loading', 'entering');
+        // https://github.com/emberjs/ember.js/issues/14438
+        assert.equal(transition[STATE_SYMBOL].routeInfos.length, 2, 'with routeInfos present');
         enteredCount++;
       } else {
         assert.equal(transition.to!.name, 'foo', 'back to');
