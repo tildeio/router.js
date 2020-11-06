@@ -65,7 +65,7 @@ export default class URLTransitionIntent<T extends Route> extends TransitionInte
       }
 
       let oldRouteInfo = oldState.routeInfos[i];
-      if (statesDiffer || newRouteInfo.shouldSupercede(oldRouteInfo)) {
+      if (statesDiffer || newRouteInfo.shouldSupersede(oldRouteInfo)) {
         statesDiffer = true;
         newState.routeInfos[i] = newRouteInfo;
       } else {

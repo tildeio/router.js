@@ -116,7 +116,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
       }
 
       let handlerToUse = oldHandlerInfo;
-      if (i >= invalidateIndex || newHandlerInfo.shouldSupercede(oldHandlerInfo)) {
+      if (i >= invalidateIndex || newHandlerInfo.shouldSupersede(oldHandlerInfo)) {
         invalidateIndex = Math.min(i, invalidateIndex);
         handlerToUse = newHandlerInfo;
       }
