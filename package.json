@@ -87,5 +87,9 @@
       "release": true,
       "tokenRef": "GITHUB_AUTH"
     }
+  },
+  "volta": {
+    "node": "14.15.0",
+    "yarn": "1.22.10"
   }
 }
