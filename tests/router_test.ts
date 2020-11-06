@@ -2949,9 +2949,6 @@ scenarios.forEach(function (scenario) {
 
     // Go to post 3. This triggers our test.
     transitionTo(router, '/posts/3');
-
-    // Clean up.
-    delete router.willTransition;
   });
 
   test('tests whether arguments to transitionTo are considered active', function (assert) {
