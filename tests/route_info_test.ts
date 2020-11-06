@@ -153,12 +153,19 @@ test('UnresolvedRouteInfoByObject does NOT get its model hook called', function 
   assert.expect(1);
 
   class TestRouteInfo extends UnresolvedRouteInfoByObject<Route> {
-    route = createHandler('uresolved', {
-      model: function () {
-        assert.ok(false, "I shouldn't be called because I already have a context/model");
-      },
-    });
+    __routeHandler?: Route;
+    get route(): Route {
+      if (this.__routeHandler) {
+        return this.__routeHandler;
+      }
+      return (this.__routeHandler = createHandler('uresolved', {
+        model: function () {
+          assert.ok(false, "I shouldn't be called because I already have a context/model");
+        },
+      }));
+    }
   }
+
   let routeInfo = new TestRouteInfo(
     new TestRouter(),
     'unresolved',
