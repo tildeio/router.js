@@ -1,3 +1,12 @@
+## v7.1.1 (2020-11-06)
+
+#### :bug: Bug Fix
+* [#308](https://github.com/tildeio/router.js/pull/308) Provide transition to `setupContext` for internal transition ([@rreckonerr](https://github.com/rreckonerr))
+
+#### Committers: 1
+- Volodymyr Radchenko ([@rreckonerr](https://github.com/rreckonerr))
+
+
 ## v7.1.0 (2020-09-09)
 
 #### :rocket: Enhancement
