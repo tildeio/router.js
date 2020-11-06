@@ -158,7 +158,7 @@ test('UnresolvedRouteInfoByObject does NOT get its model hook called', function 
       if (this.__routeHandler) {
         return this.__routeHandler;
       }
-      return (this.__routeHandler = createHandler('uresolved', {
+      return (this.__routeHandler = createHandler('unresolved', {
         model: function () {
           assert.ok(false, "I shouldn't be called because I already have a context/model");
         },

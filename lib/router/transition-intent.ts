@@ -12,5 +12,5 @@ export abstract class TransitionIntent<T extends Route> {
     this.data = data;
   }
   preTransitionState?: TransitionState<T>;
-  abstract applyToState(oldState: TransitionState<T>, isIntermidate: boolean): TransitionState<T>;
+  abstract applyToState(oldState: TransitionState<T>, isIntermediate: boolean): TransitionState<T>;
 }

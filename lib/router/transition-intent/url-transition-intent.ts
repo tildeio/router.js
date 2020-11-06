@@ -59,7 +59,7 @@ export default class URLTransitionIntent<T extends Route> extends TransitionInte
       if (route) {
         checkHandlerAccessibility(route);
       } else {
-        // If the hanlder is being loaded asynchronously, check if we can
+        // If the handler is being loaded asynchronously, check if we can
         // access it after it has resolved
         newRouteInfo.routePromise = newRouteInfo.routePromise.then(checkHandlerAccessibility);
       }

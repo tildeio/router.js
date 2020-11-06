@@ -1,13 +1,13 @@
-export interface UnrecognizedURLContructor {
+export interface UnrecognizedURLConstructor {
   new (message?: string): UnrecognizedURLError;
   readonly prototype: UnrecognizedURLError;
 }
 
 export interface UnrecognizedURLError extends Error {
-  constructor: UnrecognizedURLContructor;
+  constructor: UnrecognizedURLConstructor;
 }
 
-const UnrecognizedURLError: UnrecognizedURLContructor = (function () {
+const UnrecognizedURLError: UnrecognizedURLConstructor = (function () {
   UnrecognizedURLError.prototype = Object.create(Error.prototype);
   UnrecognizedURLError.prototype.constructor = UnrecognizedURLError;
 

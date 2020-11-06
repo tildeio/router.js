@@ -264,19 +264,19 @@ scenarios.forEach(function (scenario) {
     transition = transitionTo(router, '/parent/child?foo=789');
     assert.notOk(
       transition.queryParamsOnly,
-      'Fourth transition with transtionTo intent is not query params only'
+      'Fourth transition with transitionTo intent is not query params only'
     );
 
     transition = transitionTo(router, '/parent/child?foo=901');
     assert.ok(
       transition.queryParamsOnly,
-      'Firth transition with transtionTo intent is query params only'
+      'Firth transition with transitionTo intent is query params only'
     );
 
     transition = transitionTo(router, '/index?foo=123');
     assert.notOk(
       transition.queryParamsOnly,
-      'Firth transition with transtionTo intent is not query params only'
+      'Firth transition with transitionTo intent is not query params only'
     );
   });
 

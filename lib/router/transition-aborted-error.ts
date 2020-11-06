@@ -1,13 +1,13 @@
-export interface TransitionAbortedErrorContructor {
+export interface TransitionAbortedErrorConstructor {
   new (message?: string): ITransitionAbortedError;
   readonly prototype: ITransitionAbortedError;
 }
 
 export interface ITransitionAbortedError extends Error {
-  constructor: TransitionAbortedErrorContructor;
+  constructor: TransitionAbortedErrorConstructor;
 }
 
-const TransitionAbortedError: TransitionAbortedErrorContructor = (function () {
+const TransitionAbortedError: TransitionAbortedErrorConstructor = (function () {
   TransitionAbortedError.prototype = Object.create(Error.prototype);
   TransitionAbortedError.prototype.constructor = TransitionAbortedError;
 

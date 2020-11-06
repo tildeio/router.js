@@ -676,7 +676,7 @@ export default abstract class Router<T extends Route> {
       let initial = transition.isCausedByInitialTransition;
 
       // say you are at / and you click a link to route /foo. In /foo's
-      // route, the transition is aborted using replacewith('/bar').
+      // route, the transition is aborted using replaceWith('/bar').
       // Because the current url is still /, the history entry for / is
       // removed from the history. Clicking back will take you to the page
       // you were on before /, which is often not even the app, thus killing
@@ -978,28 +978,28 @@ export default abstract class Router<T extends Route> {
     }
 
     let targetHandler = targetRouteInfos[targetRouteInfos.length - 1].name;
-    let recogHandlers: ParsedHandler[] = this.recognizer.handlersFor(targetHandler);
+    let recognizerHandlers: ParsedHandler[] = this.recognizer.handlersFor(targetHandler);
 
     let index = 0;
-    for (len = recogHandlers.length; index < len; ++index) {
+    for (len = recognizerHandlers.length; index < len; ++index) {
       routeInfo = targetRouteInfos[index];
       if (routeInfo.name === routeName) {
         break;
       }
     }
 
-    if (index === recogHandlers.length) {
+    if (index === recognizerHandlers.length) {
       // The provided route name isn't even in the route hierarchy.
       return false;
     }
 
     let testState = new TransitionState<T>();
     testState.routeInfos = targetRouteInfos.slice(0, index + 1);
-    recogHandlers = recogHandlers.slice(0, index + 1);
+    recognizerHandlers = recognizerHandlers.slice(0, index + 1);
 
     let intent = new NamedTransitionIntent(this, targetHandler, undefined, contexts);
 
-    let newState = intent.applyToHandlers(testState, recogHandlers, targetHandler, true, true);
+    let newState = intent.applyToHandlers(testState, recognizerHandlers, targetHandler, true, true);
 
     let routesEqual = routeInfosEqual(newState.routeInfos, testState.routeInfos);
     if (!queryParams || !routesEqual) {
