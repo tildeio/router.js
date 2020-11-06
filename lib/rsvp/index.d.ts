@@ -1,5 +1,5 @@
 declare module 'rsvp' {
-  export interface PromiseContructor {
+  export interface PromiseConstructor {
     new <T>(
       executor: (
         resolve: (value?: T | PromiseLike<T>) => void,
@@ -14,7 +14,7 @@ declare module 'rsvp' {
   export const resolve: (value: any | PromiseLike<any>, label?: string) => Promise<any>;
   export const reject: (reason?: any, label?: string) => Promise<any>;
   export const configure: (key: string, value?: any) => void;
-  export const Promise: PromiseContructor;
+  export const Promise: PromiseConstructor;
 
   export type OnFulfilled<T, TResult1> =
     | ((value: T) => TResult1 | PromiseLike<TResult1>)

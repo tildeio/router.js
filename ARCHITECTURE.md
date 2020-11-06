@@ -80,7 +80,7 @@ intelligent defaults, rendering templates, and loading data into controllers.
 
 A `HandlerInfo` is an object that describes the state of a route handler.
 
-For example, the `foo/bar` URL likely breaks down into a hierachy of two
+For example, the `foo/bar` URL likely breaks down into a hierarchy of two
 handlers: the `foo` handler and the `bar` handler. A "handler" is just an
 object that defines hooks that `router.js` will call in the course of a
 transition (e.g. `model`, `beforeModel`, `setup`, etc.).
@@ -132,7 +132,7 @@ Instances of `Router` and `Transition` contain `TransitionState`
 properties, which is useful since, depending on whether or not there is
 a currently active transition, the "starting point" of a transition
 might be the router's current hierarchy of `ResolvedHandlerInfo`s, or it
-might be a transition's hierachy of `ResolvedHandlerInfo`s mixed with
+might be a transition's hierarchy of `ResolvedHandlerInfo`s mixed with
 unresolved HandlerInfos.
 
 ### `TransitionIntent`

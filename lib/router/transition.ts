@@ -25,7 +25,7 @@ export const PARAMS_SYMBOL = `__PARAMS__-261986232992830203-23323`;
 export const QUERY_PARAMS_SYMBOL = `__QPS__-2619863929824844-32323`;
 
 /**
-  A Transition is a thennable (a promise-like object) that represents
+  A Transition is a thenable (a promise-like object) that represents
   an attempt to transition to another route. It can be aborted, either
   explicitly via `abort` or by attempting another transition while a
   previous one is still underway. An aborted transition can also
@@ -216,7 +216,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     succeeds and rejects if it fails/redirects/aborts.
 
     Forwards to the internal `promise` property which you can
-    use in situations where you want to pass around a thennable,
+    use in situations where you want to pass around a thenable,
     but not the Transition itself.
 
     @method then
@@ -255,7 +255,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   /**
 
     Forwards to the internal `promise` property which you can
-    use in situations where you want to pass around a thennable,
+    use in situations where you want to pass around a thenable,
     but not the Transition itself.
 
     @method finally

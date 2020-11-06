@@ -39,7 +39,7 @@ export default class TransitionState<T extends Route> {
     let currentState = this;
     let wasAborted = false;
 
-    // The prelude RSVP.resolve() asyncs us into the promise land.
+    // The prelude RSVP.resolve() async moves us into the promise land.
     return Promise.resolve(null, this.promiseLabel('Start transition'))
       .then(resolveOneRouteInfo, null, this.promiseLabel('Resolve route'))
       .catch(handleError, this.promiseLabel('Handle error'));
