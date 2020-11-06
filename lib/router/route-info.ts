@@ -14,6 +14,25 @@ interface IModel {
   id?: string | number;
 }
 
+interface AbortableTransition<T extends boolean, R extends Route> extends InternalTransition<R> {
+  isAborted: T;
+}
+
+function checkForAbort<U, T extends AbortableTransition<I, R>, R extends Route, I extends boolean>(
+  transition: T,
+  value: U
+): I extends true ? never : U;
+function checkForAbort<U, T extends AbortableTransition<I, R>, R extends Route, I extends boolean>(
+  transition: T,
+  value: U
+): never | U {
+  if (transition.isAborted) {
+    throw new Error('Transition aborted');
+  }
+
+  return value;
+}
+
 export interface Route {
   inaccessibleByURL?: boolean;
   routeName: string;
@@ -222,11 +241,11 @@ export default class InternalRouteInfo<T extends Route> {
 
   resolve(transition: InternalTransition<T>): Promise<ResolvedRouteInfo<T>> {
     return Promise.resolve(this.routePromise)
-      .then((route: Route) => this.checkForAbort(transition, route))
+      .then((route: Route) => checkForAbort(transition, route))
       .then(() => this.runBeforeModelHook(transition))
-      .then(() => this.checkForAbort(transition, null))
+      .then(() => checkForAbort(transition, null))
       .then(() => this.getModel(transition))
-      .then((resolvedModel) => this.checkForAbort(transition, resolvedModel))
+      .then((resolvedModel) => checkForAbort(transition, resolvedModel))
       .then((resolvedModel) => this.runAfterModelHook(transition, resolvedModel))
       .then((resolvedModel) => this.becomeResolved(transition, resolvedModel));
   }
@@ -368,14 +387,6 @@ export default class InternalRouteInfo<T extends Route> {
       // might have been swapped out in afterModel.
       return transition.resolvedModels[name]!;
     });
-  }
-
-  private checkForAbort<U>(transition: InternalTransition<T>, value: U) {
-    if (transition.isAborted) {
-      throw new Error('Transition aborted');
-    }
-
-    return value;
   }
 
   private stashResolvedModel(transition: InternalTransition<T>, resolvedModel: Dict<unknown>) {
