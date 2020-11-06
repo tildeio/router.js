@@ -20,7 +20,7 @@ declare module 'rsvp' {
     | ((value: T) => TResult1 | PromiseLike<TResult1>)
     | undefined
     | null;
-  export type OnRejected<T, TResult2> =
+  export type OnRejected<TResult2> =
     | ((reason: any) => TResult2 | PromiseLike<TResult2>)
     | undefined
     | null;

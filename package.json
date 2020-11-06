@@ -37,10 +37,10 @@
   "devDependencies": {
     "@babel/plugin-transform-modules-amd": "^7.12.1",
     "@babel/plugin-transform-modules-commonjs": "^7.12.1",
-    "@types/node": "^12.7.5",
+    "@types/node": "^14.14.6",
     "@types/qunit": "^2.9.6",
-    "@typescript-eslint/eslint-plugin": "^3.7.0",
-    "@typescript-eslint/parser": "^3.7.0",
+    "@typescript-eslint/eslint-plugin": "^4.6.1",
+    "@typescript-eslint/parser": "^4.6.1",
     "babel-plugin-debug-macros": "^0.3.3",
     "backburner.js": "^2.6.0",
     "broccoli-babel-transpiler": "^7.8.0",
