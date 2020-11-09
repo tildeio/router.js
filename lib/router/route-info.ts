@@ -271,7 +271,7 @@ export default class InternalRouteInfo<T extends Route> {
     return resolved;
   }
 
-  shouldSupercede(routeInfo?: InternalRouteInfo<T>) {
+  shouldSupersede(routeInfo?: InternalRouteInfo<T>) {
     // Prefer this newer routeInfo over `other` if:
     // 1) The other one doesn't exist
     // 2) The names don't match
