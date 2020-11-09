@@ -14,6 +14,25 @@ interface IModel {
   id?: string | number;
 }
 
+interface AbortableTransition<T extends boolean, R extends Route> extends InternalTransition<R> {
+  isAborted: T;
+}
+
+function checkForAbort<U, T extends AbortableTransition<I, R>, R extends Route, I extends boolean>(
+  transition: T,
+  value: U
+): I extends true ? never : U;
+function checkForAbort<U, T extends AbortableTransition<I, R>, R extends Route, I extends boolean>(
+  transition: T,
+  value: U
+): never | U {
+  if (transition.isAborted) {
+    throw new Error('Transition aborted');
+  }
+
+  return value;
+}
+
 export interface Route {
   inaccessibleByURL?: boolean;
   routeName: string;
@@ -39,8 +58,6 @@ export interface Route {
   redirect?(context: Dict<unknown>, transition: Transition): void;
   buildRouteInfoMetadata?(): unknown;
 }
-
-export type Continuation = () => PromiseLike<boolean> | boolean;
 
 export interface RouteInfo {
   readonly name: string;
@@ -222,16 +239,13 @@ export default class InternalRouteInfo<T extends Route> {
     return this.params || {};
   }
 
-  resolve(
-    shouldContinue: Continuation,
-    transition: InternalTransition<T>
-  ): Promise<ResolvedRouteInfo<T>> {
+  resolve(transition: InternalTransition<T>): Promise<ResolvedRouteInfo<T>> {
     return Promise.resolve(this.routePromise)
-      .then((route: Route) => this.checkForAbort(shouldContinue, route))
+      .then((route: Route) => checkForAbort(transition, route))
       .then(() => this.runBeforeModelHook(transition))
-      .then(() => this.checkForAbort(shouldContinue, null))
+      .then(() => checkForAbort(transition, null))
       .then(() => this.getModel(transition))
-      .then((resolvedModel) => this.checkForAbort(shouldContinue, resolvedModel))
+      .then((resolvedModel) => checkForAbort(transition, resolvedModel))
       .then((resolvedModel) => this.runAfterModelHook(transition, resolvedModel))
       .then((resolvedModel) => this.becomeResolved(transition, resolvedModel));
   }
@@ -375,14 +389,6 @@ export default class InternalRouteInfo<T extends Route> {
     });
   }
 
-  private checkForAbort<T>(shouldContinue: Continuation, value: T) {
-    return Promise.resolve(shouldContinue()).then(function () {
-      // We don't care about shouldContinue's resolve value;
-      // pass along the original value passed to this fn.
-      return value;
-    }, null);
-  }
-
   private stashResolvedModel(transition: InternalTransition<T>, resolvedModel: Dict<unknown>) {
     transition.resolvedModels = transition.resolvedModels || {};
     transition.resolvedModels[this.name] = resolvedModel;
@@ -429,10 +435,7 @@ export class ResolvedRouteInfo<T extends Route> extends InternalRouteInfo<T> {
     this.context = context;
   }
 
-  resolve(
-    _shouldContinue: Continuation,
-    transition: InternalTransition<T>
-  ): Promise<InternalRouteInfo<T>> {
+  resolve(transition: InternalTransition<T>): Promise<InternalRouteInfo<T>> {
     // A ResolvedRouteInfo just resolved with itself.
     if (transition && transition.resolvedModels) {
       transition.resolvedModels[this.name] = this.context as Dict<unknown>;

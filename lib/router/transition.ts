@@ -169,17 +169,11 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
       }
 
       this.sequence = router.currentSequence++;
-      this.promise = state
-        .resolve(() => {
-          if (this.isAborted) {
-            return Promise.reject(false, promiseLabel('Transition aborted - reject'));
-          }
+      this.promise = state.resolve(this).catch((result: TransitionError) => {
+        let error = this.router.transitionDidError(result, this);
 
-          return Promise.resolve(true);
-        }, this)
-        .catch((result: TransitionError) => {
-          return Promise.reject(this.router.transitionDidError(result, this));
-        }, promiseLabel('Handle Abort'));
+        throw error;
+      }, promiseLabel('Handle Abort'));
     } else {
       this.promise = Promise.resolve(this[STATE_SYMBOL]!);
       this[PARAMS_SYMBOL] = {};
