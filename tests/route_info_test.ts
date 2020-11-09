@@ -1,6 +1,6 @@
 import { Transition } from 'router';
 import { Dict } from 'router/core';
-import RouteInfo, {
+import {
   ResolvedRouteInfo,
   Route,
   toReadOnlyRouteInfo,
