@@ -14,7 +14,7 @@ import InternalTransition, {
   QUERY_PARAMS_SYMBOL,
   STATE_SYMBOL,
 } from './transition';
-import TransitionAbortedError from './transition-aborted-error';
+import { throwIfAborted, isTransitionAborted } from './transition-aborted-error';
 import { TransitionIntent } from './transition-intent';
 import NamedTransitionIntent from './transition-intent/named-transition-intent';
 import URLTransitionIntent from './transition-intent/url-transition-intent';
@@ -371,7 +371,7 @@ export default abstract class Router<T extends Route> {
       // Resolve with the final route.
       return routeInfos[routeInfos.length - 1].route!;
     } catch (e) {
-      if (!(e instanceof TransitionAbortedError)) {
+      if (!isTransitionAborted(e)) {
         let infos = transition[STATE_SYMBOL]!.routeInfos;
         transition.trigger(true, 'error', e, transition, infos[infos.length - 1].route);
         transition.abort();
@@ -523,9 +523,7 @@ export default abstract class Router<T extends Route> {
         }
       }
 
-      if (transition && transition.isAborted) {
-        throw new TransitionAbortedError();
-      }
+      throwIfAborted(transition);
 
       route.context = context;
 
@@ -537,9 +535,7 @@ export default abstract class Router<T extends Route> {
         route.setup(context!, transition!);
       }
 
-      if (transition && transition.isAborted) {
-        throw new TransitionAbortedError();
-      }
+      throwIfAborted(transition);
 
       currentRouteInfos.push(routeInfo);
       return route;

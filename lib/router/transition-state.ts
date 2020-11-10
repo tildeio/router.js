@@ -3,6 +3,7 @@ import { Dict } from './core';
 import InternalRouteInfo, { Route, ResolvedRouteInfo } from './route-info';
 import Transition from './transition';
 import { forEach, promiseLabel } from './utils';
+import { throwIfAborted } from './transition-aborted-error';
 
 interface IParams {
   [key: string]: unknown;
@@ -72,9 +73,7 @@ function proceed<T extends Route>(
 
   // Proceed after ensuring that the redirect hook
   // didn't abort this transition by transitioning elsewhere.
-  if (transition.isAborted) {
-    throw new Error('Transition aborted');
-  }
+  throwIfAborted(transition);
 
   return resolveOneRouteInfo(currentState, transition);
 }

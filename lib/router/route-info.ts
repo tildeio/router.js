@@ -9,28 +9,10 @@ import InternalTransition, {
   QUERY_PARAMS_SYMBOL,
 } from './transition';
 import { isParam, isPromise, merge } from './utils';
+import { throwIfAborted } from './transition-aborted-error';
 
 interface IModel {
   id?: string | number;
-}
-
-interface AbortableTransition<T extends boolean, R extends Route> extends InternalTransition<R> {
-  isAborted: T;
-}
-
-function checkForAbort<U, T extends AbortableTransition<I, R>, R extends Route, I extends boolean>(
-  transition: T,
-  value: U
-): I extends true ? never : U;
-function checkForAbort<U, T extends AbortableTransition<I, R>, R extends Route, I extends boolean>(
-  transition: T,
-  value: U
-): never | U {
-  if (transition.isAborted) {
-    throw new Error('Transition aborted');
-  }
-
-  return value;
 }
 
 export interface Route {
@@ -241,11 +223,17 @@ export default class InternalRouteInfo<T extends Route> {
 
   resolve(transition: InternalTransition<T>): Promise<ResolvedRouteInfo<T>> {
     return Promise.resolve(this.routePromise)
-      .then((route: Route) => checkForAbort(transition, route))
+      .then((route: Route) => {
+        throwIfAborted(transition);
+        return route;
+      })
       .then(() => this.runBeforeModelHook(transition))
-      .then(() => checkForAbort(transition, null))
+      .then(() => throwIfAborted(transition))
       .then(() => this.getModel(transition))
-      .then((resolvedModel) => checkForAbort(transition, resolvedModel))
+      .then((resolvedModel) => {
+        throwIfAborted(transition);
+        return resolvedModel;
+      })
       .then((resolvedModel) => this.runAfterModelHook(transition, resolvedModel))
       .then((resolvedModel) => this.becomeResolved(transition, resolvedModel));
   }

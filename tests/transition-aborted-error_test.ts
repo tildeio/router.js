@@ -1,4 +1,8 @@
-import TransitionAbortedError from 'router/transition-aborted-error';
+import {
+  throwIfAborted,
+  isTransitionAborted,
+  buildTransitionAborted,
+} from 'router/transition-aborted-error';
 import { module, test } from './test_helpers';
 
 module('transition-aborted-error');
@@ -7,7 +11,7 @@ test('correct inheritance and name', function (assert) {
   let error;
 
   try {
-    throw new TransitionAbortedError('Message');
+    throw buildTransitionAborted();
   } catch (e) {
     error = e;
   }
@@ -19,6 +23,17 @@ test('correct inheritance and name', function (assert) {
     "TransitionAbortedError has the name 'TransitionAborted'"
   );
 
-  assert.ok(error instanceof TransitionAbortedError);
+  assert.ok(isTransitionAborted(error));
   assert.ok(error instanceof Error);
+});
+
+test('throwIfAborted', function (assert) {
+  throwIfAborted(undefined);
+  throwIfAborted(null);
+  throwIfAborted({});
+  throwIfAborted({ apple: false });
+  throwIfAborted({ isAborted: false });
+  throwIfAborted({ isAborted: false, other: 'key' });
+  assert.throws(() => throwIfAborted({ isAborted: true }), /TransitionAborted/);
+  assert.throws(() => throwIfAborted({ isAborted: true, other: 'key' }), /TransitionAborted/);
 });

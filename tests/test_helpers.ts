@@ -3,10 +3,10 @@ import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
 import RouteInfo, { UnresolvedRouteInfoByParam } from 'router/route-info';
 import { logAbort, PublicTransition } from 'router/transition';
-import TransitionAbortedError from 'router/transition-aborted-error';
 import { TransitionError } from 'router/transition-state';
 import { UnrecognizedURLError } from 'router/unrecognized-url-error';
 import { configure, resolve } from 'rsvp';
+import { isTransitionAborted } from 'router/transition-aborted-error';
 
 QUnit.config.testTimeout = 1000;
 
@@ -45,7 +45,7 @@ function module(name: string, options?: any) {
 
 function assertAbort(assert: Assert) {
   return function _assertAbort(e: Error) {
-    assert.ok(e instanceof TransitionAbortedError, 'transition was redirected/aborted');
+    assert.ok(isTransitionAborted(e), 'transition was redirected/aborted');
   };
 }
 
