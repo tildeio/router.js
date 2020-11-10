@@ -22,6 +22,7 @@
     "dist/cjs",
     "dist/modules"
   ],
+  "types": "dist/modules/index.d.ts",
   "scripts": {
     "lint": "npm-run-all lint:*",
     "lint:ts": "eslint --cache .",
