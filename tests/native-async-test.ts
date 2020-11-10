@@ -7,22 +7,23 @@ function sleep(ms: number) {
 }
 
 QUnit.module('native async', function (hooks) {
-  let router: Router<Route>;
-  let url: string | undefined;
-  let routes: Dict<Route>;
+  let router: LocalRouter;
 
   class LocalRouter extends TestRouter {
+    routes: Dict<Route> = Object.create(null);
+    url: string | undefined;
+
     routeDidChange() {}
     routeWillChange() {}
     didTransition() {}
     willTransition() {}
 
     getRoute(name: string) {
-      if (routes[name] === undefined) {
-        routes[name] = createHandler('empty');
+      if (this.routes[name] === undefined) {
+        this.routes[name] = createHandler('empty');
       }
 
-      return routes[name];
+      return this.routes[name];
     }
 
     getSerializer(_name: string) {
@@ -32,8 +33,9 @@ QUnit.module('native async', function (hooks) {
     replaceURL(name: string) {
       this.updateURL(name);
     }
+
     updateURL(newUrl: string) {
-      url = newUrl;
+      this.url = newUrl;
     }
   }
 
@@ -53,7 +55,7 @@ QUnit.module('native async', function (hooks) {
       });
     });
 
-    routes = {
+    router.routes = {
       index: createHandler('index', {
         beforeModel(_params: Dict<unknown>, _transition: Transition) {
           assert.step('index beforeModel');
@@ -71,7 +73,7 @@ QUnit.module('native async', function (hooks) {
 
     await router.handleURL('/');
 
-    assert.equal(url, '/about', 'ended on /about');
+    assert.equal(router.url, '/about', 'ended on /about');
 
     assert.verifySteps(['index beforeModel', 'about setup']);
   });
@@ -88,7 +90,7 @@ QUnit.module('native async', function (hooks) {
         });
       });
 
-      routes = {
+      router.routes = {
         index: createHandler('index', {
           async beforeModel(_params: Dict<unknown>, _transition: Transition) {
             await sleep(5);
