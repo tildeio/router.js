@@ -2,10 +2,6 @@ import Router, { Route, Transition } from 'router';
 import { Dict } from 'router/core';
 import { createHandler, TestRouter } from './test_helpers';
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 QUnit.module('native async', function (hooks) {
   let router: LocalRouter;
 
@@ -93,8 +89,6 @@ QUnit.module('native async', function (hooks) {
       router.routes = {
         index: createHandler('index', {
           async beforeModel(_params: Dict<unknown>, _transition: Transition) {
-            await sleep(5);
-
             return router.transitionTo('/about');
           },
         }),
