@@ -3,6 +3,13 @@ export interface TransitionAbortedError extends Error {
   code: 'TRANSITION_ABORTED';
 }
 
+export function buildTransitionAborted() {
+  let error = new Error('TransitionAborted') as TransitionAbortedError;
+  error.name = 'TransitionAborted';
+  error.code = 'TRANSITION_ABORTED';
+  return error;
+}
+
 export function isTransitionAborted(maybeError: unknown): maybeError is TransitionAbortedError {
   return (
     typeof maybeError === 'object' &&
@@ -24,16 +31,7 @@ function isAbortable<T extends boolean>(maybeAbortable: unknown): maybeAbortable
   );
 }
 
-export function buildTransitionAborted() {
-  let error = new Error('TransitionAborted') as TransitionAbortedError;
-  error.name = 'TransitionAborted';
-  error.code = 'TRANSITION_ABORTED';
-  return error;
-}
-
-export function throwIfAborted<T extends boolean>(
-  maybe: Abortable<T>
-): T extends true ? never : void;
+export function throwIfAborted(maybe: Abortable<true>): never;
 export function throwIfAborted(maybe: unknown): void;
 export function throwIfAborted(maybe: unknown | Abortable<boolean>): never | void {
   if (isAbortable(maybe) && maybe.isAborted) {
