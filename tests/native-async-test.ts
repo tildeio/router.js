@@ -100,7 +100,7 @@ QUnit.module('native async', function (hooks) {
         }),
       };
 
-      return router.handleURL('/');
+      await router.handleURL('/');
     }
   );
 });
