@@ -39,9 +39,7 @@ QUnit.module('native async', function (hooks) {
     router = new LocalRouter();
   });
 
-  QUnit.test('returning a transition does not reject with TransitionAborted', async function (
-    assert
-  ) {
+  QUnit.test('beforeModel with returning router.transitionTo', async function (assert) {
     assert.expect(3);
 
     router.map(function (match) {
@@ -74,33 +72,30 @@ QUnit.module('native async', function (hooks) {
     assert.verifySteps(['index beforeModel', 'about setup']);
   });
 
-  QUnit.test(
-    'returning a promise that resolves to a transition (which resolves) does not reject',
-    async function (assert) {
-      assert.expect(1);
+  QUnit.test('async beforeModel with returning router.transitionTo', async function (assert) {
+    assert.expect(1);
 
-      router.map(function (match) {
-        match('/').to('application', function (match) {
-          match('/').to('index');
-          match('/about').to('about');
-        });
+    router.map(function (match) {
+      match('/').to('application', function (match) {
+        match('/').to('index');
+        match('/about').to('about');
       });
+    });
 
-      router.routes = {
-        index: createHandler('index', {
-          async beforeModel(_params: Dict<unknown>, _transition: Transition) {
-            return router.transitionTo('/about');
-          },
-        }),
+    router.routes = {
+      index: createHandler('index', {
+        async beforeModel(_params: Dict<unknown>, _transition: Transition) {
+          return router.transitionTo('/about');
+        },
+      }),
 
-        about: createHandler('about', {
-          setup: function () {
-            assert.ok(true, 'setup was entered');
-          },
-        }),
-      };
+      about: createHandler('about', {
+        setup: function () {
+          assert.ok(true, 'setup was entered');
+        },
+      }),
+    };
 
-      await router.handleURL('/');
-    }
-  );
+    await router.handleURL('/');
+  });
 });
