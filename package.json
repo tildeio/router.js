@@ -50,6 +50,7 @@
     "broccoli-merge-trees": "^4.2.0",
     "broccoli-typescript-compiler": "^7.0.0",
     "ember-cli": "~3.22.0",
+    "ember-cli-inject-live-reload": "^2.0.2",
     "ensure-posix-path": "^1.1.1",
     "eslint": "^7.12.1",
     "eslint-config-prettier": "^6.15.0",
