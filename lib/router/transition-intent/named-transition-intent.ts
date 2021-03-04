@@ -140,7 +140,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
     }
 
     merge(newState.queryParams, this.queryParams || {});
-    if (isIntermediate) {
+    if (isIntermediate && oldState.queryParams) {
       merge(newState.queryParams, oldState.queryParams);
     }
 
