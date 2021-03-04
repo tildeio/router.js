@@ -5376,7 +5376,7 @@ scenarios.forEach(function (scenario) {
   });
 
   test('intermediateTransitionTo() has the correct RouteInfo objects', function (assert) {
-    assert.expect(6);
+    assert.expect(9);
     routes = {
       application: createHandler('application'),
       foo: createHandler('foo', {
@@ -5394,28 +5394,23 @@ scenarios.forEach(function (scenario) {
     router.routeWillChange = (transition: Transition) => {
       if (enteredCount === 0) {
         assert.equal(transition.to!.name, 'foo', 'going to');
-        enteredCount++;
+        assert.equal(transition.to!.queryParams.qux, '42', 'going to with query params');
       } else if (enteredCount === 1) {
         assert.equal(transition.to!.name, 'loading', 'entering');
+        assert.equal(transition.to!.queryParams.qux, '42', 'intermediate also has query params');
         // https://github.com/emberjs/ember.js/issues/14438
         assert.equal(transition[STATE_SYMBOL].routeInfos.length, 2, 'with routeInfos present');
-        enteredCount++;
-      } else {
-        assert.equal(transition.to!.name, 'foo', 'back to');
-        enteredCount++;
       }
+      enteredCount++;
       assert.equal(transition.from, null);
     };
 
     router.routeDidChange = (transition: Transition) => {
-      if (enteredCount === 1) {
-        assert.equal(transition.to!.name, 'loading');
-      } else {
-        assert.equal(transition.to!.name, 'foo', 'landed at');
-      }
+      assert.equal(transition.to!.name, 'foo', 'landed at');
+      assert.equal(enteredCount, 2);
     };
 
-    transitionTo(router, '/foo');
+    transitionTo(router, '/foo?qux=42');
   });
 
   test("intermediateTransitionTo() forces an immediate intermediate transition that doesn't cancel currently active async transitions", function (assert) {
