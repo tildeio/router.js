@@ -65,6 +65,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   isCausedByInitialTransition = false;
   isCausedByAbortingReplaceTransition = false;
   _visibleQueryParams: Dict<unknown> = {};
+  previousTransition: Maybe<Transition<T>>;
 
   /**
     In non-production builds, this function will return the stack that this Transition was
@@ -115,6 +116,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     this.targetName = undefined;
     this.pivotHandler = undefined;
     this.sequence = -1;
+    this.previousTransition = previousTransition;
 
     if (DEBUG) {
       let error = new Error(`Transition creation stack`);
