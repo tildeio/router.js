@@ -230,6 +230,7 @@ export default abstract class Router<T extends Route> {
 
     if (isIntermediate) {
       let transition = new InternalTransition(this, undefined, newState);
+      transition.isIntermediate = true;
       this.toReadOnlyInfos(transition, newState);
       this.setupContexts(newState, transition);
 

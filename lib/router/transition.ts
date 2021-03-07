@@ -65,6 +65,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
   isCausedByInitialTransition = false;
   isCausedByAbortingReplaceTransition = false;
   _visibleQueryParams: Dict<unknown> = {};
+  isIntermediate = false;
 
   /**
     In non-production builds, this function will return the stack that this Transition was
