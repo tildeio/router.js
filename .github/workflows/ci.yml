@@ -14,12 +14,11 @@ on:
 jobs:
   test:
     name: Tests
-    runs-on: ${{ matrix.os }}
+    runs-on: 'ubuntu-latest'
 
     strategy:
       matrix:
         node: ['10', '12', '14', '15']
-        os: [ubuntu-latest, macOS-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v1
