@@ -1,3 +1,27 @@
+## v7.2.0 (2021-03-07)
+
+#### :bug: Bug Fix
+* [#319](https://github.com/tildeio/router.js/pull/319) Ensure query params are preserved through an intermediate loading state transition ([@sly7-7](https://github.com/sly7-7))
+
+#### :memo: Documentation
+* [#316](https://github.com/tildeio/router.js/pull/316) Publish type declaration ([@xg-wang](https://github.com/xg-wang))
+
+#### :house: Internal
+* [#318](https://github.com/tildeio/router.js/pull/318) add livereload so tests reload when i make changes ([@stefanpenner](https://github.com/stefanpenner))
+* [#309](https://github.com/tildeio/router.js/pull/309) Refactor TransitionAbort to builder interface ([@rwjblue](https://github.com/rwjblue))
+* [#306](https://github.com/tildeio/router.js/pull/306) Simplify TransitionState resolution system. ([@rwjblue](https://github.com/rwjblue))
+* [#314](https://github.com/tildeio/router.js/pull/314) [Closes [#313](https://github.com/tildeio/router.js/issues/313)] Fix Typo shouldSupercede -> shouldSupersede ([@stefanpenner](https://github.com/stefanpenner))
+* [#315](https://github.com/tildeio/router.js/pull/315) Fix other typo’s ([@stefanpenner](https://github.com/stefanpenner))
+* [#312](https://github.com/tildeio/router.js/pull/312) Upgrade `devDependencies` ([@stefanpenner](https://github.com/stefanpenner))
+* [#311](https://github.com/tildeio/router.js/pull/311) Upgrade CI ([@stefanpenner](https://github.com/stefanpenner))
+
+#### Committers: 4
+- Robert Jackson ([@rwjblue](https://github.com/rwjblue))
+- Stefan Penner ([@stefanpenner](https://github.com/stefanpenner))
+- Sylvain MINA ([@sly7-7](https://github.com/sly7-7))
+- Thomas Wang ([@xg-wang](https://github.com/xg-wang))
+
+
 ## v7.1.1 (2020-11-06)
 
 #### :bug: Bug Fix
