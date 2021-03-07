@@ -1,3 +1,16 @@
+## v7.3.0 (2021-03-07)
+
+#### :rocket: Enhancement
+* [#321](https://github.com/tildeio/router.js/pull/321) Add `isIntermediate` flag to Transition ([@sly7-7](https://github.com/sly7-7))
+
+#### :house: Internal
+* [#320](https://github.com/tildeio/router.js/pull/320) Remove testing for multiple platforms. ([@rwjblue](https://github.com/rwjblue))
+
+#### Committers: 2
+- Robert Jackson ([@rwjblue](https://github.com/rwjblue))
+- Sylvain MINA ([@sly7-7](https://github.com/sly7-7))
+
+
 ## v7.2.0 (2021-03-07)
 
 #### :bug: Bug Fix
