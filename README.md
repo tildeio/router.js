@@ -71,7 +71,7 @@ myHandlers.newPost = {
   }
 };
 
-router.getHandler = function(name) {
+router.getRoute = function(name) {
   return myHandlers[name];
 };
 ```
