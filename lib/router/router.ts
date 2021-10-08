@@ -837,6 +837,19 @@ export default abstract class Router<T extends Route> {
   }
 
   /**
+    Cleans up the properties on Router class.
+  */
+  cleanup() {
+    this.recognizer = null;
+    this.state  = undefined
+    this.activeTransition = undefined;
+    this._changedQueryParams = undefined;
+    this._lastQueryParams = {};
+    this.oldState = undefined;
+    this.currentRouteInfos = undefined;
+  }
+
+  /**
     let handler = routeInfo.handler;
     The entry point for handling a change to the URL (usually
     via the back and forward button).
