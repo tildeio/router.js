@@ -275,6 +275,9 @@ export default abstract class Router<T extends Route> {
       this.notifyExistingHandlers(newState, newTransition);
     }
 
+    if (newTransition.isAborted) {
+      queryParamChangelist = getChangelist(newState.queryParams, oldState!.queryParams);
+    }
     this.fireQueryParamDidChange(newState, queryParamChangelist!);
 
     return newTransition;

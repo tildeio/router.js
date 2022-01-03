@@ -13,7 +13,11 @@ import {
   trigger,
 } from './test_helpers';
 
-let router: Router<Route>, handlers: Dict<Route>, expectedUrl: Maybe<string>;
+interface RouterOverrides {
+  routeWillChange?(transition: Transition): void;
+}
+
+let router: Router<Route>, routerOverrides: RouterOverrides, handlers: Dict<Route>, expectedUrl: Maybe<string>;
 let scenarios = [
   {
     name: 'Sync Get Handler',
@@ -33,6 +37,7 @@ scenarios.forEach(function (scenario) {
   module('Query Params (' + scenario.name + ')', {
     setup: function (assert: Assert) {
       handlers = {};
+      routerOverrides = {};
       expectedUrl = undefined;
 
       map(assert, function (match) {
@@ -47,10 +52,7 @@ scenarios.forEach(function (scenario) {
 
   function map(assert: Assert, fn: MatchCallback) {
     class QPRouter extends TestRouter {
-      routeDidChange() {}
-      routeWillChange() {}
-      didTransition() {}
-      willTransition() {}
+      routeWillChange = routerOverrides.routeWillChange || super.routeWillChange.bind(this);
       triggerEvent(
         handlerInfos: RouteInfo<Route>[],
         ignoreFailure: boolean,
@@ -592,5 +594,35 @@ scenarios.forEach(function (scenario) {
     );
     assert.notOk(router.isActive('index', { queryParams: { foo: ['3', '4'] } }), 'Change Content');
     assert.notOk(router.isActive('index', { queryParams: { foo: [] } }), 'Empty Array');
+  });
+
+  test('send queryParamsDidChange with old query params after aborting transition in routeWillChange', function (assert) {
+    let lastQueryParamsDidChange = null;
+    const handler = {
+      events: {
+        finalizeQueryParamChange: function (params: Dict<unknown>, finalParams: Dict<unknown>[]) {
+          finalParams.push({ key: 'foo', value: params.foo });
+        },
+        queryParamsDidChange: function (_changed: Dict<unknown>, all: Dict<unknown>, _removed: Dict<unknown>) {
+          lastQueryParamsDidChange = all;
+        }
+      },
+    };
+    handlers.a = createHandler('a', handler);
+    handlers.b = createHandler('b', handler);
+    routerOverrides.routeWillChange = function (transition) {
+      if (transition.to?.name === 'b') {
+        transition.abort();
+      }
+    }
+    map(assert, function (match) {
+      match('/a').to('a');
+      match('/b').to('b');
+    });
+
+    transitionTo(router, '/a?foo=1');
+    transitionTo(router, '/b?foo=2');
+
+    assert.deepEqual(lastQueryParamsDidChange, { foo: '1' })
   });
 });

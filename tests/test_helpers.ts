@@ -145,7 +145,7 @@ export class TestRouter extends Router<Route> {
     _args: any[]
   ) {}
   routeDidChange() {}
-  routeWillChange() {}
+  routeWillChange(_transition: Transition | undefined) {}
   transitionDidError(error: TransitionError, transition: PublicTransition) {
     if (error.wasAborted || transition.isAborted) {
       return logAbort(transition);
