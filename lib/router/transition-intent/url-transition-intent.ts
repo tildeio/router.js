@@ -5,17 +5,17 @@ import TransitionState from '../transition-state';
 import UnrecognizedURLError from '../unrecognized-url-error';
 import { merge } from '../utils';
 
-export default class URLTransitionIntent<T extends Route> extends TransitionIntent<T> {
-  preTransitionState?: TransitionState<T>;
+export default class URLTransitionIntent<R extends Route<{}>> extends TransitionIntent<R> {
+  preTransitionState?: TransitionState<R>;
   url: string;
-  constructor(router: Router<T>, url: string, data?: {}) {
+  constructor(router: Router<R>, url: string, data?: {}) {
     super(router, data);
     this.url = url;
     this.preTransitionState = undefined;
   }
 
-  applyToState(oldState: TransitionState<T>) {
-    let newState = new TransitionState<T>();
+  applyToState(oldState: TransitionState<R>) {
+    let newState = new TransitionState<R>();
     let results = this.router.recognizer.recognize(this.url),
       i,
       len;
@@ -30,7 +30,7 @@ export default class URLTransitionIntent<T extends Route> extends TransitionInte
     // Checks if a handler is accessible by URL. If it is not, an error is thrown.
     // For the case where the handler is loaded asynchronously, the error will be
     // thrown once it is loaded.
-    function checkHandlerAccessibility(handler: T) {
+    function checkHandlerAccessibility(handler: R) {
       if (handler && handler.inaccessibleByURL) {
         throw new UnrecognizedURLError(_url);
       }

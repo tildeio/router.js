@@ -64,6 +64,9 @@
     "route-recognizer": "^0.3.4",
     "rsvp": "^4.8.5"
   },
+  "resolutions": {
+    "typescript": "^4.5.5"
+  },
   "peerDependencies": {
     "route-recognizer": "^0.3.4",
     "rsvp": "^4.8.5"

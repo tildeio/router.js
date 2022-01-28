@@ -18,7 +18,7 @@ test('correct inheritance and name', function (assert) {
 
   // it would be more correct with TransitionAbortedError, but other libraries may rely on this name
   assert.equal(
-    error.name,
+    (error as Error).name,
     'TransitionAborted',
     "TransitionAbortedError has the name 'TransitionAborted'"
   );

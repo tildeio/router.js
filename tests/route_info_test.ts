@@ -142,7 +142,7 @@ test('UnresolvedRouteInfoByParam gets its model hook called', async function (as
 test('UnresolvedRouteInfoByObject does NOT get its model hook called', async function (assert) {
   assert.expect(1);
 
-  class TestRouteInfo extends UnresolvedRouteInfoByObject<Route> {
+  class TestRouteInfo extends UnresolvedRouteInfoByObject<Route<{}>> {
     __routeHandler?: Route;
     get route(): Route {
       if (this.__routeHandler) {
