@@ -25,19 +25,19 @@ let test = QUnit.test;
 function module(name: string, options?: any) {
   options = options || {};
   QUnit.module(name, {
-    beforeEach: function () {
+    beforeEach: function (...args: unknown[]) {
       configure('async', customAsync);
       bb.begin();
 
       if (options.setup) {
-        options.setup.apply(this, arguments);
+        options.setup.apply(this, args);
       }
     },
-    afterEach: function () {
+    afterEach: function (...args: unknown[]) {
       bb.end();
 
       if (options.teardown) {
-        options.teardown.apply(this, arguments);
+        options.teardown.apply(this, args);
       }
     },
   });

@@ -48,7 +48,6 @@ module.exports = {
 
         // TODO: stop disabling these rules
         'prefer-const': 'off',
-        'prefer-rest-params': 'off',
         'no-prototype-builtins': 'off',
         '@typescript-eslint/ban-types': 'off',
         '@typescript-eslint/ban-ts-comment': 'off',
