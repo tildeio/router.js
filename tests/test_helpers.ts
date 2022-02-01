@@ -133,13 +133,13 @@ export function createHandler<T extends IModel>(name: string, options?: Dict<unk
   ) as unknown) as Route<T>;
 }
 
-export class TestRouter extends Router<Route<{}>> {
+export class TestRouter<R extends Route = Route> extends Router<R> {
   didTransition() {}
   willTransition() {}
   updateURL(_url: string): void {}
   replaceURL(_url: string): void {}
   triggerEvent(
-    _handlerInfos: RouteInfo<Route<{}>>[],
+    _handlerInfos: RouteInfo<R>[],
     _ignoreFailure: boolean,
     _name: string,
     _args: any[]

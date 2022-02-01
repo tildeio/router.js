@@ -1,6 +1,7 @@
 import { Transition } from 'router';
 import { Dict } from 'router/core';
 import {
+  IModel,
   ResolvedRouteInfo,
   Route,
   toReadOnlyRouteInfo,
@@ -140,11 +141,13 @@ test('UnresolvedRouteInfoByParam gets its model hook called', async function (as
 });
 
 test('UnresolvedRouteInfoByObject does NOT get its model hook called', async function (assert) {
+  type Dorkleton = { name: string } & IModel;
+
   assert.expect(1);
 
-  class TestRouteInfo extends UnresolvedRouteInfoByObject<Route<{}>> {
-    __routeHandler?: Route;
-    get route(): Route {
+  class TestRouteInfo extends UnresolvedRouteInfoByObject<Route<Dorkleton>> {
+    __routeHandler?: Route<Dorkleton>;
+    get route(): Route<Dorkleton> {
       if (this.__routeHandler) {
         return this.__routeHandler;
       }
@@ -164,7 +167,6 @@ test('UnresolvedRouteInfoByObject does NOT get its model hook called', async fun
   );
 
   let resolvedRouteInfo = await routeInfo.resolve({} as Transition);
-  // @ts-ignore
   assert.equal(resolvedRouteInfo.context!.name, 'dorkletons');
 });
 
