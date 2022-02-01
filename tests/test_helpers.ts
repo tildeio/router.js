@@ -11,7 +11,7 @@ import { isTransitionAborted } from 'router/transition-aborted-error';
 QUnit.config.testTimeout = 1000;
 
 let bb = new Backburner(['promises']);
-function customAsync(callback: Function, promise: Promise<unknown>) {
+function customAsync(callback: (...args: unknown[]) => unknown, promise: Promise<unknown>) {
   bb.defer('promises', promise, callback, promise);
 }
 

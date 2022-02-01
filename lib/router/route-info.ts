@@ -22,7 +22,7 @@ export interface Route<T extends IModel = {}> {
   routeName: string;
   _internalName: string;
   context: T | undefined;
-  events?: Dict<Function>;
+  events?: Dict<(...args: unknown[]) => unknown>;
   model?(params: Dict<unknown>, transition: Transition): PromiseLike<T> | undefined | T;
   deserialize?(params: Dict<unknown>, transition: Transition): T | PromiseLike<T> | undefined;
   serialize?(model: T | undefined, params: string[]): Dict<unknown> | undefined;
