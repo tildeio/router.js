@@ -1,3 +1,12 @@
+## v8.0.0 (2022-02-02)
+
+#### :boom: Breaking Change
+* [#329](https://github.com/tildeio/router.js/pull/329) Better Types ([@wagenet](https://github.com/wagenet))
+
+#### Committers: 1
+- Peter Wagenet ([@wagenet](https://github.com/wagenet))
+
+
 ## v7.3.0 (2021-03-07)
 
 #### :rocket: Enhancement
