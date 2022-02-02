@@ -1,5 +1,7 @@
 import { Dict } from '../core';
 import InternalRouteInfo, {
+  ModelFor,
+  ResolvedRouteInfo,
   Route,
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,
@@ -9,18 +11,18 @@ import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import { extractQueryParams, isParam, merge } from '../utils';
 
-export default class NamedTransitionIntent<T extends Route> extends TransitionIntent<T> {
+export default class NamedTransitionIntent<R extends Route<{}>> extends TransitionIntent<R> {
   name: string;
   pivotHandler?: Route;
-  contexts: unknown[];
+  contexts: ModelFor<R>[];
   queryParams: Dict<unknown>;
-  preTransitionState?: TransitionState<T> = undefined;
+  preTransitionState?: TransitionState<R> = undefined;
 
   constructor(
-    router: Router<T>,
+    router: Router<R>,
     name: string,
     pivotHandler: Route | undefined,
-    contexts: unknown[] = [],
+    contexts: ModelFor<R>[] = [],
     queryParams: Dict<unknown> = {},
     data?: {}
   ) {
@@ -31,7 +33,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
     this.queryParams = queryParams;
   }
 
-  applyToState(oldState: TransitionState<T>, isIntermediate: boolean): TransitionState<T> {
+  applyToState(oldState: TransitionState<R>, isIntermediate: boolean): TransitionState<R> {
     // TODO: WTF fix me
     let partitionedArgs = extractQueryParams([this.name].concat(this.contexts as any)),
       pureArgs = partitionedArgs[0],
@@ -43,14 +45,14 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
   }
 
   applyToHandlers(
-    oldState: TransitionState<T>,
+    oldState: TransitionState<R>,
     parsedHandlers: ParsedHandler[],
     targetRouteName: string,
     isIntermediate: boolean,
     checkingIfActive: boolean
   ) {
     let i, len;
-    let newState = new TransitionState<T>();
+    let newState = new TransitionState<R>();
     let objects = this.contexts.slice(0);
 
     let invalidateIndex = parsedHandlers.length;
@@ -70,7 +72,11 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
       let name = result.handler;
 
       let oldHandlerInfo = oldState.routeInfos[i];
-      let newHandlerInfo = null;
+      let newHandlerInfo:
+        | InternalRouteInfo<R>
+        | UnresolvedRouteInfoByObject<R>
+        | ResolvedRouteInfo<R>
+        | null = null;
 
       if (result.names.length > 0) {
         if (i >= invalidateIndex) {
@@ -99,7 +105,8 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
         // ignore mismatches between old and new context.
         newHandlerInfo = newHandlerInfo.becomeResolved(
           null,
-          newHandlerInfo.context as Dict<unknown>
+          // SAFETY: This seems to imply that it would be resolved, but it's unclear if that's actually the case.
+          newHandlerInfo.context as Awaited<typeof newHandlerInfo.context>
         );
         let oldContext = oldHandlerInfo && oldHandlerInfo.context;
         if (
@@ -112,17 +119,25 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
           // handler provide a `serialize` method
           newHandlerInfo.params = oldHandlerInfo && oldHandlerInfo.params;
         }
-        newHandlerInfo.context = oldContext;
+        newHandlerInfo.context = oldContext as Awaited<typeof oldContext>;
       }
 
-      let handlerToUse = oldHandlerInfo;
+      let handlerToUse:
+        | InternalRouteInfo<R>
+        | UnresolvedRouteInfoByObject<R>
+        | ResolvedRouteInfo<R> = oldHandlerInfo;
+
       if (i >= invalidateIndex || newHandlerInfo.shouldSupersede(oldHandlerInfo)) {
         invalidateIndex = Math.min(i, invalidateIndex);
         handlerToUse = newHandlerInfo;
       }
 
       if (isIntermediate && !checkingIfActive) {
-        handlerToUse = handlerToUse.becomeResolved(null, handlerToUse.context as Dict<unknown>);
+        handlerToUse = handlerToUse.becomeResolved(
+          null,
+          // SAFETY: This seems to imply that it would be resolved, but it's unclear if that's actually the case.
+          handlerToUse.context as ModelFor<R>
+        );
       }
 
       newState.routeInfos.unshift(handlerToUse);
@@ -147,7 +162,7 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
     return newState;
   }
 
-  invalidateChildren(handlerInfos: InternalRouteInfo<T>[], invalidateIndex: number) {
+  invalidateChildren(handlerInfos: InternalRouteInfo<R>[], invalidateIndex: number) {
     for (let i = invalidateIndex, l = handlerInfos.length; i < l; ++i) {
       let handlerInfo = handlerInfos[i];
       if (handlerInfo.isResolved) {
@@ -166,12 +181,12 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
   getHandlerInfoForDynamicSegment(
     name: string,
     names: string[],
-    objects: unknown[],
-    oldHandlerInfo: InternalRouteInfo<T>,
+    objects: ModelFor<R>[],
+    oldHandlerInfo: InternalRouteInfo<R>,
     _targetRouteName: string,
     i: number
-  ) {
-    let objectToUse: unknown;
+  ): UnresolvedRouteInfoByObject<R> {
+    let objectToUse: ModelFor<R> | PromiseLike<ModelFor<R>> | undefined;
     if (objects.length > 0) {
       // Use the objects provided for this transition.
       objectToUse = objects[objects.length - 1];
@@ -185,8 +200,10 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
       return oldHandlerInfo;
     } else {
       if (this.preTransitionState) {
-        let preTransitionHandlerInfo = this.preTransitionState.routeInfos[i];
-        objectToUse = preTransitionHandlerInfo && preTransitionHandlerInfo.context!;
+        let preTransitionHandlerInfo = this.preTransitionState.routeInfos[i] as
+          | ResolvedRouteInfo<R>
+          | undefined;
+        objectToUse = preTransitionHandlerInfo?.context;
       } else {
         // Ideally we should throw this error to provide maximal
         // information to the user that not enough context objects
@@ -199,14 +216,14 @@ export default class NamedTransitionIntent<T extends Route> extends TransitionIn
       }
     }
 
-    return new UnresolvedRouteInfoByObject(this.router, name, names, objectToUse as Dict<unknown>);
+    return new UnresolvedRouteInfoByObject(this.router, name, names, objectToUse);
   }
 
   createParamHandlerInfo(
     name: string,
     names: string[],
     objects: unknown[],
-    oldHandlerInfo: InternalRouteInfo<T>
+    oldHandlerInfo: InternalRouteInfo<R>
   ) {
     let params: Dict<unknown> = {};
 

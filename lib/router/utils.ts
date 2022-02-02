@@ -1,3 +1,4 @@
+import { QueryParams } from 'route-recognizer';
 import { Promise } from 'rsvp';
 import { Dict } from './core';
 import Router from './router';
@@ -25,25 +26,37 @@ export function merge(hash: Dict<unknown>, other?: Dict<unknown>) {
 
   Extracts query params from the end of an array
 **/
-export function extractQueryParams<T>(array: T[]): [T[], Dict<unknown> | null] {
+export function extractQueryParams<T>(
+  array: T[] | [...T[], QueryParamsContainer]
+): [T[], QueryParams | null] {
   let len = array && array.length,
     head,
     queryParams;
 
   if (len && len > 0) {
     let obj = array[len - 1];
-    if (isQueryParams(obj)) {
+    if (isQueryParamsContainer(obj)) {
       queryParams = obj.queryParams;
       head = slice.call(array, 0, len - 1);
       return [head, queryParams];
     }
   }
 
-  return [array, null];
+  // SAFETY: We confirmed that the last item isn't a QP container
+  return [array as T[], null];
 }
 
-function isQueryParams(obj: unknown): obj is { queryParams: Dict<unknown> } {
-  return obj && hasOwnProperty.call(obj, 'queryParams');
+export type QueryParamsContainer = { queryParams: QueryParams };
+
+// TODO: Actually check that Dict is QueryParams
+function isQueryParamsContainer(obj: unknown): obj is QueryParamsContainer {
+  if (obj && typeof obj === 'object') {
+    let cast = obj as QueryParamsContainer;
+    return (
+      'queryParams' in cast && Object.keys(cast.queryParams).every((k) => typeof k === 'string')
+    );
+  }
+  return false;
 }
 
 /**

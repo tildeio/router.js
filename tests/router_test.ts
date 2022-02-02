@@ -2,6 +2,7 @@ import { MatchCallback } from 'route-recognizer';
 import Router, { Route, Transition } from 'router';
 import { Dict, Maybe } from 'router/core';
 import RouteInfo, {
+  IModel,
   RouteInfo as PublicRouteInfo,
   RouteInfoWithAttributes,
 } from 'router/route-info';
@@ -25,7 +26,7 @@ import {
   trigger,
 } from './test_helpers';
 
-let router: Router<Route>;
+let router: Router<Route<{}>>;
 let url: string | undefined;
 let routes: Dict<Route>;
 
@@ -33,7 +34,7 @@ function isPresent(maybe: Maybe<PublicRouteInfo>): maybe is PublicRouteInfo {
   return maybe !== undefined && maybe !== null;
 }
 
-let serializers: Dict<SerializerFunc>, expectedUrl: Maybe<string>;
+let serializers: Dict<SerializerFunc<Dict<unknown>>>, expectedUrl: Maybe<string>;
 let scenarios = [
   {
     name: 'Sync Get Handler',
@@ -104,7 +105,7 @@ scenarios.forEach(function (scenario) {
         this.updateURL(name);
       }
       triggerEvent(
-        handlerInfos: RouteInfo<Route>[],
+        handlerInfos: RouteInfo<Route<{}>>[],
         ignoreFailure: boolean,
         name: string,
         args: any[]
@@ -157,7 +158,7 @@ scenarios.forEach(function (scenario) {
     });
   });
 
-  function routePath(infos: RouteInfo<Route>[]) {
+  function routePath(infos: RouteInfo<Route<{}>>[]) {
     let path = [];
 
     for (let i = 0, l = infos.length; i < l; i++) {
@@ -1770,8 +1771,10 @@ scenarios.forEach(function (scenario) {
   });
 
   test("when transitioning to a new parent and child state, the parent's context should be available to the child's model", function (assert) {
+    type Post = IModel;
+
     assert.expect(1);
-    let contexts: Dict<unknown>[] = [];
+    let contexts: Array<Post | undefined> = [];
 
     map(assert, function (match) {
       match('/').to('index');
@@ -1781,16 +1784,16 @@ scenarios.forEach(function (scenario) {
     });
 
     routes = {
-      post: createHandler('post', {
+      post: createHandler<Post>('post', {
         model: function () {
           return contexts;
         },
       }),
 
-      postDetails: createHandler('postDetails', {
+      postDetails: createHandler<Post>('postDetails', {
         name: 'postDetails',
-        afterModel: function (_model: Dict<unknown>, transition: Transition) {
-          contexts.push(transition.resolvedModels.post!);
+        afterModel: function (_model: Post, transition: Transition) {
+          contexts.push(transition.resolvedModels.post as Post | undefined);
         },
       }),
     };
@@ -1976,12 +1979,8 @@ scenarios.forEach(function (scenario) {
             'showFilteredPosts',
             'going to same route'
           );
-          assert.equal(
-            transition.from && transition.from.params.filter_id,
-            'amazing',
-            'old params'
-          );
-          assert.equal(transition.to && transition.to.params.filter_id, 'sad', 'new params');
+          assert.equal(transition.from?.params?.filter_id, 'amazing', 'old params');
+          assert.equal(transition.to?.params?.filter_id, 'sad', 'new params');
           assert.equal(
             postIndexHandler.context,
             posts,
@@ -2309,6 +2308,8 @@ scenarios.forEach(function (scenario) {
   });
 
   test('transition.resolvedModels after redirects b/w routes', function (assert) {
+    type Application = { app: boolean } & IModel;
+
     assert.expect(3);
 
     map(assert, function (match) {
@@ -2321,7 +2322,7 @@ scenarios.forEach(function (scenario) {
     let app = { app: true };
 
     routes = {
-      application: createHandler('application', {
+      application: createHandler<Application>('application', {
         model: function () {
           assert.ok(true, 'application#model');
           return app;
@@ -2331,7 +2332,7 @@ scenarios.forEach(function (scenario) {
       peter: createHandler('peter', {
         model: function (_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(
-            transition.resolvedModels.application,
+            transition.resolvedModels.application as Application,
             app,
             'peter: resolvedModel correctly stored in resolvedModels for parent route'
           );
@@ -2341,7 +2342,7 @@ scenarios.forEach(function (scenario) {
       wagenet: createHandler('wagenet', {
         model: function (_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(
-            transition.resolvedModels.application,
+            transition.resolvedModels.application as Application | undefined,
             app,
             'wagenet: resolvedModel correctly stored in resolvedModels for parent route'
           );
@@ -2353,11 +2354,13 @@ scenarios.forEach(function (scenario) {
   });
 
   test('transition.resolvedModels after redirects within the same route', function (assert) {
+    type Admin = IModel & { admin: boolean };
+
     let admin = { admin: true },
       redirect = true;
 
     routes = {
-      admin: createHandler('admin', {
+      admin: createHandler<Admin>('admin', {
         model: function () {
           assert.ok(true, 'admin#model');
           return admin;
@@ -2367,7 +2370,7 @@ scenarios.forEach(function (scenario) {
       adminPosts: createHandler('adminPosts', {
         model: function (_params: Dict<unknown>, transition: Transition) {
           assert.deepEqual(
-            transition.resolvedModels.admin,
+            transition.resolvedModels.admin as Admin | undefined,
             admin,
             'resolvedModel correctly stored in resolvedModels for parent route'
           );
@@ -2616,7 +2619,7 @@ scenarios.forEach(function (scenario) {
       }),
     };
     router.triggerEvent = function (
-      handlerInfos: RouteInfo<Route>[],
+      handlerInfos: RouteInfo<Route<{}>>[],
       ignoreFailure: boolean,
       name: string,
       args: any[]
@@ -3008,6 +3011,7 @@ scenarios.forEach(function (scenario) {
     );
     assert.ok(!router.isActive('adminPost'), 'The adminPost handler is inactive');
     assert.ok(
+      // @ts-expect-error BUG: The types don't allow for `null` to be passed here. This behavior seems to be undocumented.
       !router.isActive('showPost', null),
       'The showPost handler is inactive with a null context'
     );
@@ -3054,20 +3058,22 @@ scenarios.forEach(function (scenario) {
   });
 
   test('calling transitionTo on a dynamic parent route causes non-dynamic child context to be updated', function (assert) {
+    type Project = { project_id: string } & IModel;
+
     map(assert, function (match) {
       match('/project/:project_id').to('project', function (match) {
         match('/').to('projectIndex');
       });
     });
 
-    let projectHandler = createHandler('project', {
+    let projectHandler = createHandler<Project>('project', {
       model: function (params: Dict<unknown>) {
         delete params.queryParams;
         return params;
       },
     });
 
-    let projectIndexHandler = createHandler('projectIndex', {
+    let projectIndexHandler = createHandler<Project>('projectIndex', {
       model: function (_params: Dict<unknown>, transition: Transition) {
         return transition.resolvedModels.project;
       },
@@ -4927,8 +4933,8 @@ scenarios.forEach(function (scenario) {
       router.getRoute = function (name) {
         count++;
 
-        return (scenario.getRoute.call(null, name) as Promise<Route>).then(function (
-          handler: Route
+        return Promise.resolve(scenario.getRoute.call(null, name)).then(function (
+          handler: Route<{}>
         ) {
           assert.equal(count, handlerCount);
           return handler;
@@ -4990,13 +4996,14 @@ scenarios.forEach(function (scenario) {
       // When using an async getHandler serializers need to be loaded separately
       if (scenario.async) {
         serializers = {
-          parent: function (obj: Dict<unknown>) {
+          parent: function (obj) {
+            // TODO: Review this
             return {
               one: obj.one,
               two: obj.two,
             };
           },
-          child: function (obj: Dict<unknown>) {
+          child: function (obj) {
             return {
               three: obj.three,
               four: obj.four,

@@ -8,4 +8,4 @@ export {
   QUERY_PARAMS_SYMBOL,
 } from './transition';
 export { default as TransitionState, TransitionError } from './transition-state';
-export { default as InternalRouteInfo, RouteInfo, Route } from './route-info';
+export { default as InternalRouteInfo, IModel, ModelFor, RouteInfo, Route } from './route-info';

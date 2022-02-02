@@ -48,14 +48,17 @@ module.exports = {
 
         // TODO: stop disabling these rules
         'prefer-const': 'off',
-        'prefer-rest-params': 'off',
         'no-prototype-builtins': 'off',
-        '@typescript-eslint/ban-types': 'off',
-        '@typescript-eslint/ban-ts-comment': 'off',
-        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/ban-types': [
+          'error',
+          {
+            extendDefaults: true,
+            types: {
+              '{}': false,
+            },
+          },
+        ],
         '@typescript-eslint/no-non-null-assertion': 'off',
-        '@typescript-eslint/explicit-module-boundary-types': 'off',
-        '@typescript-eslint/no-this-alias': 'off',
       },
     },
 

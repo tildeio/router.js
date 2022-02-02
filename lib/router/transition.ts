@@ -1,6 +1,11 @@
 import { Promise } from 'rsvp';
 import { Dict, Maybe, Option } from './core';
-import InternalRouteInfo, { Route, RouteInfo, RouteInfoWithAttributes } from './route-info';
+import InternalRouteInfo, {
+  ModelFor,
+  Route,
+  RouteInfo,
+  RouteInfoWithAttributes,
+} from './route-info';
 import Router from './router';
 import { TransitionAbortedError, buildTransitionAborted } from './transition-aborted-error';
 import { OpaqueIntent } from './transition-intent';
@@ -39,21 +44,21 @@ export const QUERY_PARAMS_SYMBOL = `__QPS__-2619863929824844-32323`;
   @param {Object} error
   @private
  */
-export default class Transition<T extends Route> implements Partial<Promise<T>> {
-  [STATE_SYMBOL]: TransitionState<T>;
+export default class Transition<R extends Route<{}>> implements Partial<Promise<R>> {
+  [STATE_SYMBOL]: TransitionState<R>;
   from: Maybe<RouteInfoWithAttributes> = null;
   to?: RouteInfo | RouteInfoWithAttributes = undefined;
-  router: Router<T>;
+  router: Router<R>;
   data: Dict<unknown>;
   intent: Maybe<OpaqueIntent>;
-  resolvedModels: Dict<Dict<unknown>>;
+  resolvedModels: Dict<ModelFor<R> | undefined>;
   [QUERY_PARAMS_SYMBOL]: Dict<unknown>;
   promise?: Promise<any>; // Todo: Fix this shit its actually TransitionState | IHandler | undefined | Error
-  error: Maybe<Error>;
+  error: Maybe<unknown>;
   [PARAMS_SYMBOL]: Dict<unknown>;
-  routeInfos: InternalRouteInfo<Route>[];
+  routeInfos: InternalRouteInfo<R>[];
   targetName: Maybe<string>;
-  pivotHandler: Maybe<Route>;
+  pivotHandler: Maybe<{}>;
   sequence: number;
   isAborted = false;
   isActive = true;
@@ -94,14 +99,14 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     @property debugPreviousTransition
     @type {Transition | undefined}
   */
-  declare debugPreviousTransition: Maybe<Transition<T>>;
+  declare debugPreviousTransition: Maybe<Transition<R>>;
 
   constructor(
-    router: Router<T>,
+    router: Router<R>,
     intent: Maybe<OpaqueIntent>,
-    state: TransitionState<T> | undefined,
-    error: Maybe<Error> = undefined,
-    previousTransition: Maybe<Transition<T>> = undefined
+    state: TransitionState<R> | undefined,
+    error: Maybe<unknown> = undefined,
+    previousTransition: Maybe<Transition<R>> = undefined
   ) {
     this[STATE_SYMBOL] = state! || router.state!;
     this.intent = intent;
@@ -222,8 +227,8 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     @return {Promise}
     @public
    */
-  then<TResult1 = T, TResult2 = never>(
-    onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+  then<TResult1 = R, TResult2 = never>(
+    onFulfilled?: ((value: R) => TResult1 | PromiseLike<TResult1>) | undefined | null,
     onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null,
     label?: string
   ): Promise<TResult1 | TResult2> {
@@ -303,7 +308,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     }
   }
 
-  redirect(newTransition: Transition<T>) {
+  redirect(newTransition: Transition<R>) {
     this.rollback();
     this.router.routeWillChange(newTransition);
   }
@@ -367,7 +372,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
     ignoreFailure = false,
     _name: string,
     err?: Error,
-    transition?: Transition<T>,
+    transition?: Transition<R>,
     handler?: Route
   ) {
     this.trigger(ignoreFailure, _name, err, transition, handler);
@@ -413,7 +418,7 @@ export default class Transition<T extends Route> implements Partial<Promise<T>> 
       value that the final redirecting transition fulfills with
     @public
    */
-  followRedirects(): Promise<T> {
+  followRedirects(): Promise<R> {
     let router = this.router;
     return this.promise!.catch(function (reason) {
       if (router.activeTransition) {

@@ -38,13 +38,13 @@ scenarios.forEach(function (scenario) {
     }
   }
 
-  let router: Router<Route>;
+  let router: Router<Route<{}>>;
 
   // Asserts that a handler from a handlerInfo equals an expected valued.
   // Returns a promise during async scenarios to wait until the handler is ready.
   function assertHandlerEquals(
     assert: Assert,
-    handlerInfo: InternalRouteInfo<Route>,
+    handlerInfo: InternalRouteInfo<Route<{}>>,
     expected: Route
   ) {
     if (!scenario.async) {
