@@ -28,6 +28,7 @@ import {
   getChangelist,
   log,
   merge,
+  ModelsAndQueryParams,
   promiseLabel,
   QueryParamsContainer,
 } from './utils';
@@ -945,7 +946,7 @@ export default abstract class Router<R extends Route<{}>> {
 
     @return {String} a URL
   */
-  generate(routeName: string, ...args: ModelFor<R>[]) {
+  generate(routeName: string, ...args: ModelsAndQueryParams<ModelFor<R>>) {
     let partitionedArgs = extractQueryParams(args),
       suppliedParams = partitionedArgs[0],
       queryParams = partitionedArgs[1];
@@ -1032,7 +1033,7 @@ export default abstract class Router<R extends Route<{}>> {
     return routesEqual && !getChangelist(activeQPsOnNewHandler, queryParams);
   }
 
-  isActive(routeName: string, ...args: ModelFor<R>[] | [...ModelFor<R>[], QueryParamsContainer]) {
+  isActive(routeName: string, ...args: ModelsAndQueryParams<ModelFor<R>>) {
     let [contexts, queryParams] = extractQueryParams(args);
     return this.isActiveIntent(routeName, contexts, queryParams);
   }

@@ -9,7 +9,7 @@ import InternalRouteInfo, {
 import Router, { ParsedHandler } from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
-import { extractQueryParams, isParam, merge } from '../utils';
+import { isParam, merge } from '../utils';
 
 export default class NamedTransitionIntent<R extends Route<{}>> extends TransitionIntent<R> {
   name: string;
@@ -34,10 +34,7 @@ export default class NamedTransitionIntent<R extends Route<{}>> extends Transiti
   }
 
   applyToState(oldState: TransitionState<R>, isIntermediate: boolean): TransitionState<R> {
-    // TODO: WTF fix me
-    let partitionedArgs = extractQueryParams([this.name].concat(this.contexts as any)),
-      pureArgs = partitionedArgs[0],
-      handlers: ParsedHandler[] = this.router.recognizer.handlersFor(pureArgs[0]);
+    let handlers: ParsedHandler[] = this.router.recognizer.handlersFor(this.name);
 
     let targetRouteName = handlers[handlers.length - 1].handler;
 
