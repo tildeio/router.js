@@ -48,7 +48,7 @@
     "broccoli-concat": "^4.2.4",
     "broccoli-funnel": "^3.0.3",
     "broccoli-merge-trees": "^4.2.0",
-    "broccoli-typescript-compiler": "^7.0.0",
+    "broccoli-typescript-compiler": "^8.0.0",
     "ember-cli": "~3.22.0",
     "ember-cli-inject-live-reload": "^2.0.2",
     "ensure-posix-path": "^1.1.1",
