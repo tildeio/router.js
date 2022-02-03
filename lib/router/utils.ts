@@ -21,14 +21,14 @@ export function merge(hash: Dict<unknown>, other?: Dict<unknown>) {
   }
 }
 
+export type ModelsAndQueryParams<T> = T[] | [...T[], QueryParamsContainer];
+
 /**
   @private
 
   Extracts query params from the end of an array
 **/
-export function extractQueryParams<T>(
-  array: T[] | [...T[], QueryParamsContainer]
-): [T[], QueryParams | null] {
+export function extractQueryParams<T>(array: ModelsAndQueryParams<T>): [T[], QueryParams | null] {
   let len = array && array.length,
     head,
     queryParams;
