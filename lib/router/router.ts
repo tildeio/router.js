@@ -30,7 +30,6 @@ import {
   merge,
   ModelsAndQueryParams,
   promiseLabel,
-  QueryParamsContainer,
 } from './utils';
 
 export interface SerializerFunc<T extends IModel> {
