@@ -40,6 +40,7 @@
     "@babel/plugin-transform-modules-commonjs": "^7.12.1",
     "@types/node": "^14.14.6",
     "@types/qunit": "^2.9.6",
+    "@types/rsvp": "^4.0.4",
     "@typescript-eslint/eslint-plugin": "^5.10.2",
     "@typescript-eslint/parser": "^5.10.2",
     "babel-plugin-debug-macros": "^0.3.3",
