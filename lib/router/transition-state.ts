@@ -9,7 +9,7 @@ interface IParams {
   [key: string]: unknown;
 }
 
-function handleError<R extends Route<{}>>(
+function handleError<R extends Route>(
   currentState: TransitionState<R>,
   transition: Transition<R>,
   error: Error
@@ -30,7 +30,7 @@ function handleError<R extends Route<{}>>(
   );
 }
 
-function resolveOneRouteInfo<R extends Route<{}>>(
+function resolveOneRouteInfo<R extends Route>(
   currentState: TransitionState<R>,
   transition: Transition<R>
 ): void | Promise<void> {
@@ -49,7 +49,7 @@ function resolveOneRouteInfo<R extends Route<{}>>(
   return routeInfo.resolve(transition).then(callback, null, currentState.promiseLabel('Proceed'));
 }
 
-function proceed<R extends Route<{}>>(
+function proceed<R extends Route>(
   currentState: TransitionState<R>,
   transition: Transition<R>,
   resolvedRouteInfo: ResolvedRouteInfo<R>
@@ -80,7 +80,7 @@ function proceed<R extends Route<{}>>(
   return resolveOneRouteInfo(currentState, transition);
 }
 
-export default class TransitionState<R extends Route<{}>> {
+export default class TransitionState<R extends Route> {
   routeInfos: InternalRouteInfo<R>[] = [];
   queryParams: Dict<unknown> = {};
   params: IParams = {};

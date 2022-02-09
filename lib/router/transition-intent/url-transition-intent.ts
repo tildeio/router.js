@@ -5,7 +5,7 @@ import TransitionState from '../transition-state';
 import UnrecognizedURLError from '../unrecognized-url-error';
 import { merge } from '../utils';
 
-export default class URLTransitionIntent<R extends Route<{}>> extends TransitionIntent<R> {
+export default class URLTransitionIntent<R extends Route> extends TransitionIntent<R> {
   preTransitionState?: TransitionState<R>;
   url: string;
   constructor(router: Router<R>, url: string, data?: {}) {

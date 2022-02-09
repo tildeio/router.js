@@ -53,7 +53,7 @@ function assertAbort(assert: Assert) {
 // the backburner queue. Helpful for when you want to write
 // tests that avoid .then callbacks.
 function transitionTo(
-  router: Router<Route<{}>>,
+  router: Router<Route>,
   path: string | { queryParams: Dict<unknown> },
   ...context: any[]
 ) {
@@ -62,18 +62,18 @@ function transitionTo(
   return result;
 }
 
-function transitionToWithAbort(assert: Assert, router: Router<Route<{}>>, path: string) {
+function transitionToWithAbort(assert: Assert, router: Router<Route>, path: string) {
   router.transitionTo(path).then(shouldNotHappen(assert), assertAbort(assert));
   flushBackburner();
 }
 
-function replaceWith(router: Router<Route<{}>>, path: string) {
+function replaceWith(router: Router<Route>, path: string) {
   let result = router.transitionTo.apply(router, [path]).method('replace');
   flushBackburner();
   return result;
 }
 
-function handleURL(router: Router<Route<{}>>, url: string) {
+function handleURL(router: Router<Route>, url: string) {
   let result = router.handleURL.apply(router, [url]);
   flushBackburner();
   return result;
@@ -88,7 +88,7 @@ function shouldNotHappen(assert: Assert, _message?: string) {
   };
 }
 
-export function isExiting(route: Route | string, routeInfos: RouteInfo<Route<{}>>[]) {
+export function isExiting(route: Route | string, routeInfos: RouteInfo<Route>[]) {
   for (let i = 0, len = routeInfos.length; i < len; ++i) {
     let routeInfo = routeInfos[i];
     if (routeInfo.name === route || routeInfo.route === route) {
@@ -163,9 +163,9 @@ export class TestRouter<R extends Route = Route> extends Router<R> {
   }
 }
 
-export function createHandlerInfo(name: string, options: Dict<unknown> = {}): RouteInfo<Route<{}>> {
-  class Stub extends RouteInfo<Route<{}>> {
-    constructor(name: string, router: Router<Route<{}>>, handler?: Route) {
+export function createHandlerInfo(name: string, options: Dict<unknown> = {}): RouteInfo<Route> {
+  class Stub extends RouteInfo<Route> {
+    constructor(name: string, router: Router<Route>, handler?: Route) {
       super(router, name, [], handler);
     }
     getModel(_transition: Transition) {
@@ -185,7 +185,7 @@ export function createHandlerInfo(name: string, options: Dict<unknown> = {}): Ro
 }
 
 export function trigger(
-  handlerInfos: RouteInfo<Route<{}>>[],
+  handlerInfos: RouteInfo<Route>[],
   ignoreFailure: boolean,
   name: string,
   ...args: any[]

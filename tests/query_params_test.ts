@@ -13,7 +13,7 @@ import {
   trigger,
 } from './test_helpers';
 
-let router: Router<Route<{}>>, handlers: Dict<Route>, expectedUrl: Maybe<string>;
+let router: Router<Route>, handlers: Dict<Route>, expectedUrl: Maybe<string>;
 let scenarios = [
   {
     name: 'Sync Get Handler',
@@ -52,7 +52,7 @@ scenarios.forEach(function (scenario) {
       didTransition() {}
       willTransition() {}
       triggerEvent(
-        handlerInfos: RouteInfo<Route<{}>>[],
+        handlerInfos: RouteInfo<Route>[],
         ignoreFailure: boolean,
         name: string,
         args: any[]
