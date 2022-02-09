@@ -11,7 +11,7 @@ import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import { isParam, merge } from '../utils';
 
-export default class NamedTransitionIntent<R extends Route<{}>> extends TransitionIntent<R> {
+export default class NamedTransitionIntent<R extends Route> extends TransitionIntent<R> {
   name: string;
   pivotHandler?: Route;
   contexts: ModelFor<R>[];

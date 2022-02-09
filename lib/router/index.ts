@@ -10,7 +10,6 @@ export {
 export { default as TransitionState, TransitionError } from './transition-state';
 export {
   default as InternalRouteInfo,
-  IModel,
   ModelFor,
   Route,
   RouteInfo,

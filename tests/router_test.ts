@@ -26,7 +26,7 @@ import {
   trigger,
 } from './test_helpers';
 
-let router: Router<Route<{}>>;
+let router: Router<Route>;
 let url: string | undefined;
 let routes: Dict<Route>;
 
@@ -34,7 +34,7 @@ function isPresent(maybe: Maybe<PublicRouteInfo>): maybe is PublicRouteInfo {
   return maybe !== undefined && maybe !== null;
 }
 
-let serializers: Dict<SerializerFunc<Dict<unknown>>>, expectedUrl: Maybe<string>;
+let serializers: Dict<SerializerFunc<unknown>>, expectedUrl: Maybe<string>;
 let scenarios = [
   {
     name: 'Sync Get Handler',
@@ -105,7 +105,7 @@ scenarios.forEach(function (scenario) {
         this.updateURL(name);
       }
       triggerEvent(
-        handlerInfos: RouteInfo<Route<{}>>[],
+        handlerInfos: RouteInfo<Route>[],
         ignoreFailure: boolean,
         name: string,
         args: any[]
@@ -158,7 +158,7 @@ scenarios.forEach(function (scenario) {
     });
   });
 
-  function routePath(infos: RouteInfo<Route<{}>>[]) {
+  function routePath(infos: RouteInfo<Route>[]) {
     let path = [];
 
     for (let i = 0, l = infos.length; i < l; i++) {
@@ -2619,7 +2619,7 @@ scenarios.forEach(function (scenario) {
       }),
     };
     router.triggerEvent = function (
-      handlerInfos: RouteInfo<Route<{}>>[],
+      handlerInfos: RouteInfo<Route>[],
       ignoreFailure: boolean,
       name: string,
       args: any[]
@@ -3011,7 +3011,6 @@ scenarios.forEach(function (scenario) {
     );
     assert.ok(!router.isActive('adminPost'), 'The adminPost handler is inactive');
     assert.ok(
-      // @ts-expect-error BUG: The types don't allow for `null` to be passed here. This behavior seems to be undocumented.
       !router.isActive('showPost', null),
       'The showPost handler is inactive with a null context'
     );
@@ -4933,9 +4932,7 @@ scenarios.forEach(function (scenario) {
       router.getRoute = function (name) {
         count++;
 
-        return Promise.resolve(scenario.getRoute.call(null, name)).then(function (
-          handler: Route<{}>
-        ) {
+        return Promise.resolve(scenario.getRoute.call(null, name)).then(function (handler: Route) {
           assert.equal(count, handlerCount);
           return handler;
         });
@@ -4997,16 +4994,18 @@ scenarios.forEach(function (scenario) {
       if (scenario.async) {
         serializers = {
           parent: function (obj) {
+            let castObj = obj as Dict<unknown>;
             // TODO: Review this
             return {
-              one: obj.one,
-              two: obj.two,
+              one: castObj.one,
+              two: castObj.two,
             };
           },
           child: function (obj) {
+            let castObj = obj as Dict<unknown>;
             return {
-              three: obj.three,
-              four: obj.four,
+              three: castObj.three,
+              four: castObj.four,
             };
           },
         };

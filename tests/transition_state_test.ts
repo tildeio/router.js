@@ -45,7 +45,7 @@ test("#resolve delegates to handleInfo objects' resolve()", function (assert) {
     }),
   ];
 
-  state.resolve({} as Transition).then(function (result: TransitionState<Route<{}>>) {
+  state.resolve({} as Transition).then(function (result: TransitionState<Route>) {
     assert.deepEqual(result.routeInfos, resolvedHandlerInfos);
   });
 });
@@ -104,7 +104,7 @@ test('Integration w/ HandlerInfos', function (assert) {
 
   state
     .resolve(transition as Transition)
-    .then(function (result: TransitionState<Route<{}>>) {
+    .then(function (result: TransitionState<Route>) {
       let models = [];
       for (let i = 0; i < result.routeInfos.length; i++) {
         models.push(result.routeInfos[i].context);

@@ -17,7 +17,7 @@ export type IModel = {} & {
 
 export type ModelFor<T> = T extends Route<infer V> ? V : never;
 
-export interface Route<T extends IModel = {}> {
+export interface Route<T = unknown> {
   inaccessibleByURL?: boolean;
   routeName: string;
   _internalName: string;
@@ -56,11 +56,11 @@ export interface RouteInfoWithAttributes extends RouteInfo {
   attributes: any;
 }
 
-type RouteInfosKey = InternalRouteInfo<Route<{}>>;
+type RouteInfosKey = InternalRouteInfo<Route>;
 
 let ROUTE_INFOS = new WeakMap<RouteInfosKey, RouteInfo | RouteInfoWithAttributes>();
 
-export function toReadOnlyRouteInfo<R extends Route<{}>>(
+export function toReadOnlyRouteInfo<R extends Route>(
   routeInfos: InternalRouteInfo<R>[],
   queryParams: Dict<unknown> = {},
   includeAttributes = false
@@ -200,7 +200,7 @@ function attachMetadata(route: Route, routeInfo: RouteInfo) {
   return Object.assign(routeInfo, metadata);
 }
 
-export default class InternalRouteInfo<R extends Route<{}>> {
+export default class InternalRouteInfo<R extends Route> {
   private _routePromise?: Promise<R> = undefined;
   private _route?: Option<R> = null;
   protected router: Router<R>;
@@ -265,7 +265,7 @@ export default class InternalRouteInfo<R extends Route<{}>> {
     }
 
     // SAFETY: Since this is just for lookup, it should be safe
-    let cached = ROUTE_INFOS.get((this as unknown) as InternalRouteInfo<Route<{}>>);
+    let cached = ROUTE_INFOS.get((this as unknown) as InternalRouteInfo<Route>);
     let resolved = new ResolvedRouteInfo<R>(
       this.router,
       this.name,
@@ -277,7 +277,7 @@ export default class InternalRouteInfo<R extends Route<{}>> {
 
     if (cached !== undefined) {
       // SAFETY: This is potentially a bit risker, but for what we're doing, it should be ok.
-      ROUTE_INFOS.set((this as unknown) as InternalRouteInfo<Route<{}>>, cached);
+      ROUTE_INFOS.set((this as unknown) as InternalRouteInfo<Route>, cached);
     }
 
     return resolved;
@@ -422,7 +422,7 @@ export default class InternalRouteInfo<R extends Route<{}>> {
   }
 }
 
-export class ResolvedRouteInfo<R extends Route<{}>> extends InternalRouteInfo<R> {
+export class ResolvedRouteInfo<R extends Route> extends InternalRouteInfo<R> {
   isResolved: boolean;
   context: ModelFor<R> | undefined;
   constructor(
@@ -448,7 +448,7 @@ export class ResolvedRouteInfo<R extends Route<{}>> extends InternalRouteInfo<R>
   }
 }
 
-export class UnresolvedRouteInfoByParam<R extends Route<{}>> extends InternalRouteInfo<R> {
+export class UnresolvedRouteInfoByParam<R extends Route> extends InternalRouteInfo<R> {
   params: Dict<unknown> = {};
   constructor(
     router: Router<R>,
@@ -496,7 +496,7 @@ export class UnresolvedRouteInfoByParam<R extends Route<{}>> extends InternalRou
   }
 }
 
-export class UnresolvedRouteInfoByObject<R extends Route<{}>> extends InternalRouteInfo<R> {
+export class UnresolvedRouteInfoByObject<R extends Route> extends InternalRouteInfo<R> {
   serializer?: SerializerFunc<ModelFor<R>>;
   constructor(
     router: Router<R>,

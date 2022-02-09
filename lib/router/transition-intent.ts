@@ -4,7 +4,7 @@ import TransitionState from './transition-state';
 
 export type OpaqueIntent = TransitionIntent<any>;
 
-export abstract class TransitionIntent<R extends Route<{}>> {
+export abstract class TransitionIntent<R extends Route> {
   data: {};
   router: Router<R>;
   constructor(router: Router<R>, data: {} = {}) {

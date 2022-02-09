@@ -44,7 +44,7 @@ export const QUERY_PARAMS_SYMBOL = `__QPS__-2619863929824844-32323`;
   @param {Object} error
   @private
  */
-export default class Transition<R extends Route<{}>> implements Partial<Promise<R>> {
+export default class Transition<R extends Route> implements Partial<Promise<R>> {
   [STATE_SYMBOL]: TransitionState<R>;
   from: Maybe<RouteInfoWithAttributes> = null;
   to?: RouteInfo | RouteInfoWithAttributes = undefined;
