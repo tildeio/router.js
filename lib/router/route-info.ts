@@ -277,7 +277,7 @@ export default class InternalRouteInfo<R extends Route> {
 
     if (cached !== undefined) {
       // SAFETY: This is potentially a bit risker, but for what we're doing, it should be ok.
-      ROUTE_INFOS.set((this as unknown) as InternalRouteInfo<Route>, cached);
+      ROUTE_INFOS.set((resolved as unknown) as InternalRouteInfo<Route>, cached);
     }
 
     return resolved;

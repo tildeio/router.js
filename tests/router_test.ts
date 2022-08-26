@@ -2385,6 +2385,35 @@ scenarios.forEach(function (scenario) {
     transitionTo(router, '/posts/admin/1/posts');
   });
 
+  test(`transition.to.find's callback is always called with defined routeInfo`, function (assert) {
+    type Application = { app: boolean } & IModel;
+
+    assert.expect(3);
+
+    map(assert, function (match) {
+      match('/').to('application', function (match) {
+        match('/peter').to('peter', function (match) {
+          match('/wagenet').to('wagenet');
+        });
+      });
+    });
+
+    routes = {
+      application: createHandler<Application>('application'),
+      peter: createHandler('peter'),
+      wagenet: createHandler('wagenet', {
+        model: function (_params: Dict<unknown>, transition: Transition) {
+          transition.to!.find((routeInfo) => {
+            assert.ok(routeInfo, 'routeInfo is defined');
+            return false;
+          });
+        },
+      }),
+    };
+
+    transitionTo(router, '/peter/wagenet');
+  });
+
   test('Moving to the same route with a different parent dynamic segment re-runs model', function (assert) {
     let admins: Dict<any> = { 1: { id: 1 }, 2: { id: 2 } },
       adminPosts: Dict<any> = { 1: { id: 1 }, 2: { id: 2 } };
