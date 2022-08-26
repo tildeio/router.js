@@ -1,3 +1,8 @@
+## v8.0.3 (2022-08-27)
+
+- [#334] Fix undefined routeInfo in routeInfo's `find` callback ([@sly7-7](https://github.com/sly7-7))
+
+
 ## v8.0.2 (2022-02-09)
 
 - [#332] Correct more incorrect TypeScript types
