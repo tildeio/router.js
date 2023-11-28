@@ -171,7 +171,10 @@ export default abstract class Router<R extends Route> {
       return newState;
     }
 
-    let readonlyInfos = toReadOnlyRouteInfo(newState.routeInfos, newState.queryParams);
+    let readonlyInfos = toReadOnlyRouteInfo(newState.routeInfos, newState.queryParams, {
+      includeAttributes: false,
+      localizeMapUpdates: true,
+    });
     return readonlyInfos[readonlyInfos.length - 1] as RouteInfo;
   }
 
@@ -188,7 +191,10 @@ export default abstract class Router<R extends Route> {
       let routeInfosWithAttributes = toReadOnlyRouteInfo(
         newState!.routeInfos,
         newTransition[QUERY_PARAMS_SYMBOL],
-        true
+        {
+          includeAttributes: true,
+          localizeMapUpdates: false,
+        }
       ) as RouteInfoWithAttributes[];
       return routeInfosWithAttributes[routeInfosWithAttributes.length - 1];
     });
@@ -773,11 +779,10 @@ export default abstract class Router<R extends Route> {
 
   private fromInfos(newTransition: OpaqueTransition, oldRouteInfos: InternalRouteInfo<R>[]) {
     if (newTransition !== undefined && oldRouteInfos.length > 0) {
-      let fromInfos = toReadOnlyRouteInfo(
-        oldRouteInfos,
-        Object.assign({}, this._lastQueryParams),
-        true
-      ) as RouteInfoWithAttributes[];
+      let fromInfos = toReadOnlyRouteInfo(oldRouteInfos, Object.assign({}, this._lastQueryParams), {
+        includeAttributes: true,
+        localizeMapUpdates: false,
+      }) as RouteInfoWithAttributes[];
       newTransition!.from = fromInfos[fromInfos.length - 1] || null;
     }
   }
@@ -791,7 +796,7 @@ export default abstract class Router<R extends Route> {
       let toInfos = toReadOnlyRouteInfo(
         newRouteInfos,
         Object.assign({}, newTransition[QUERY_PARAMS_SYMBOL]),
-        includeAttributes
+        { includeAttributes, localizeMapUpdates: false }
       );
       newTransition!.to = toInfos[toInfos.length - 1] || null;
     }
