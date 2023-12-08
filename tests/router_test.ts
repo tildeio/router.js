@@ -1380,7 +1380,7 @@ scenarios.forEach(function (scenario) {
       })
       .then(() => {
         secondParam = true;
-        router.recognize('/search?term=foo');
+        router.recognize('/search?wat=foo');
         return router.transitionTo({ queryParams: { term: 'c' } });
       });
   });
