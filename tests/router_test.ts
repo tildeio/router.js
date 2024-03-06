@@ -1324,6 +1324,67 @@ scenarios.forEach(function (scenario) {
     });
   });
 
+  test('calling recognize should not affect the transition.from query params for subsequent transitions', function (assert) {
+    assert.expect(12);
+    map(assert, function (match) {
+      match('/').to('index');
+      match('/search').to('search');
+    });
+
+    routes = {
+      search: createHandler('search'),
+    };
+
+    let firstParam = false;
+    let secondParam = false;
+
+    router.routeWillChange = (transition: Transition) => {
+      if (secondParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'c' }, 'going to next page with qps');
+        assert.deepEqual(
+          isPresent(transition.from) && transition.from!.queryParams,
+          { term: 'b' },
+          'has previous qps'
+        );
+      } else if (firstParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'b' }, 'going to page with qps');
+        assert.deepEqual(
+          isPresent(transition.from) && transition.from!.queryParams,
+          {},
+          'from never has qps'
+        );
+      } else {
+        assert.equal(transition.from, null);
+        assert.deepEqual(transition.to!.queryParams, {});
+      }
+    };
+
+    router.routeDidChange = (transition: Transition) => {
+      if (secondParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'c' });
+        assert.deepEqual(isPresent(transition.from) && transition.from!.queryParams, { term: 'b' });
+      } else if (firstParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'b' });
+        assert.deepEqual(isPresent(transition.from) && transition.from!.queryParams, {});
+      } else {
+        assert.equal(transition.from, null);
+        assert.deepEqual(transition.to!.queryParams, {});
+      }
+    };
+
+    router
+      .transitionTo('/')
+      .then(() => {
+        firstParam = true;
+        return router.transitionTo('search', { queryParams: { term: 'b' } });
+      })
+      .then(() => {
+        secondParam = true;
+        router.recognize('/search?wat=foo');
+        return router.transitionTo({ queryParams: { term: 'c' } });
+      });
+  });
+
   test('redirects route events', function (assert) {
     assert.expect(19);
     map(assert, function (match) {

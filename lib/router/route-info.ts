@@ -63,19 +63,30 @@ let ROUTE_INFOS = new WeakMap<RouteInfosKey, RouteInfo | RouteInfoWithAttributes
 export function toReadOnlyRouteInfo<R extends Route>(
   routeInfos: InternalRouteInfo<R>[],
   queryParams: Dict<unknown> = {},
-  includeAttributes = false
+  options: {
+    includeAttributes?: boolean;
+    localizeMapUpdates?: boolean;
+  } = { includeAttributes: false, localizeMapUpdates: false }
 ): RouteInfoWithAttributes[] | RouteInfo[] {
+  const LOCAL_ROUTE_INFOS = new WeakMap<RouteInfosKey, RouteInfo | RouteInfoWithAttributes>();
+
   return routeInfos.map((info, i) => {
     let { name, params, paramNames, context, route } = info;
     // SAFETY: This should be safe since it is just for use as a key
     let key = (info as unknown) as RouteInfosKey;
-    if (ROUTE_INFOS.has(key) && includeAttributes) {
+    if (ROUTE_INFOS.has(key) && options.includeAttributes) {
       let routeInfo = ROUTE_INFOS.get(key)!;
       routeInfo = attachMetadata(route!, routeInfo);
       let routeInfoWithAttribute = createRouteInfoWithAttributes(routeInfo, context);
-      ROUTE_INFOS.set(key, routeInfoWithAttribute);
+      LOCAL_ROUTE_INFOS.set(key, routeInfo);
+      if (!options.localizeMapUpdates) {
+        ROUTE_INFOS.set(key, routeInfoWithAttribute);
+      }
       return routeInfoWithAttribute as RouteInfoWithAttributes;
     }
+
+    const routeInfosRef = options.localizeMapUpdates ? LOCAL_ROUTE_INFOS : ROUTE_INFOS;
+
     let routeInfo: RouteInfo = {
       find(
         predicate: (this: any, routeInfo: RouteInfo, i: number, arr?: RouteInfo[]) => boolean,
@@ -87,13 +98,13 @@ export function toReadOnlyRouteInfo<R extends Route>(
         if (predicate.length === 3) {
           arr = routeInfos.map(
             // SAFETY: This should be safe since it is just for use as a key
-            (info) => ROUTE_INFOS.get((info as unknown) as RouteInfosKey)!
+            (info) => routeInfosRef.get((info as unknown) as RouteInfosKey)!
           );
         }
 
         for (let i = 0; routeInfos.length > i; i++) {
           // SAFETY: This should be safe since it is just for use as a key
-          publicInfo = ROUTE_INFOS.get((routeInfos[i] as unknown) as RouteInfosKey)!;
+          publicInfo = routeInfosRef.get((routeInfos[i] as unknown) as RouteInfosKey)!;
           if (predicate.call(thisArg, publicInfo, i, arr)) {
             return publicInfo;
           }
@@ -122,7 +133,7 @@ export function toReadOnlyRouteInfo<R extends Route>(
         }
 
         // SAFETY: This should be safe since it is just for use as a key
-        return ROUTE_INFOS.get((parent as unknown) as RouteInfosKey)!;
+        return routeInfosRef.get((parent as unknown) as RouteInfosKey)!;
       },
 
       get child() {
@@ -133,7 +144,7 @@ export function toReadOnlyRouteInfo<R extends Route>(
         }
 
         // SAFETY: This should be safe since it is just for use as a key
-        return ROUTE_INFOS.get((child as unknown) as RouteInfosKey)!;
+        return routeInfosRef.get((child as unknown) as RouteInfosKey)!;
       },
 
       get localName() {
@@ -150,12 +161,17 @@ export function toReadOnlyRouteInfo<R extends Route>(
       },
     };
 
-    if (includeAttributes) {
+    if (options.includeAttributes) {
       routeInfo = createRouteInfoWithAttributes(routeInfo, context);
     }
 
     // SAFETY: This should be safe since it is just for use as a key
-    ROUTE_INFOS.set((info as unknown) as RouteInfosKey, routeInfo);
+    LOCAL_ROUTE_INFOS.set((info as unknown) as RouteInfosKey, routeInfo);
+
+    if (!options.localizeMapUpdates) {
+      // SAFETY: This should be safe since it is just for use as a key
+      ROUTE_INFOS.set((info as unknown) as RouteInfosKey, routeInfo);
+    }
 
     return routeInfo;
   });
