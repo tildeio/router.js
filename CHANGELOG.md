@@ -1,3 +1,8 @@
+## v8.0.4 (2024-03-06)
+
+- [#336] Calling recognize should not affect the transition.from query params for subsequent transitions ([@chbonser](https://github.com/chbonser))
+
+
 ## v8.0.3 (2022-08-27)
 
 - [#334] Fix undefined routeInfo in routeInfo's `find` callback ([@sly7-7](https://github.com/sly7-7))
