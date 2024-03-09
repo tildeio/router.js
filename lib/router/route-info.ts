@@ -224,7 +224,7 @@ export default class InternalRouteInfo<R extends Route> {
   name: string;
   params: Dict<unknown> | undefined = {};
   queryParams?: Dict<unknown>;
-  context?: ModelFor<R> | PromiseLike<ModelFor<R>>;
+  context?: ModelFor<R> | PromiseLike<ModelFor<R>> | undefined;
   isResolved = false;
 
   constructor(router: Router<R>, name: string, paramNames: string[], route?: R) {
