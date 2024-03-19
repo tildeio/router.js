@@ -1,3 +1,8 @@
+## v8.0.5 (2024-03-19)
+
+- [#339] Fix a type error when exactOptionalPropertyTypes is enabled ([@boris-petrov](https://github.com/boris-petrov))
+
+
 ## v8.0.4 (2024-03-06)
 
 - [#336] Calling recognize should not affect the transition.from query params for subsequent transitions ([@chbonser](https://github.com/chbonser))
