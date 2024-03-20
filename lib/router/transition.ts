@@ -69,6 +69,7 @@ export default class Transition<R extends Route> implements Partial<Promise<R>> 
   isCausedByAbortingTransition = false;
   isCausedByInitialTransition = false;
   isCausedByAbortingReplaceTransition = false;
+  isCausedByUpdateTransition = false;
   _visibleQueryParams: Dict<unknown> = {};
   isIntermediate = false;
 
@@ -153,6 +154,12 @@ export default class Transition<R extends Route> implements Partial<Promise<R>> 
       previousTransition.urlMethod === 'replace' &&
       (!previousTransition.isCausedByAbortingTransition ||
         previousTransition.isCausedByAbortingReplaceTransition);
+
+    // This transition was caused by one that intended to update the URL if the previous transition
+    // would have updated the URL
+    this.isCausedByUpdateTransition =
+      !!previousTransition &&
+      (previousTransition.isCausedByUpdateTransition || previousTransition.urlMethod === 'update');
 
     if (state) {
       this[PARAMS_SYMBOL] = state.params;
