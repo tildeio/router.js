@@ -449,9 +449,10 @@ export default abstract class Router<R extends Route> {
 
     for (i = 0, l = partition.exited.length; i < l; i++) {
       route = partition.exited[i].route;
-      delete route!.context;
 
       if (route !== undefined) {
+        delete route!.context;
+
         if (route._internalReset !== undefined) {
           route._internalReset(true, transition);
         }
