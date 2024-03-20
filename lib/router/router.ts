@@ -122,8 +122,9 @@ export default abstract class Router<R extends Route> {
       // perform a URL update at the end. This gives
       // the user the ability to set the url update
       // method (default is replaceState).
-      let newTransition = new InternalTransition(this, undefined, undefined);
+      let newTransition = new InternalTransition(this, undefined, newState);
       newTransition.queryParamsOnly = true;
+      this.setupContexts(newState, newTransition);
 
       oldState.queryParams = this.finalizeQueryParamChange(
         newState.routeInfos,
