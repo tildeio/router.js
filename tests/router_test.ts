@@ -4743,6 +4743,35 @@ scenarios.forEach(function (scenario) {
       });
   });
 
+  test('Transition#followRedirects() works correctly when redirecting from an async model hook', function (assert) {
+    assert.expect(2);
+
+    routes.index = createHandler('index', {
+      beforeModel: function () {
+        return Promise.resolve(true).then(() => {
+          return router.transitionTo('about');
+        });
+      },
+    });
+
+    routes.about = createHandler('about', {
+      setup: function () {
+        assert.ok(true, 'about#setup was called');
+      },
+    });
+
+    router
+      .transitionTo('/index')
+      .followRedirects()
+      .then(function (handler: Route) {
+        assert.equal(
+          handler,
+          routes.about,
+          'followRedirects works with redirect from async hook transitions'
+        );
+      });
+  });
+
   test("Returning a redirecting Transition from a model hook doesn't cause things to explode", function (assert) {
     assert.expect(2);
 

@@ -28,6 +28,7 @@ export type OpaqueTransition = PublicTransition;
 export const STATE_SYMBOL = `__STATE__-2619860001345920-3322w3`;
 export const PARAMS_SYMBOL = `__PARAMS__-261986232992830203-23323`;
 export const QUERY_PARAMS_SYMBOL = `__QPS__-2619863929824844-32323`;
+export const REDIRECT_DESTINATION_SYMBOL = `__RDS__-2619863929824844-32323`;
 
 /**
   A Transition is a thenable (a promise-like object) that represents
@@ -71,6 +72,7 @@ export default class Transition<R extends Route> implements Partial<Promise<R>> 
   isCausedByAbortingReplaceTransition = false;
   _visibleQueryParams: Dict<unknown> = {};
   isIntermediate = false;
+  [REDIRECT_DESTINATION_SYMBOL]?: Transition<R>;
 
   /**
     In non-production builds, this function will return the stack that this Transition was
@@ -309,6 +311,7 @@ export default class Transition<R extends Route> implements Partial<Promise<R>> 
   }
 
   redirect(newTransition: Transition<R>) {
+    this[REDIRECT_DESTINATION_SYMBOL] = newTransition;
     this.rollback();
     this.router.routeWillChange(newTransition);
   }
@@ -419,10 +422,9 @@ export default class Transition<R extends Route> implements Partial<Promise<R>> 
     @public
    */
   followRedirects(): Promise<R> {
-    let router = this.router;
-    return this.promise!.catch(function (reason) {
-      if (router.activeTransition) {
-        return router.activeTransition.followRedirects();
+    return this.promise!.catch((reason) => {
+      if (this[REDIRECT_DESTINATION_SYMBOL]) {
+        return this[REDIRECT_DESTINATION_SYMBOL]!.followRedirects();
       }
       return Promise.reject(reason);
     });
