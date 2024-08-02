@@ -1,3 +1,8 @@
+## v8.0.6 (2024-08-02)
+
+- [#335] Fix followRedirects when source is async and destination is sync ([@davidtaylorhq](https://github.com/davidtaylorhq))
+
+
 ## v8.0.5 (2024-03-19)
 
 - [#339] Fix a type error when exactOptionalPropertyTypes is enabled ([@boris-petrov](https://github.com/boris-petrov))
