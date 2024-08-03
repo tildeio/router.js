@@ -12,6 +12,7 @@ import { TransitionError } from 'router/transition-state';
 import { Promise, reject } from 'rsvp';
 import {
   assertAbort,
+  consumeAllFinalQueryParams,
   createHandler,
   flushBackburner,
   handleURL,
@@ -6342,6 +6343,97 @@ scenarios.forEach(function (scenario) {
 
     assert.equal(fooModelCount, 1, 'Foo model should be called once');
     assert.equal(barModelCount, 1, 'Bar model should be called once');
+  });
+
+  test('Calling transitionTo with the `replace` method during initial transition with only query params changes should use updateURL', function (assert) {
+    map(assert, function (match) {
+      match('/first').to('first');
+    });
+
+    routes.first = createHandler('first', {
+      model(params: Dict<unknown>) {
+        // Pass query params through to `afterModel` hook
+        return params.queryParams;
+      },
+      afterModel(model: Dict<unknown>) {
+        // Ensure we only redirect the first time through here
+        if (!model.foo) {
+          router
+            .transitionTo('first', {
+              queryParams: {
+                foo: 'bar',
+              },
+            })
+            .method('replace');
+        }
+      },
+
+      events: {
+        // Ensure query params are considered in transition
+        finalizeQueryParamChange: consumeAllFinalQueryParams,
+      },
+    });
+
+    router.updateURL = (url) => {
+      assert.step(`Updated the URL to ${url}`);
+    };
+
+    router.replaceURL = (url) => {
+      assert.step(`Replaced the URL with ${url}`);
+    };
+
+    transitionTo(router, 'first');
+    flushBackburner();
+
+    assert.verifySteps(['Updated the URL to /first?foo=bar']);
+  });
+
+  test('Calling transitionTo with the `replace` method after initial transition with only query params changes should use updateURL', function (assert) {
+    map(assert, function (match) {
+      match('/first').to('first');
+      match('/second').to('second');
+    });
+
+    routes.first = createHandler('first');
+    routes.second = createHandler('second', {
+      model(params: Dict<unknown>) {
+        // Pass query params through to `afterModel` hook
+        return params.queryParams;
+      },
+      afterModel(model: Dict<unknown>) {
+        // Ensure we only redirect the first time through here
+        if (!model.foo) {
+          router
+            .transitionTo('second', {
+              queryParams: {
+                foo: 'bar',
+              },
+            })
+            .method('replace');
+        }
+      },
+
+      events: {
+        // Ensure query params are considered in transition
+        finalizeQueryParamChange: consumeAllFinalQueryParams,
+      },
+    });
+
+    router.updateURL = (url) => {
+      assert.step(`Updated the URL to ${url}`);
+    };
+
+    router.replaceURL = (url) => {
+      assert.step(`Replaced the URL with ${url}`);
+    };
+
+    transitionTo(router, 'first');
+    flushBackburner();
+
+    transitionTo(router, 'second');
+    flushBackburner();
+
+    assert.verifySteps(['Updated the URL to /first', 'Updated the URL to /second?foo=bar']);
   });
 
   test('transitioning to the same route with different context should not reenter the route', function (assert) {

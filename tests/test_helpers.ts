@@ -229,3 +229,12 @@ export function trigger(
     throw new Error("Nothing handled the event '" + name + "'.");
   }
 }
+
+export function consumeAllFinalQueryParams(params: Dict<unknown>, finalParams: Dict<unknown>[]) {
+  for (let key in params) {
+    let value = params[key];
+    delete params[key];
+    finalParams.push({ key: key, value: value });
+  }
+  return true;
+}
