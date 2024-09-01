@@ -57,7 +57,7 @@ function transitionTo(
   path: string | { queryParams: Dict<unknown> },
   ...context: any[]
 ) {
-  let result = router.transitionTo.apply(router, [path, ...context]);
+  let result = router.transitionTo(path, ...context);
   flushBackburner();
   return result;
 }

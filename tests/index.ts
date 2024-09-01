@@ -7,3 +7,4 @@ import './transition_intent_test';
 import './transition_state_test';
 import './unrecognized-url-error_test';
 import './utils_test';
+import './native-async-test';
