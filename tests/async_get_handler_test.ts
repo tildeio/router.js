@@ -1,9 +1,9 @@
-import { Route } from 'router';
+import Router, { Route, Transition, TransitionError } from 'router';
 import { Dict } from 'router/core';
 import { Promise } from 'rsvp';
 import { createHandler, TestRouter } from './test_helpers';
 
-function map(router: TestRouter) {
+function map(router: Router<Route>) {
   router.map(function (match) {
     match('/index').to('index');
     match('/foo').to('foo', function (match) {
@@ -13,6 +13,15 @@ function map(router: TestRouter) {
   });
 }
 
+function createDeferred() {
+  let resolve, reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 // Intentionally use QUnit.module instead of module from test_helpers
 // so that we avoid using Backburner to handle the async portions of
 // the test suite
@@ -20,7 +29,7 @@ let routes: Dict<Route>;
 let router: TestRouter;
 QUnit.module('Async Get Handler', {
   beforeEach: function () {
-    QUnit.config.testTimeout = 60000;
+    QUnit.config.testTimeout = 6000;
     routes = {};
   },
 
@@ -114,5 +123,99 @@ QUnit.test('calls hooks of lazily-resolved routes in order', function (assert) {
       'order of operations is correct'
     );
     done();
+  }, null);
+});
+
+QUnit.test('pause transitions', function (assert) {
+  let done = assert.async();
+  let operations: string[] = [];
+  let enteredWillChange = 0;
+  let enteredDidChange = 0;
+  let enteredDidError = 0;
+
+  class PauseRouter extends TestRouter {
+    getRoute(name: string) {
+      operations.push('resolved ' + name);
+      return routes[name] || (routes[name] = createHandler('empty'));
+    }
+  }
+
+  let router: Router<Route> = new PauseRouter();
+
+  router.routeWillChange = (transition: Transition) => {
+    enteredWillChange++;
+
+    const { promise, resolve, reject } = createDeferred();
+    transition.waitFor(promise);
+    setTimeout(() => {
+      operations.push('paused transition');
+      if (enteredWillChange === 1) {
+        resolve();
+        operations.push('resolved pause');
+      } else {
+        reject('reject');
+        operations.push('rejected pause');
+      }
+    }, 1);
+  };
+
+  router.routeDidChange = (transition: Transition) => {
+    enteredDidChange++;
+  };
+
+  router.transitionDidError = (error: TransitionError, transition: Transition) => {
+    enteredDidError++;
+    assert.equal('reject', error.error);
+    transition.trigger(false, 'error', error.error, transition, error.route);
+    transition.abort();
+    return error.error;
+  };
+
+  map(router);
+
+  routes.index = createHandler('index', {
+    model: function () {
+      operations.push('model index');
+    },
+  });
+  routes.foo = createHandler('foo', {
+    model: function () {
+      operations.push('model foo');
+    },
+  });
+  routes.fooBar = createHandler('fooBar', {
+    model: function () {
+      operations.push('model fooBar');
+    },
+  });
+
+  router.transitionTo('/index').then(function () {
+    assert.deepEqual(
+      operations,
+      [
+        'resolved index',
+        'paused transition',
+        'resolved pause',
+        'model index',
+      ],
+      'order of /index operations is correct'
+    );
+
+    operations = [];
+
+    router.transitionTo('/foo/bar').catch(function () {
+      assert.deepEqual(
+        operations,
+        [
+          'resolved foo',
+          'resolved fooBar',
+          'paused transition',
+          'rejected pause',
+        ],
+        'order of /foo/bar operations is correct'
+      );
+      done();
+    });
+
   }, null);
 });
