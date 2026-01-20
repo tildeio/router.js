@@ -1324,6 +1324,51 @@ scenarios.forEach(function (scenario) {
     });
   });
 
+  test('basic route to one with query params and data', function (assert) {
+    assert.expect(10);
+    map(assert, function (match) {
+      match('/').to('index');
+      match('/search').to('search');
+    });
+
+    routes = {
+      search: createHandler('search'),
+    };
+
+    let newParam = false;
+
+    router.routeWillChange = (transition: Transition) => {
+      if (newParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'b' }, 'going to page with qps');
+        assert.deepEqual(transition.data, { x: 'y' }, 'going to page with data');
+        assert.deepEqual(
+          isPresent(transition.from) && transition.from!.queryParams,
+          {},
+          'from never has qps'
+        );
+      } else {
+        assert.equal(transition.from, null);
+        assert.deepEqual(transition.to!.queryParams, {});
+      }
+    };
+
+    router.routeDidChange = (transition: Transition) => {
+      if (newParam) {
+        assert.deepEqual(transition.to!.queryParams, { term: 'b' });
+        assert.deepEqual(transition.data, { x: 'y' });
+        assert.deepEqual(isPresent(transition.from) && transition.from!.queryParams, {});
+      } else {
+        assert.equal(transition.from, null);
+        assert.deepEqual(transition.to!.queryParams, {});
+      }
+    };
+
+    router.transitionTo('/').then(() => {
+      newParam = true;
+      return router.transitionTo('search', { queryParams: { term: 'b' }, data: { x: 'y' } });
+    });
+  });
+
   test('calling recognize should not affect the transition.from query params for subsequent transitions', function (assert) {
     assert.expect(12);
     map(assert, function (match) {

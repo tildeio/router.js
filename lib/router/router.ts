@@ -302,11 +302,12 @@ export default abstract class Router<R extends Route> {
 */
   private doTransition(
     name?: string,
-    modelsArray: [...ModelFor<R>[]] | [...ModelFor<R>[], { queryParams: QueryParams }] = [],
+    modelsArray: [...ModelFor<R>[]] | [...ModelFor<R>[], { queryParams: QueryParams, data: Dict<unknown> }] = [],
     isIntermediate = false
   ): InternalTransition<R> {
     let lastArg = modelsArray[modelsArray.length - 1];
     let queryParams: Dict<unknown> = {};
+    let data: Dict<unknown> = {};
 
     if (lastArg && Object.prototype.hasOwnProperty.call(lastArg, 'queryParams')) {
       // We just checked this.
@@ -314,6 +315,10 @@ export default abstract class Router<R extends Route> {
       queryParams = (modelsArray.pop() as { queryParams: QueryParams }).queryParams as Dict<
         unknown
       >;
+    }
+
+    if (lastArg && Object.prototype.hasOwnProperty.call(lastArg, 'data')) {
+      data = lastArg.data;
     }
 
     let intent;
@@ -341,10 +346,11 @@ export default abstract class Router<R extends Route> {
         undefined,
         // SAFETY: We know this to be the case since we removed the last item if it was QPs
         modelsArray as ModelFor<R>[],
-        queryParams
+        queryParams,
       );
     }
 
+    intent.data = data;
     return this.transitionByIntent(intent, isIntermediate);
   }
 
