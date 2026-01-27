@@ -1,12 +1,9 @@
-import { Dict } from '../core';
-import InternalRouteInfo, {
-  ModelFor,
-  ResolvedRouteInfo,
-  Route,
-  UnresolvedRouteInfoByObject,
-  UnresolvedRouteInfoByParam,
-} from '../route-info';
-import Router, { ParsedHandler } from '../router';
+import type { Dict } from '../core';
+import type { ModelFor, ResolvedRouteInfo, Route } from '../route-info';
+import type InternalRouteInfo from '../route-info';
+import { UnresolvedRouteInfoByObject, UnresolvedRouteInfoByParam } from '../route-info';
+import type { ParsedHandler } from '../router';
+import type Router from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import { isParam, merge } from '../utils';

@@ -59,6 +59,8 @@ module.exports = {
           },
         ],
         '@typescript-eslint/no-non-null-assertion': 'off',
+        '@typescript-eslint/consistent-type-imports': 'error',
+        '@typescript-eslint/consistent-type-exports': 'error',
       },
     },
 

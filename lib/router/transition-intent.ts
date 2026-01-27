@@ -1,6 +1,6 @@
-import { Route } from './route-info';
-import Router from './router';
-import TransitionState from './transition-state';
+import type { Route } from './route-info';
+import type Router from './router';
+import type TransitionState from './transition-state';
 
 export type OpaqueIntent = TransitionIntent<any>;
 

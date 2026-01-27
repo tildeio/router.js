@@ -3,9 +3,11 @@ import URLTransitionIntent from 'router/transition-intent/url-transition-intent'
 import TransitionState from 'router/transition-state';
 import { createHandler, module, test, TestRouter } from './test_helpers';
 
-import Router, { Route } from 'router';
-import { Dict } from 'router/core';
-import InternalRouteInfo, {
+import type { Route } from 'router';
+import type Router from 'router';
+import type { Dict } from 'router/core';
+import type InternalRouteInfo from 'router/route-info';
+import {
   ResolvedRouteInfo,
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,

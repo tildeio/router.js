@@ -1,7 +1,8 @@
-import { MatchCallback } from 'route-recognizer';
-import Router, { Route, Transition } from 'router';
-import { Dict, Maybe } from 'router/core';
-import RouteInfo from 'router/route-info';
+import type { MatchCallback } from 'route-recognizer';
+import type { Route, Transition } from 'router';
+import type Router from 'router';
+import type { Dict, Maybe } from 'router/core';
+import type RouteInfo from 'router/route-info';
 import { Promise } from 'rsvp';
 import {
   createHandler,

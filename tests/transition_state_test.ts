@@ -1,7 +1,9 @@
-import { Transition } from 'router';
-import { Dict } from 'router/core';
-import { Route, UnresolvedRouteInfoByObject, UnresolvedRouteInfoByParam } from 'router/route-info';
-import TransitionState, { TransitionError } from 'router/transition-state';
+import type { Transition } from 'router';
+import type { Dict } from 'router/core';
+import type { Route } from 'router/route-info';
+import { UnresolvedRouteInfoByObject, UnresolvedRouteInfoByParam } from 'router/route-info';
+import type { TransitionError } from 'router/transition-state';
+import TransitionState from 'router/transition-state';
 import { Promise, resolve } from 'rsvp';
 import {
   createHandler,

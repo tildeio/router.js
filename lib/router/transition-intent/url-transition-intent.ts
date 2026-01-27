@@ -1,5 +1,6 @@
-import { Route, UnresolvedRouteInfoByParam } from '../route-info';
-import Router from '../router';
+import type { Route } from '../route-info';
+import { UnresolvedRouteInfoByParam } from '../route-info';
+import type Router from '../router';
 import { TransitionIntent } from '../transition-intent';
 import TransitionState from '../transition-state';
 import UnrecognizedURLError from '../unrecognized-url-error';
