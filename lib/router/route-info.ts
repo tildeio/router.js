@@ -1,13 +1,10 @@
 import { Promise } from 'rsvp';
-import { Dict, Option } from './core';
-import Router, { SerializerFunc } from './router';
-import InternalTransition, {
-  isTransition,
-  PARAMS_SYMBOL,
-  prepareResult,
-  PublicTransition as Transition,
-  QUERY_PARAMS_SYMBOL,
-} from './transition';
+import type { Dict, Option } from './core';
+import type { SerializerFunc } from './router';
+import type Router from './router';
+import type { PublicTransition as Transition } from './transition';
+import type InternalTransition from './transition';
+import { isTransition, PARAMS_SYMBOL, prepareResult, QUERY_PARAMS_SYMBOL } from './transition';
 import { isParam, isPromise, merge } from './utils';
 import { throwIfAborted } from './transition-aborted-error';
 

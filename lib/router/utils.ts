@@ -1,7 +1,7 @@
-import { QueryParams } from 'route-recognizer';
-import { Promise } from 'rsvp';
-import { Dict } from './core';
-import Router from './router';
+import type { QueryParams } from 'route-recognizer';
+import type { Promise } from 'rsvp';
+import type { Dict } from './core';
+import type Router from './router';
 
 export const slice = Array.prototype.slice;
 const hasOwnProperty = Object.prototype.hasOwnProperty;

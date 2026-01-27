@@ -1,9 +1,8 @@
-import { Transition } from 'router';
-import { Dict } from 'router/core';
+import type { Transition } from 'router';
+import type { Dict } from 'router/core';
+import type { IModel, Route } from 'router/route-info';
 import {
-  IModel,
   ResolvedRouteInfo,
-  Route,
   toReadOnlyRouteInfo,
   UnresolvedRouteInfoByObject,
   UnresolvedRouteInfoByParam,

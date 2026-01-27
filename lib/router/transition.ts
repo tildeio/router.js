@@ -1,15 +1,13 @@
 import { Promise } from 'rsvp';
-import { Dict, Maybe, Option } from './core';
-import InternalRouteInfo, {
-  ModelFor,
-  Route,
-  RouteInfo,
-  RouteInfoWithAttributes,
-} from './route-info';
-import Router from './router';
-import { TransitionAbortedError, buildTransitionAborted } from './transition-aborted-error';
-import { OpaqueIntent } from './transition-intent';
-import TransitionState, { TransitionError } from './transition-state';
+import type { Dict, Maybe, Option } from './core';
+import type { ModelFor, Route, RouteInfo, RouteInfoWithAttributes } from './route-info';
+import type InternalRouteInfo from './route-info';
+import type Router from './router';
+import type { TransitionAbortedError } from './transition-aborted-error';
+import { buildTransitionAborted } from './transition-aborted-error';
+import type { OpaqueIntent } from './transition-intent';
+import type { TransitionError } from './transition-state';
+import type TransitionState from './transition-state';
 import { log, promiseLabel } from './utils';
 import { DEBUG } from '@glimmer/env';
 

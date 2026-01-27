@@ -1,5 +1,5 @@
-import { Route } from 'router';
-import { Dict } from 'router/core';
+import type { Route } from 'router';
+import type { Dict } from 'router/core';
 import { Promise } from 'rsvp';
 import { createHandler, TestRouter } from './test_helpers';
 
