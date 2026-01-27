@@ -71,6 +71,7 @@ export default class Transition<R extends Route> implements Partial<Promise<R>> 
   isCausedByInitialTransition = false;
   isCausedByAbortingReplaceTransition = false;
   _visibleQueryParams: Dict<unknown> = {};
+  _pausingPromise?: Promise<any>;
   isIntermediate = false;
   [REDIRECT_DESTINATION_SYMBOL]?: Transition<R>;
 
@@ -288,6 +289,10 @@ export default class Transition<R extends Route> implements Partial<Promise<R>> 
     this.router.routeWillChange(transition);
     this.router.routeDidChange(transition);
     return this;
+  }
+
+  waitFor(promise: Promise<any>) {
+    this._pausingPromise = promise;
   }
 
   rollback() {
