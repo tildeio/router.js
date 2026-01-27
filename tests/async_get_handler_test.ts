@@ -1,11 +1,13 @@
 import Router, { Route, Transition, TransitionError } from 'router';
+import RouteInfo from 'router/route-info';
 import { Dict } from 'router/core';
 import { Promise } from 'rsvp';
-import { createHandler, TestRouter } from './test_helpers';
+import { createHandler, TestRouter, trigger } from './test_helpers';
 
 function map(router: Router<Route>) {
   router.map(function (match) {
     match('/index').to('index');
+    match('/query').to('query');
     match('/foo').to('foo', function (match) {
       match('/').to('fooIndex');
       match('/bar').to('fooBar');
@@ -218,4 +220,85 @@ QUnit.test('pause transitions', function (assert) {
     });
 
   }, null);
+});
+
+QUnit.test('pause transitions query params only', function (assert) {
+  let done = assert.async();
+  let operations: string[] = [];
+  let enteredWillChange = 0;
+
+  class QpPauseRouter extends TestRouter {
+    getRoute(name: string) {
+      operations.push('resolved ' + name);
+      return routes[name] || (routes[name] = createHandler('empty'));
+    }
+    triggerEvent(
+      handlerInfos: RouteInfo<Route>[],
+      ignoreFailure: boolean,
+      name: string,
+      args: any[]
+    ) {
+      trigger(handlerInfos, ignoreFailure, name, ...args);
+    }
+  }
+
+  let router: Router<Route> = new QpPauseRouter();
+
+  router.routeWillChange = (transition: Transition) => {
+    enteredWillChange++;
+
+    const { promise, resolve } = createDeferred();
+    transition.waitFor(promise);
+    setTimeout(() => {
+      operations.push('paused transition');
+      resolve();
+      operations.push('resolved pause');
+    }, 1);
+  };
+
+  map(router);
+
+  routes.query = createHandler('query', {
+    model: function () {
+      operations.push('model query');
+    },
+
+    events: {
+      finalizeQueryParamChange: function ({ param }) {
+        operations.push('param is now ' + param);
+      }
+    },
+  });
+
+  router.transitionTo('/query').then(function () {
+    operations = [];
+    router.transitionTo('/query?param=1').then(function () {
+      assert.deepEqual(
+        operations,
+        [
+          'resolved query',
+          'param is now 1',
+          'paused transition',
+          'resolved pause',
+        ],
+        'order of /query?param=1 operations is correct'
+      );
+
+      operations = [];
+      router.transitionTo('/query?param=2').then(function () {
+        assert.deepEqual(
+          operations,
+          [
+            'resolved query',
+            'param is now 2',
+            'paused transition',
+            'resolved pause',
+          ],
+          'order of /query?param=2 operations is correct'
+        );
+        done();
+      });
+
+    }, null);
+  });
 });
