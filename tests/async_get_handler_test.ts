@@ -132,7 +132,6 @@ QUnit.test('pause transitions', function (assert) {
   let done = assert.async();
   let operations: string[] = [];
   let enteredWillChange = 0;
-  let enteredDidChange = 0;
   let enteredDidError = 0;
 
   class PauseRouter extends TestRouter {
@@ -159,10 +158,6 @@ QUnit.test('pause transitions', function (assert) {
         operations.push('rejected pause');
       }
     }, 1);
-  };
-
-  router.routeDidChange = (transition: Transition) => {
-    enteredDidChange++;
   };
 
   router.transitionDidError = (error: TransitionError, transition: Transition) => {
